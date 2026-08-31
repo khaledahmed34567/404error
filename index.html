@@ -1,411 +1,233 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>404</title>
-  <meta name="description" content="شبكة اجتماعية من عالم مختلف">
-  <meta name="theme-color" content="#000000">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="404">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="format-detection" content="telephone=no">
-
-  <!-- PWA Manifest -->
-  <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="https://ibb.co/rKD2MxX7">
-  <link rel="icon" type="image/png" href="https://ibb.co/rKD2MxX7">
-
-  <!-- Open Graph -->
-  <meta property="og:title" content="404 — شبكة اجتماعية">
-  <meta property="og:description" content="تواصل اجتماعي من عالم مختلف">
-  <meta property="og:image" content="https://ibb.co/WN3DTcGc">
-  <meta property="og:url" content="https://404error.qd.je">
-  <meta property="og:type" content="website">
-  <meta name="twitter:card" content="summary_large_image">
-
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>404</title>
+<meta name="description" content="شبكة اجتماعية من عالم مختلف">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="404">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="format-detection" content="telephone=no">
+<link rel="apple-touch-icon" href="https://i.ibb.co/nMmhQHsv/icon.png">
+<link rel="icon" type="image/png" href="https://i.ibb.co/nMmhQHsv/icon.png">
+<meta property="og:title" content="404 — شبكة اجتماعية">
+<meta property="og:description" content="تواصل اجتماعي من عالم مختلف">
+<meta property="og:image" content="https://i.ibb.co/KcrzVfTT/logo.png">
+<meta property="og:url" content="https://404error.qd.je">
+<meta property="og:type" content="website">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- ══ TOAST CONTAINER ══ -->
-<div id="toast-container" class="toast-container"></div>
+<!-- TOAST -->
+<div id="tc" class="toast-c"></div>
 
-<!-- ══ LOADING SCREEN ══ -->
+<!-- LOADING -->
 <div id="loading-screen">
-  <div class="loading-logo">
-    <img src="https://ibb.co/WN3DTcGc" alt="404"
-      onerror="this.style.display='none';this.parentElement.innerHTML='<span style=\'font-family:var(--font-title);font-size:1.4rem;letter-spacing:.2rem\'>404</span>'">
-  </div>
-  <div class="loading-name">404</div>
-  <div class="loading-bar"><div class="loading-bar-fill"></div></div>
+  <div class="ll"><img src="https://i.ibb.co/KcrzVfTT/logo.png" alt="" onerror="this.style.display='none'"></div>
+  <div class="lb"><div class="lb-f"></div></div>
 </div>
 
-<!-- ══ BANNED SCREEN ══ -->
+<!-- BANNED -->
 <div id="banned-screen" class="hidden">
-  <div class="banned-logo">
-    <img src="https://ibb.co/WN3DTcGc" alt="404" onerror="this.style.display='none'">
+  <div class="ban-logo"><img src="https://i.ibb.co/KcrzVfTT/logo.png" alt="" onerror="this.style.display='none'"></div>
+  <div class="ban-title">تم تعليق الحساب</div>
+  <div class="ban-text">عذرًا، تم حظر حسابك.<br>يمكنك التواصل مع الفريق لمعرفة المشكلة<br><br><a href="mailto:soudadteam@gmail.com" class="ban-email">soudadteam@gmail.com</a></div>
+  <div class="ban-reason" id="ban-reason"></div>
+</div>
+
+<!-- COOKIE -->
+<div id="cookie-banner" class="hidden">
+  <div class="ck-row">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+    <div><div class="ck-title">نستخدم ملفات الكوكيز</div><div class="ck-desc">نستخدم الكوكيز لحفظ جلستك وتحسين تجربتك. باستمرارك فأنت توافق على سياسة الخصوصية.</div></div>
   </div>
-  <div class="banned-title">تم تعليق الحساب</div>
-  <div class="banned-text">
-    عذرًا، تم حظر حسابك.<br>يمكنك التواصل مع الفريق لمعرفة المشكلة<br><br>
-    <a href="mailto:soudadteam@gmail.com" class="banned-email">soudadteam@gmail.com</a>
+  <div class="ck-btns">
+    <button onclick="acceptCookies()" style="flex:1;padding:10px;border-radius:8px;border:none;background:#fff;color:#000;font-weight:700;font-size:.88rem;cursor:pointer">قبول الكل</button>
+    <button onclick="declineCookies()" style="flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:#fff;font-size:.88rem;cursor:pointer">الضروري فقط</button>
   </div>
 </div>
 
-<!-- ══ COOKIE BANNER ══ -->
-<div id="cookie-banner" class="hidden" style="
-  position:fixed;bottom:0;left:0;right:0;z-index:10000;
-  background:rgba(10,10,10,0.97);backdrop-filter:blur(20px);
-  border-top:1px solid rgba(255,255,255,0.1);
-  padding:16px;display:flex;flex-direction:column;gap:12px;
-  animation:slide-up .4s ease;">
-  <style>@keyframes slide-up{from{transform:translateY(100%)}to{transform:translateY(0)}}</style>
-  <div style="display:flex;align-items:flex-start;gap:12px">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-      style="width:24px;height:24px;color:rgba(255,255,255,0.5);flex-shrink:0;margin-top:2px">
-      <circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/>
-    </svg>
-    <div>
-      <div style="font-size:.95rem;font-weight:600;margin-bottom:4px">نستخدم ملفات الكوكيز</div>
-      <div style="font-size:.8rem;color:rgba(255,255,255,.5);line-height:1.6">
-        نستخدم ملفات تعريف الارتباط (Cookies) لحفظ جلستك وتحسين تجربتك.
-        باستمرارك في استخدام التطبيق، فأنت توافق على سياسة الخصوصية الخاصة بنا.
-      </div>
-    </div>
-  </div>
-  <div style="display:flex;gap:8px">
-    <button onclick="acceptCookies()" style="
-      flex:1;padding:10px;border-radius:8px;border:none;
-      background:#fff;color:#000;font-weight:700;font-size:.9rem;cursor:pointer;">
-      قبول الكل
-    </button>
-    <button onclick="declineCookies()" style="
-      flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,.15);
-      background:rgba(255,255,255,.06);color:#fff;font-size:.9rem;cursor:pointer;">
-      الضروري فقط
-    </button>
-  </div>
-</div>
-
-<!-- ══ PIN SCREEN ══ -->
+<!-- PIN -->
 <div id="pin-screen" class="hidden">
-  <div class="pin-logo">
-    <img src="https://ibb.co/WN3DTcGc" alt="404" onerror="this.style.display='none'">
-  </div>
+  <div class="pin-logo"><img src="https://i.ibb.co/KcrzVfTT/logo.png" alt="" onerror="this.style.display='none'"></div>
   <div class="pin-title">404</div>
-  <div class="pin-subtitle" id="pin-subtitle">أدخل رمز PIN للمتابعة</div>
-  <div class="pin-dots" id="pin-dots-wrap">
+  <div class="pin-sub" id="pin-sub">أدخل رمز PIN للمتابعة</div>
+  <div class="pin-dots" id="pin-dots">
     <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
     <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
   </div>
   <div class="pin-pad">
-    <button class="pin-btn ripple" onclick="pinPress('1')">1</button>
-    <button class="pin-btn ripple" onclick="pinPress('2')">2</button>
-    <button class="pin-btn ripple" onclick="pinPress('3')">3</button>
-    <button class="pin-btn ripple" onclick="pinPress('4')">4</button>
-    <button class="pin-btn ripple" onclick="pinPress('5')">5</button>
-    <button class="pin-btn ripple" onclick="pinPress('6')">6</button>
-    <button class="pin-btn ripple" onclick="pinPress('7')">7</button>
-    <button class="pin-btn ripple" onclick="pinPress('8')">8</button>
-    <button class="pin-btn ripple" onclick="pinPress('9')">9</button>
+    <button class="pin-btn" onclick="pinPress('1')">1</button>
+    <button class="pin-btn" onclick="pinPress('2')">2</button>
+    <button class="pin-btn" onclick="pinPress('3')">3</button>
+    <button class="pin-btn" onclick="pinPress('4')">4</button>
+    <button class="pin-btn" onclick="pinPress('5')">5</button>
+    <button class="pin-btn" onclick="pinPress('6')">6</button>
+    <button class="pin-btn" onclick="pinPress('7')">7</button>
+    <button class="pin-btn" onclick="pinPress('8')">8</button>
+    <button class="pin-btn" onclick="pinPress('9')">9</button>
     <button class="pin-btn" style="background:transparent;border:none"></button>
-    <button class="pin-btn ripple" onclick="pinPress('0')">0</button>
-    <button class="pin-btn del ripple" onclick="pinPress('del')">
+    <button class="pin-btn" onclick="pinPress('0')">0</button>
+    <button class="pin-btn del" onclick="pinPress('del')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 4H8l-7 8 7 8h13a2 2 0 002-2V6a2 2 0 00-2-2z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg>
     </button>
   </div>
-  <div class="pin-biometric" onclick="tryBiometric()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/>
-    </svg>
+  <div class="pin-bio" onclick="tryBiometric()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/></svg>
     تسجيل بالبصمة
   </div>
 </div>
 
-<!-- ══ GOOGLE COMPLETE PROFILE MODAL ══ -->
-<div id="google-complete-modal" style="
-  position:fixed;inset:0;z-index:8000;background:rgba(0,0,0,.9);
-  backdrop-filter:blur(10px);display:none;align-items:center;justify-content:center;padding:20px;">
-  <div style="
-    width:100%;max-width:440px;background:rgba(18,18,18,.98);
-    border:1px solid rgba(255,255,255,.1);border-radius:24px;
-    padding:28px 24px;max-height:90vh;overflow-y:auto;">
-    <div style="text-align:center;margin-bottom:24px">
-      <div style="font-family:var(--font-title);font-size:1.6rem;margin-bottom:6px">أكمل بياناتك</div>
-      <div style="font-size:.85rem;color:rgba(255,255,255,.4)">نحتاج بعض المعلومات لإنشاء حسابك</div>
+<!-- GOOGLE COMPLETE -->
+<div id="gc-modal">
+  <div class="gc-card">
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-family:var(--ft);font-size:1.5rem;margin-bottom:5px">أكمل بياناتك</div>
+      <div style="font-size:.82rem;color:var(--t3)">نحتاج بعض المعلومات لإنشاء حسابك</div>
     </div>
-
-    <!-- Google Complete Step indicator -->
-    <div class="step-indicator" id="gc-step-indicator">
-      <div class="step-dot active"></div>
-      <div class="step-dot"></div>
-      <div class="step-dot"></div>
+    <div class="step-ind" id="gc-ind"><div class="step-dot active"></div><div class="step-dot"></div><div class="step-dot"></div></div>
+    <div class="step-lbl" id="gc-lbl">البيانات الشخصية</div>
+    <div id="gc1">
+      <div class="fg"><label class="fl">اسم المستخدم</label><input type="text" id="gc-un" class="fi" placeholder="username" dir="ltr"></div>
+      <div class="fg"><label class="fl">تاريخ الميلاد</label><input type="date" id="gc-dob" class="fi" dir="ltr"></div>
+      <div class="fg"><label class="fl">الجنسية</label><select id="gc-nat" class="fsel"><option value="">اختر دولتك</option></select></div>
     </div>
-    <div style="font-size:.8rem;color:rgba(255,255,255,.4);text-align:center;margin-bottom:20px" id="gc-step-label">البيانات الشخصية</div>
-
-    <!-- GC Step 1 -->
-    <div id="gc-step-1">
-      <div class="form-group">
-        <label class="form-label">اسم المستخدم</label>
-        <input type="text" id="gc-username" class="form-input" placeholder="username" dir="ltr">
-        <div class="form-hint">سيكون @username الخاص بك — لا يمكن تغييره لاحقاً</div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">تاريخ الميلاد</label>
-        <input type="date" id="gc-dob" class="form-input" dir="ltr">
-      </div>
-      <div class="form-group">
-        <label class="form-label">الجنسية</label>
-        <select id="gc-nationality" class="form-select">
-          <option value="">اختر دولتك</option>
-        </select>
+    <div id="gc2" style="display:none">
+      <div class="fg"><label class="fl">رقم الهاتف</label>
+        <div class="ph-row"><select id="gc-cc" class="fsel ph-code"></select><input type="tel" id="gc-ph" class="fi" placeholder="01012345678" dir="ltr" style="flex:1"></div>
       </div>
     </div>
-
-    <!-- GC Step 2 -->
-    <div id="gc-step-2" style="display:none">
-      <div class="form-group">
-        <label class="form-label">رقم الهاتف</label>
-        <div class="phone-row">
-          <select id="gc-country-code" class="form-select phone-code"></select>
-          <input type="tel" id="gc-phone" class="form-input" placeholder="01012345678" dir="ltr" style="flex:1">
-        </div>
-      </div>
+    <div id="gc3" style="display:none">
+      <div style="text-align:center;margin-bottom:14px;font-size:.88rem;color:var(--t3)">اختر رمز PIN سري من 6 أرقام</div>
+      <div class="fg"><label class="fl">رمز PIN</label><input type="password" id="gc-pin" class="fi" placeholder="● ● ● ● ● ●" maxlength="6" inputmode="numeric" dir="ltr"></div>
+      <div class="fg"><label class="fl">تأكيد PIN</label><input type="password" id="gc-pinc" class="fi" placeholder="● ● ● ● ● ●" maxlength="6" inputmode="numeric" dir="ltr"></div>
     </div>
-
-    <!-- GC Step 3 — PIN -->
-    <div id="gc-step-3" style="display:none">
-      <div style="text-align:center;margin-bottom:16px;font-size:.9rem;color:rgba(255,255,255,.6)">
-        اختر رمز PIN سري من 6 أرقام لحماية حسابك
-      </div>
-      <div class="form-group">
-        <label class="form-label">رمز PIN</label>
-        <input type="password" id="gc-pin" class="form-input" placeholder="● ● ● ● ● ●"
-          maxlength="6" inputmode="numeric" dir="ltr">
-      </div>
-      <div class="form-group">
-        <label class="form-label">تأكيد رمز PIN</label>
-        <input type="password" id="gc-pin-confirm" class="form-input" placeholder="● ● ● ● ● ●"
-          maxlength="6" inputmode="numeric" dir="ltr">
-      </div>
-    </div>
-
-    <button class="btn btn-primary" id="gc-next-btn" onclick="gcNextStep()" style="margin-top:16px">التالي</button>
+    <button class="btn btn-p" id="gc-btn" onclick="gcNext()" style="margin-top:14px">التالي</button>
   </div>
 </div>
 
-<!-- ══ AUTH SECTION ══ -->
+<!-- AUTH -->
 <div id="auth-section" class="hidden">
   <div class="auth-card">
-    <div class="auth-logo">
-      <img src="https://ibb.co/WN3DTcGc" alt="404" style="width:60px;border-radius:14px"
-        onerror="this.style.display='none'">
-    </div>
-    <div class="auth-brand">404</div>
-    <div class="auth-subtitle">شبكة اجتماعية من عالم مختلف</div>
+    <div class="auth-logo"><img src="https://i.ibb.co/KcrzVfTT/logo.png" alt="404" onerror="this.style.display='none'"></div>
+    <div class="auth-sub">شبكة اجتماعية من عالم مختلف</div>
 
-    <!-- Login Form -->
+    <!-- Login -->
     <div id="login-form">
       <button class="btn btn-google" onclick="doGoogleLogin()">
-        <svg viewBox="0 0 24 24" width="20" height="20">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-        </svg>
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
         متابعة بحساب جوجل
       </button>
-      <div class="auth-divider">أو</div>
-      <div class="form-group">
-        <label class="form-label">البريد الإلكتروني</label>
-        <input type="email" id="login-email" class="form-input" placeholder="example@email.com" dir="ltr">
-      </div>
-      <div class="form-group">
-        <label class="form-label">كلمة المرور</label>
-        <input type="password" id="login-password" class="form-input" placeholder="••••••••" dir="ltr"
-          onkeydown="if(event.key==='Enter')doLogin()">
-      </div>
-      <button class="btn btn-primary" id="login-btn" onclick="doLogin()">تسجيل الدخول</button>
-      <div class="auth-switch" style="margin-top:12px">
-        <span onclick="showForgotForm()">نسيت كلمة المرور؟</span>
-      </div>
-      <div class="auth-switch">
-        ليس لديك حساب؟ <span onclick="showRegisterForm()">إنشاء حساب</span>
-      </div>
+      <div class="adiv">أو</div>
+      <div class="fg"><label class="fl">البريد الإلكتروني</label><input type="email" id="l-em" class="fi" placeholder="example@email.com" dir="ltr" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div class="fg"><label class="fl">كلمة المرور</label><input type="password" id="l-pw" class="fi" placeholder="••••••••" dir="ltr" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <button class="btn btn-p" id="l-btn" onclick="doLogin()">تسجيل الدخول</button>
+      <div class="asw" style="margin-top:10px"><span onclick="showForgot()">نسيت كلمة المرور؟</span></div>
+      <div class="asw">ليس لديك حساب؟ <span onclick="showRegister()">إنشاء حساب</span></div>
     </div>
 
-    <!-- Forgot Password -->
+    <!-- Forgot -->
     <div id="forgot-form" style="display:none">
-      <div class="form-group">
-        <label class="form-label">البريد الإلكتروني</label>
-        <input type="email" id="forgot-email" class="form-input" placeholder="example@email.com" dir="ltr">
-      </div>
-      <button class="btn btn-primary" onclick="doForgotPassword()">إرسال رابط الاستعادة</button>
-      <div class="auth-switch"><span onclick="showLoginForm()">العودة لتسجيل الدخول</span></div>
+      <div class="fg"><label class="fl">البريد الإلكتروني</label><input type="email" id="f-em" class="fi" placeholder="example@email.com" dir="ltr"></div>
+      <button class="btn btn-p" onclick="doForgot()">إرسال رابط الاستعادة</button>
+      <div class="asw"><span onclick="showLogin()">العودة لتسجيل الدخول</span></div>
     </div>
 
-    <!-- Register Form -->
+    <!-- Register -->
     <div id="register-form" style="display:none">
-      <div class="step-indicator">
-        <div class="step-dot active"></div>
-        <div class="step-dot"></div>
-        <div class="step-dot"></div>
-        <div class="step-dot"></div>
+      <div class="step-ind"><div class="step-dot active"></div><div class="step-dot"></div><div class="step-dot"></div><div class="step-dot"></div></div>
+      <div class="step-lbl" id="slbl">البيانات الشخصية</div>
+      <div class="reg-step" id="rs1" style="display:block">
+        <div class="fg"><label class="fl">الاسم الكامل</label><input type="text" id="r-fn" class="fi" placeholder="محمد أحمد"></div>
+        <div class="fg"><label class="fl">تاريخ الميلاد</label><input type="date" id="r-dob" class="fi" dir="ltr"></div>
+        <div class="fg"><label class="fl">الجنسية</label><select id="r-nat" class="fsel"><option value="">اختر دولتك</option></select></div>
       </div>
-      <div class="step-label" id="step-label-text">البيانات الشخصية</div>
-
-      <div class="reg-step" id="reg-step-1">
-        <div class="form-group">
-          <label class="form-label">الاسم الكامل</label>
-          <input type="text" id="reg-fullname" class="form-input" placeholder="محمد أحمد">
+      <div class="reg-step" id="rs2">
+        <div class="fg"><label class="fl">اسم المستخدم</label><input type="text" id="r-un" class="fi" placeholder="username" dir="ltr"><div class="fhint">@username الخاص بك</div></div>
+        <div class="fg"><label class="fl">رقم الهاتف</label>
+          <div class="ph-row"><select id="r-cc" class="fsel ph-code"></select><input type="tel" id="r-ph" class="fi" placeholder="01012345678" dir="ltr" style="flex:1"></div>
         </div>
-        <div class="form-group">
-          <label class="form-label">تاريخ الميلاد</label>
-          <input type="date" id="reg-dob" class="form-input" dir="ltr">
-        </div>
-        <div class="form-group">
-          <label class="form-label">الجنسية</label>
-          <select id="reg-nationality" class="form-select">
-            <option value="">اختر دولتك</option>
-          </select>
-        </div>
+        <div class="fg"><label class="fl">البريد الإلكتروني</label><input type="email" id="r-em" class="fi" placeholder="example@email.com" dir="ltr"></div>
+        <div class="fg"><label class="fl">تأكيد البريد</label><input type="email" id="r-ec" class="fi" placeholder="example@email.com" dir="ltr"></div>
       </div>
-
-      <div class="reg-step" id="reg-step-2" style="display:none">
-        <div class="form-group">
-          <label class="form-label">اسم المستخدم</label>
-          <input type="text" id="reg-username" class="form-input" placeholder="username" dir="ltr">
-          <div class="form-hint">@username الخاص بك</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">رقم الهاتف</label>
-          <div class="phone-row">
-            <select id="reg-country-code" class="form-select phone-code"></select>
-            <input type="tel" id="reg-phone" class="form-input" placeholder="01012345678" dir="ltr" style="flex:1">
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">البريد الإلكتروني</label>
-          <input type="email" id="reg-email" class="form-input" placeholder="example@email.com" dir="ltr">
-        </div>
-        <div class="form-group">
-          <label class="form-label">تأكيد البريد</label>
-          <input type="email" id="reg-email-confirm" class="form-input" placeholder="example@email.com" dir="ltr">
-        </div>
+      <div class="reg-step" id="rs3">
+        <div class="fg"><label class="fl">كلمة المرور</label><input type="password" id="r-pw" class="fi" placeholder="8 أحرف على الأقل" dir="ltr"></div>
+        <div class="fg"><label class="fl">تأكيد كلمة المرور</label><input type="password" id="r-pc" class="fi" placeholder="أعد كتابة كلمة المرور" dir="ltr"></div>
       </div>
-
-      <div class="reg-step" id="reg-step-3" style="display:none">
-        <div class="form-group">
-          <label class="form-label">كلمة المرور</label>
-          <input type="password" id="reg-password" class="form-input" placeholder="8 أحرف على الأقل" dir="ltr">
-        </div>
-        <div class="form-group">
-          <label class="form-label">تأكيد كلمة المرور</label>
-          <input type="password" id="reg-pass-confirm" class="form-input" placeholder="أعد كتابة كلمة المرور" dir="ltr">
-        </div>
+      <div class="reg-step" id="rs4">
+        <div style="text-align:center;margin-bottom:12px;font-size:.88rem;color:var(--t3)">رمز PIN سري من 6 أرقام — ستحتاجه في كل مرة تفتح التطبيق</div>
+        <div class="fg"><label class="fl">رمز PIN</label><input type="password" id="r-pin" class="fi" placeholder="● ● ● ● ● ●" maxlength="6" inputmode="numeric" dir="ltr"></div>
+        <div class="fg"><label class="fl">تأكيد PIN</label><input type="password" id="r-pinc" class="fi" placeholder="● ● ● ● ● ●" maxlength="6" inputmode="numeric" dir="ltr"></div>
       </div>
-
-      <div class="reg-step" id="reg-step-4" style="display:none">
-        <div style="text-align:center;margin-bottom:12px;font-size:.9rem;color:rgba(255,255,255,.6)">
-          رمز PIN من 6 أرقام — ستحتاجه في كل مرة تفتح التطبيق
-        </div>
-        <div class="form-group">
-          <label class="form-label">رمز PIN</label>
-          <input type="password" id="reg-pin" class="form-input" placeholder="● ● ● ● ● ●"
-            maxlength="6" inputmode="numeric" dir="ltr">
-        </div>
-        <div class="form-group">
-          <label class="form-label">تأكيد رمز PIN</label>
-          <input type="password" id="reg-pin-confirm" class="form-input" placeholder="● ● ● ● ● ●"
-            maxlength="6" inputmode="numeric" dir="ltr">
-        </div>
-      </div>
-
-      <button class="btn btn-primary" id="reg-submit-btn" onclick="nextRegStep()">التالي</button>
-      <div class="auth-switch"><span onclick="showLoginForm()">لديك حساب؟ تسجيل الدخول</span></div>
+      <button class="btn btn-p" id="reg-btn" onclick="nextReg()">التالي</button>
+      <div class="asw"><span onclick="showLogin()">لديك حساب؟ تسجيل الدخول</span></div>
     </div>
   </div>
 </div>
 
-<!-- ══ MAIN APP ══ -->
+<!-- APP -->
 <div id="app" class="hidden">
-
-  <!-- TOP HEADER -->
-  <header class="app-header">
-    <div class="header-logo">404</div>
-    <div class="header-actions">
-      <div class="header-icon-btn" onclick="openNotifications()" id="notif-btn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-          <path d="M13.73 21a2 2 0 01-3.46 0"/>
-        </svg>
-        <span class="notif-badge" id="notif-badge" style="display:none">0</span>
+  <!-- Header -->
+  <header class="app-hdr">
+    <div class="hdr-logo" onclick="navigateTo('home')">
+      <img src="https://i.ibb.co/KcrzVfTT/logo.png" alt="" class="hdr-logo-img logo-img" onerror="this.style.display='none'">
+    </div>
+    <div class="hdr-acts">
+      <div class="hdr-btn" onclick="openNotifs()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+        <span class="nbadge" id="nbadge" style="display:none">0</span>
       </div>
-      <div class="header-icon-btn" onclick="openSettings()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="3"/>
-          <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
-        </svg>
+      <div class="hdr-btn" onclick="openSettings()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
       </div>
     </div>
   </header>
 
-  <main class="app-content">
+  <main class="app-cnt">
 
     <!-- HOME -->
     <div id="page-home" class="page active">
       <div class="feed-tabs">
-        <div class="feed-tab active"
-          onclick="loadFeed('all');this.closest('.feed-tabs').querySelectorAll('.feed-tab').forEach(t=>t.classList.remove('active'));this.classList.add('active')">للجميع</div>
-        <div class="feed-tab"
-          onclick="loadFeed('following');this.closest('.feed-tabs').querySelectorAll('.feed-tab').forEach(t=>t.classList.remove('active'));this.classList.add('active')">المتابَعون</div>
+        <div class="feed-tab active" onclick="loadFeed('all');this.closest('.feed-tabs').querySelectorAll('.feed-tab').forEach(t=>t.classList.remove('active'));this.classList.add('active')">للجميع</div>
+        <div class="feed-tab" onclick="loadFeed('following');this.closest('.feed-tabs').querySelectorAll('.feed-tab').forEach(t=>t.classList.remove('active'));this.classList.add('active')">المتابَعون</div>
       </div>
-      <div class="new-post-trigger" onclick="openPostCompose()">
-        <div class="avatar-sm"><img class="current-user-avatar" src="" onerror="this.src='https://files.cdn-files-a.com/uploads/9487240/2000_699b80b0c7cc4.jpg'" alt=""></div>
+      <div class="stories-bar" id="stories-bar"></div>
+      <div class="npt" onclick="openCompose()">
+        <div class="avsm"><img class="cu-av" src="" onerror="this.src='https://files.cdn-files-a.com/uploads/9487240/2000_699b80b0c7cc4.jpg'" alt=""></div>
         <span>ماذا يدور في ذهنك؟</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;color:var(--text3)">
-          <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
-        </svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:19px;height:19px;color:var(--t3)"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
       </div>
       <div id="feed-posts"></div>
     </div>
 
     <!-- EXPLORE -->
     <div id="page-explore" class="page">
-      <div class="search-container">
-        <div class="search-input-wrap">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-          </svg>
-          <input type="text" class="form-input search-input" placeholder="ابحث عن مستخدم..." oninput="searchUsers(this.value)">
+      <div class="srch-wrap">
+        <div class="srch-inner">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="text" class="fi srch-inp" placeholder="ابحث عن مستخدم..." oninput="searchUsers(this.value)">
         </div>
       </div>
       <div id="explore-users"></div>
     </div>
 
-    <!-- CODING ROOM -->
+    <!-- CODING -->
     <div id="page-coding" class="page">
-      <div class="coding-room">
-        <div class="coding-room-header">
-          <h2>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              style="width:22px;height:22px;display:inline;margin-left:8px">
-              <polyline points="16,18 22,12 16,6"/><polyline points="8,6 2,12 8,18"/>
-            </svg>
-            غرفة البرمجة
-          </h2>
+      <div style="padding:13px">
+        <div class="coding-hdr">
+          <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;display:inline;margin-left:7px"><polyline points="16,18 22,12 16,6"/><polyline points="8,6 2,12 8,18"/></svg>غرفة البرمجة</h2>
           <p>شارك كودك واستفسر من المجتمع</p>
         </div>
-        <div id="coding-join-btn" style="display:none;margin-bottom:16px;padding:16px;background:var(--glass2);border:1px solid var(--border);border-radius:var(--radius);text-align:center">
-          <p style="color:var(--text3);margin-bottom:10px;font-size:.9rem">الانضمام للغرفة يتطلب اشتراكاً</p>
-          <button class="btn btn-primary btn-sm" onclick="openPricing()">اشترك الآن</button>
+        <div id="coding-join" style="display:none;margin-bottom:13px;padding:14px;background:var(--g2);border:1px solid var(--b1);border-radius:var(--r);text-align:center">
+          <p style="color:var(--t3);margin-bottom:9px;font-size:.86rem">الانضمام للغرفة يتطلب اشتراكاً</p>
+          <button class="btn btn-p btn-sm" onclick="openPricing()">اشترك الآن</button>
         </div>
-        <button class="btn btn-primary" style="margin-bottom:16px" onclick="openCodeCompose()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px">
-            <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
-          </svg>
+        <button class="btn btn-p" style="margin-bottom:13px" onclick="openCode()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:17px;height:17px"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
           نشر كود جديد
         </button>
         <div id="coding-posts"></div>
@@ -414,34 +236,17 @@
 
     <!-- MESSAGES -->
     <div id="page-messages" class="page">
-      <div id="chat-window" class="chat-window hidden">
-        <div class="chat-header">
-          <div style="cursor:pointer" onclick="closeChatWindow()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px">
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
-          </div>
-          <div class="chat-header-avatar">
-            <img id="chat-header-avatar" src="" onerror="this.src='https://files.cdn-files-a.com/uploads/9487240/2000_699b80b0c7cc4.jpg'">
-          </div>
-          <div class="chat-header-info">
-            <div class="chat-header-name" id="chat-header-name">محادثة</div>
-            <div class="chat-header-status">متصل</div>
-          </div>
+      <div id="chat-win" class="chat-win hidden">
+        <div class="chat-hdr">
+          <div style="cursor:pointer" onclick="closeChatWin()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><polyline points="9 18 15 12 9 6"/></svg></div>
+          <div class="chat-hdr-av"><img id="chat-hdr-av-img" src="" onerror="this.src='https://files.cdn-files-a.com/uploads/9487240/2000_699b80b0c7cc4.jpg'"></div>
+          <div class="chat-hdr-inf"><div class="chat-hdr-nm" id="chat-hdr-nm">محادثة</div><div class="chat-hdr-st">متصل</div></div>
         </div>
-        <div class="chat-messages" id="chat-messages"></div>
-        <div class="chat-input-area">
-          <div class="chat-media-btn" onclick="attachChatFile()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px">
-              <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
-            </svg>
-          </div>
-          <textarea class="chat-input" id="chat-input" placeholder="اكتب رسالة..." rows="1"></textarea>
-          <button class="chat-send-btn" id="chat-send-btn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-            </svg>
-          </button>
+        <div class="chat-msgs" id="chat-msgs"></div>
+        <div class="chat-inp-area">
+          <div class="chat-media" onclick="attachChatFile()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:17px;height:17px"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg></div>
+          <textarea class="chat-inp" id="chat-inp" placeholder="اكتب رسالة..." rows="1"></textarea>
+          <div class="chat-send" id="chat-send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></div>
         </div>
       </div>
       <div id="dm-list" class="dm-list"></div>
@@ -452,92 +257,71 @@
 
     <!-- ADMIN -->
     <div id="page-admin" class="page">
-      <div style="padding:16px">
-        <div style="font-family:var(--font-title);font-size:1.4rem;margin-bottom:20px;display:flex;align-items:center;gap:10px">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;height:24px">
-            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-            <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-          </svg>
+      <div style="padding:13px">
+        <div style="font-family:var(--ft);font-size:1.35rem;margin-bottom:18px;display:flex;align-items:center;gap:9px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
           لوحة الإدارة
         </div>
-        <div id="admin-panel-content"></div>
+        <div id="admin-content"></div>
       </div>
     </div>
 
   </main>
 
-  <nav class="bottom-nav" id="bottom-nav"></nav>
+  <nav class="bot-nav" id="bot-nav"></nav>
 
   <!-- NOTIFICATIONS PANEL -->
   <div id="notif-panel" class="notif-panel">
-    <div class="notif-panel-header">
-      <div class="notif-panel-title">الإشعارات</div>
-      <button class="btn-icon glass-sm" onclick="document.getElementById('notif-panel').classList.remove('open')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
-          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
-      </button>
+    <div class="np-hdr">
+      <div class="np-title">الإشعارات</div>
+      <div onclick="document.getElementById('notif-panel').classList.remove('open')" style="cursor:pointer;width:28px;height:28px;border-radius:50%;background:var(--g2);border:1px solid var(--b1);display:flex;align-items:center;justify-content:center">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </div>
     </div>
     <div id="notif-list"></div>
   </div>
 
-  <!-- ══ POST COMPOSE ══ -->
-  <div id="compose-modal" class="modal-overlay" onclick="if(event.target===this)closePostCompose()">
-    <div class="modal-sheet">
-      <div class="modal-handle"></div>
-      <div class="modal-header">
-        <div class="modal-title">منشور جديد</div>
-        <button class="modal-close" onclick="closePostCompose()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </div>
-      <div class="modal-body">
-        <div class="post-compose">
-          <div class="post-compose-avatar">
-            <img class="compose-modal-avatar current-user-avatar" src="" onerror="this.src='https://files.cdn-files-a.com/uploads/9487240/2000_699b80b0c7cc4.jpg'">
-          </div>
-          <div class="post-compose-right">
-            <textarea class="post-textarea" id="compose-textarea" placeholder="ماذا يدور في ذهنك؟" rows="4" maxlength="2000"
-              oninput="document.getElementById('compose-char').textContent=this.value.length+'/2000'"></textarea>
-            <div id="compose-media-preview" class="post-media-preview" style="display:none">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;color:var(--text3)">
-                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-              </svg>
-              <span class="post-media-preview-name">ملف مرفق</span>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                style="width:16px;height:16px;cursor:pointer;color:var(--text3)"
-                onclick="selectedMediaFile=null;selectedMediaType=null;this.closest('.post-media-preview').style.display='none'">
-                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
+  <!-- STORY VIEWER -->
+  <div id="story-viewer" class="story-viewer hidden">
+    <div class="sv-bars" id="sv-bars"></div>
+    <div class="sv-hdr">
+      <div class="sv-av"><img id="sv-av-img" src="" onerror="this.src='https://files.cdn-files-a.com/uploads/9487240/2000_699b80b0c7cc4.jpg'"></div>
+      <div class="sv-name" id="sv-nm"></div>
+      <div class="sv-time" id="sv-ti"></div>
+      <div class="sv-close" id="sv-close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+    </div>
+    <div class="sv-content" id="sv-cnt">
+      <div class="sv-prev" id="sv-prev-zone"></div>
+      <div class="sv-next" id="sv-next-zone"></div>
+    </div>
+  </div>
+
+  <!-- COMPOSE MODAL -->
+  <div id="compose-modal" class="modal" onclick="if(event.target===this)closeCompose()">
+    <div class="msheet">
+      <div class="mhandle"></div>
+      <div class="mhdr"><div class="mtitle">منشور جديد</div><div class="mclose" onclick="closeCompose()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div></div>
+      <div class="mbody">
+        <div class="compose">
+          <div class="compose-av"><img class="cu-av compose-modal-av" src="" onerror="this.src='https://files.cdn-files-a.com/uploads/9487240/2000_699b80b0c7cc4.jpg'"></div>
+          <div class="compose-r">
+            <div style="position:relative">
+              <textarea class="post-ta" id="compose-ta" placeholder="ماذا يدور في ذهنك؟ استخدم @ للمنشن" rows="4" maxlength="2000" oninput="document.getElementById('cchar').textContent=this.value.length+'/2000'"></textarea>
+              <div class="mention-dd" id="compose-mdd"></div>
             </div>
-            <div class="post-compose-actions">
-              <div class="compose-action-btn" title="صورة" onclick="handleMediaAttach('image')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
-                  <polyline points="21 15 16 10 5 21"/>
-                </svg>
-              </div>
-              <div class="compose-action-btn" title="فيديو" onclick="handleMediaAttach('video')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>
-                </svg>
-              </div>
-              <div class="compose-action-btn" title="صوت" onclick="handleMediaAttach('audio')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-                </svg>
-              </div>
-              <div class="compose-action-btn" title="PDF" onclick="handleMediaAttach('pdf')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                </svg>
-              </div>
-              <div class="compose-spacer"></div>
-              <span class="char-count" id="compose-char">0/2000</span>
-              <button class="btn btn-primary btn-sm" id="post-submit-btn" onclick="submitPost()">نشر</button>
+            <div id="compose-prev" class="mprev" style="display:none">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;color:var(--t3)"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg>
+              <span class="mprev-name">ملف مرفق</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;cursor:pointer;color:var(--t3)" onclick="mediaFile=null;mediaType=null;this.closest('.mprev').style.display='none'"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </div>
+            <div class="compose-acts">
+              <div class="cact" title="صورة" onclick="attachMedia('image')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
+              <div class="cact" title="فيديو" onclick="attachMedia('video')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></div>
+              <div class="cact" title="صوت" onclick="attachMedia('audio')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
+              <div class="cact" title="PDF" onclick="attachMedia('pdf')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+              <div class="csp"></div>
+              <span class="cchar" id="cchar">0/2000</span>
+              <button class="btn btn-p btn-sm" id="post-btn" onclick="submitPost()">نشر</button>
             </div>
           </div>
         </div>
@@ -545,204 +329,89 @@
     </div>
   </div>
 
-  <!-- ══ POST DETAIL ══ -->
-  <div id="post-detail-modal" class="modal-overlay" onclick="if(event.target===this)closePostDetail()">
-    <div class="modal-sheet" style="max-height:95vh">
-      <div class="modal-handle"></div>
-      <div class="modal-header">
-        <div class="modal-title">المنشور</div>
-        <button class="modal-close" onclick="closePostDetail()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </div>
-      <div id="post-detail-body"></div>
+  <!-- POST DETAIL MODAL -->
+  <div id="post-modal" class="modal" onclick="if(event.target===this)closePost()">
+    <div class="msheet" style="max-height:95vh">
+      <div class="mhandle"></div>
+      <div class="mhdr"><div class="mtitle">المنشور</div><div class="mclose" onclick="closePost()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div></div>
+      <div id="post-detail"></div>
     </div>
   </div>
 
-  <!-- ══ EDIT PROFILE ══ -->
-  <div id="edit-profile-modal" class="modal-overlay" onclick="if(event.target===this)closeEditProfile()">
-    <div class="modal-sheet">
-      <div class="modal-handle"></div>
-      <div class="modal-header">
-        <div class="modal-title">تعديل الملف الشخصي</div>
-        <button class="modal-close" onclick="closeEditProfile()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group" style="text-align:center;margin-bottom:20px">
-          <div style="width:72px;height:72px;border-radius:50%;background:var(--glass2);border:2px dashed var(--border2);
-            display:flex;align-items:center;justify-content:center;margin:0 auto 8px;overflow:hidden;cursor:pointer"
-            onclick="document.getElementById('edit-photo-input').click()">
-            <img id="edit-photo-preview" src="" style="width:100%;height:100%;object-fit:cover"
-              class="current-user-avatar" onerror="this.style.display='none'">
+  <!-- EDIT PROFILE MODAL -->
+  <div id="edit-modal" class="modal" onclick="if(event.target===this)closeEdit()">
+    <div class="msheet">
+      <div class="mhandle"></div>
+      <div class="mhdr"><div class="mtitle">تعديل الملف الشخصي</div><div class="mclose" onclick="closeEdit()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div></div>
+      <div class="mbody">
+        <div style="text-align:center;margin-bottom:18px">
+          <div style="width:68px;height:68px;border-radius:50%;background:var(--g2);border:2px dashed var(--b2);display:flex;align-items:center;justify-content:center;margin:0 auto 7px;overflow:hidden;cursor:pointer" onclick="document.getElementById('e-ph-inp').click()">
+            <img id="e-av-prev" src="" style="width:100%;height:100%;object-fit:cover" class="cu-av" onerror="this.style.display='none'">
           </div>
-          <span style="font-size:.8rem;color:var(--text3)">تغيير صورة الملف</span>
-          <input type="file" id="edit-photo-input" accept="image/*" style="display:none"
-            onchange="const f=this.files[0];if(f){const r=new FileReader();r.onload=e=>document.getElementById('edit-photo-preview').src=e.target.result;r.readAsDataURL(f)}">
+          <span style="font-size:.76rem;color:var(--t3)">تغيير صورة الملف</span>
+          <input type="file" id="e-ph-inp" accept="image/*" style="display:none" onchange="const f=this.files[0];if(f){const r=new FileReader();r.onload=e=>document.getElementById('e-av-prev').src=e.target.result;r.readAsDataURL(f)}">
         </div>
-        <div class="form-group">
-          <label class="form-label">الاسم الكامل</label>
-          <input type="text" id="edit-fullname" class="form-input">
-        </div>
-        <div class="form-group">
-          <label class="form-label">البايو</label>
-          <textarea id="edit-bio" class="form-input" rows="3" maxlength="160" style="resize:none"></textarea>
-        </div>
-        <div class="form-group">
-          <label class="form-label">الروابط (رابط لكل سطر)</label>
-          <textarea id="edit-links" class="form-input" rows="2" dir="ltr" style="resize:none"></textarea>
-          <div class="form-hint">مجاني: 1 · Plus: 5 · Pro: 3 · الموثقون: 8</div>
-        </div>
-        <button class="btn btn-primary" onclick="saveProfile()">حفظ التغييرات</button>
+        <div class="fg"><label class="fl">الاسم الكامل</label><input type="text" id="e-fn" class="fi"></div>
+        <div class="fg"><label class="fl">البايو</label><textarea id="e-bio" class="fi" rows="3" maxlength="160" style="resize:none"></textarea></div>
+        <div class="fg"><label class="fl">الروابط (رابط لكل سطر)</label><textarea id="e-links" class="fi" rows="2" dir="ltr" style="resize:none"></textarea><div class="fhint">مجاني: 1 · Plus: 5 · Pro: 3 · الموثقون: 8</div></div>
+        <button class="btn btn-p" onclick="saveProfile()">حفظ التغييرات</button>
       </div>
     </div>
   </div>
 
-  <!-- ══ CODE COMPOSE ══ -->
-  <div id="code-compose-modal" class="modal-overlay" onclick="if(event.target===this)closeCodeCompose()">
-    <div class="modal-sheet">
-      <div class="modal-handle"></div>
-      <div class="modal-header">
-        <div class="modal-title">نشر كود</div>
-        <button class="modal-close" onclick="closeCodeCompose()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">لغة البرمجة</label>
-          <select id="code-lang" class="form-select">
-            <option value="javascript">JavaScript</option>
-            <option value="python">Python</option>
-            <option value="html">HTML</option>
-            <option value="css">CSS</option>
-            <option value="cpp">C++</option>
-            <option value="java">Java</option>
-            <option value="php">PHP</option>
-            <option value="typescript">TypeScript</option>
-            <option value="dart">Dart</option>
-            <option value="rust">Rust</option>
-            <option value="go">Go</option>
-            <option value="sql">SQL</option>
-            <option value="bash">Bash</option>
-            <option value="other">أخرى</option>
+  <!-- CODE MODAL -->
+  <div id="code-modal" class="modal" onclick="if(event.target===this)closeCode()">
+    <div class="msheet">
+      <div class="mhandle"></div>
+      <div class="mhdr"><div class="mtitle">نشر كود</div><div class="mclose" onclick="closeCode()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div></div>
+      <div class="mbody">
+        <div class="fg"><label class="fl">لغة البرمجة</label>
+          <select id="code-lang" class="fsel">
+            <option value="javascript">JavaScript</option><option value="python">Python</option>
+            <option value="html">HTML</option><option value="css">CSS</option>
+            <option value="cpp">C++</option><option value="java">Java</option>
+            <option value="php">PHP</option><option value="typescript">TypeScript</option>
+            <option value="dart">Dart</option><option value="rust">Rust</option>
+            <option value="go">Go</option><option value="sql">SQL</option>
+            <option value="bash">Bash</option><option value="swift">Swift</option>
+            <option value="kotlin">Kotlin</option><option value="other">أخرى</option>
           </select>
         </div>
-        <div class="form-group">
-          <label class="form-label">وصف أو سؤال</label>
-          <textarea id="code-text" class="form-input" rows="2" maxlength="500" style="resize:none"></textarea>
-        </div>
-        <div class="form-group">
-          <label class="form-label">الكود</label>
-          <textarea id="code-content" class="form-input" rows="8" dir="ltr" style="font-family:monospace;resize:vertical"></textarea>
-        </div>
-        <button class="btn btn-primary" onclick="submitCodePost()">نشر</button>
+        <div class="fg"><label class="fl">وصف أو سؤال</label><textarea id="code-text" class="fi" rows="2" maxlength="500" style="resize:none"></textarea></div>
+        <div class="fg"><label class="fl">الكود</label><textarea id="code-cnt" class="fi" rows="8" dir="ltr" style="font-family:monospace;resize:vertical"></textarea></div>
+        <button class="btn btn-p" onclick="submitCode()">نشر</button>
       </div>
     </div>
   </div>
 
-  <!-- ══ SETTINGS ══ -->
-  <div id="settings-modal" class="modal-overlay" onclick="if(event.target===this)closeSettings()">
-    <div class="modal-sheet">
-      <div class="modal-handle"></div>
-      <div class="modal-header">
-        <div class="modal-title">الإعدادات</div>
-        <button class="modal-close" onclick="closeSettings()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </div>
+  <!-- SETTINGS MODAL -->
+  <div id="settings-modal" class="modal" onclick="if(event.target===this)closeSettings()">
+    <div class="msheet">
+      <div class="mhandle"></div>
+      <div class="mhdr"><div class="mtitle">الإعدادات</div><div class="mclose" onclick="closeSettings()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div></div>
       <div id="settings-content"></div>
     </div>
   </div>
 
-  <!-- ══ PRICING ══ -->
-  <div id="pricing-modal" class="modal-overlay" onclick="if(event.target===this)closePricing()">
-    <div class="modal-sheet" style="max-height:95vh">
-      <div class="modal-handle"></div>
-      <div class="modal-header">
-        <div class="modal-title">الباقات والاشتراكات</div>
-        <button class="modal-close" onclick="closePricing()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </div>
-      <div class="modal-body">
-        <div class="pricing-tabs">
-          <div class="pricing-tab active" onclick="showPricingPlan('plus',this)">Plus</div>
-          <div class="pricing-tab" onclick="showPricingPlan('pro',this)">Pro</div>
+  <!-- PRICING MODAL -->
+  <div id="pricing-modal" class="modal" onclick="if(event.target===this)closePricing()">
+    <div class="msheet" style="max-height:95vh">
+      <div class="mhandle"></div>
+      <div class="mhdr"><div class="mtitle">الباقات والاشتراكات</div><div class="mclose" onclick="closePricing()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div></div>
+      <div class="mbody">
+        <div class="price-tabs"><div class="price-tab active" onclick="showPlan('plus',this)">Plus</div><div class="price-tab" onclick="showPlan('pro',this)">Pro</div></div>
+        <div id="plan-plus">
+          <div style="margin-bottom:11px;font-size:.82rem;color:var(--t3)"><strong style="color:var(--cyan)">مميزات Plus:</strong> فتح كل المميزات · 5 روابط · غرفة البرمجة · شارة خاصة · دعم أولوية</div>
+          <div class="price-card"><div class="price-pname" style="color:var(--cyan)">Plus — أسبوعي</div><div class="price-amt"><span class="am">60</span><span class="per"> جنيه</span></div><div class="price-alt">أو 1 دولار</div><ul class="price-feats"><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>كل المميزات مفتوحة</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>5 روابط في الملف</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>غرفة البرمجة</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>شارة Plus مميزة</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>دعم أولوية</li></ul><button class="btn btn-p" onclick="paypal(1,'USD','Plus Weekly 404')">اشترك الآن — $1</button></div>
+          <div class="price-card feat"><div class="price-pname" style="color:var(--cyan)">Plus — شهري</div><div class="price-amt"><span class="am">150</span><span class="per"> جنيه</span></div><div class="price-alt">أو 2 دولار</div><button class="btn btn-p" onclick="paypal(2,'USD','Plus Monthly 404')">اشترك الآن — $2</button></div>
+          <div class="price-card"><div class="price-pname" style="color:var(--cyan)">Plus — 3 أشهر</div><div class="price-amt"><span class="am">450</span><span class="per"> جنيه</span></div><div class="price-alt">أو 5 دولار</div><button class="btn btn-g" onclick="paypal(5,'USD','Plus 3Month 404')">اشترك — $5</button></div>
+          <div class="price-card"><div class="price-pname" style="color:var(--cyan)">Plus — سنوي</div><div class="price-amt"><span class="am">1800</span><span class="per"> جنيه</span></div><div class="price-alt">أو 20 دولار</div><button class="btn btn-g" onclick="paypal(20,'USD','Plus Annual 404')">اشترك — $20</button></div>
         </div>
-        <div id="pricing-content">
-          <div id="plan-plus">
-            <div style="margin-bottom:12px;font-size:.85rem;color:var(--text3)">
-              <strong style="color:var(--cyan)">مميزات Plus:</strong> فتح كل المميزات · 5 روابط · دعم أولوية · شارة خاصة · غرفة البرمجة
-            </div>
-            <div class="pricing-card">
-              <div class="pricing-plan-name" style="color:var(--cyan)">Plus — أسبوعي</div>
-              <div class="pricing-price"><span class="amount">60</span><span class="period"> جنيه</span></div>
-              <div class="pricing-alt">أو 1 دولار</div>
-              <ul class="pricing-features">
-                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>كل المميزات مفتوحة</li>
-                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>5 روابط في الملف</li>
-                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>غرفة البرمجة</li>
-              </ul>
-              <button class="btn btn-primary" onclick="openPayPal(1,'USD','Plus Weekly 404')">اشترك — $1</button>
-            </div>
-            <div class="pricing-card featured">
-              <div class="pricing-plan-name" style="color:var(--cyan)">Plus — شهري</div>
-              <div class="pricing-price"><span class="amount">150</span><span class="period"> جنيه</span></div>
-              <div class="pricing-alt">أو 2 دولار</div>
-              <button class="btn btn-primary" onclick="openPayPal(2,'USD','Plus Monthly 404')">اشترك — $2</button>
-            </div>
-            <div class="pricing-card">
-              <div class="pricing-plan-name" style="color:var(--cyan)">Plus — 3 أشهر</div>
-              <div class="pricing-price"><span class="amount">450</span><span class="period"> جنيه</span></div>
-              <div class="pricing-alt">أو 5 دولار</div>
-              <button class="btn btn-ghost" onclick="openPayPal(5,'USD','Plus 3-Month 404')">اشترك — $5</button>
-            </div>
-            <div class="pricing-card">
-              <div class="pricing-plan-name" style="color:var(--cyan)">Plus — سنوي</div>
-              <div class="pricing-price"><span class="amount">1800</span><span class="period"> جنيه</span></div>
-              <div class="pricing-alt">أو 20 دولار</div>
-              <button class="btn btn-ghost" onclick="openPayPal(20,'USD','Plus Annual 404')">اشترك — $20</button>
-            </div>
-          </div>
-          <div id="plan-pro" style="display:none">
-            <div style="margin-bottom:12px;font-size:.85rem;color:var(--text3)">
-              <strong style="color:var(--gold)">مميزات Pro:</strong> كل Plus · توثيق Pro ذهبي · أولوية قصوى · مميزات حصرية
-            </div>
-            <div class="pricing-card featured">
-              <div class="pricing-plan-name" style="color:var(--gold)">Pro — شهري</div>
-              <div class="pricing-price"><span class="amount">250</span><span class="period"> جنيه</span></div>
-              <div class="pricing-alt">أو 4 دولار</div>
-              <ul class="pricing-features">
-                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>كل مميزات Plus</li>
-                <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>توثيق Pro ★</li>
-              </ul>
-              <button class="btn btn-primary" onclick="openPayPal(4,'USD','Pro Monthly 404')">اشترك — $4</button>
-            </div>
-            <div class="pricing-card">
-              <div class="pricing-plan-name" style="color:var(--gold)">Pro — نصف سنوي</div>
-              <div class="pricing-price"><span class="amount">1400</span><span class="period"> جنيه</span></div>
-              <div class="pricing-alt">أو 20 دولار</div>
-              <button class="btn btn-ghost" onclick="openPayPal(20,'USD','Pro 6-Month 404')">اشترك — $20</button>
-            </div>
-            <div class="pricing-card">
-              <div class="pricing-plan-name" style="color:var(--gold)">Pro — سنوي</div>
-              <div class="pricing-price"><span class="amount">2800</span><span class="period"> جنيه</span></div>
-              <div class="pricing-alt">أو 35 دولار</div>
-              <button class="btn btn-ghost" onclick="openPayPal(35,'USD','Pro Annual 404')">اشترك — $35</button>
-            </div>
-          </div>
+        <div id="plan-pro" style="display:none">
+          <div style="margin-bottom:11px;font-size:.82rem;color:var(--t3)"><strong style="color:var(--gold)">مميزات Pro:</strong> كل Plus · توثيق Pro ذهبي ★ · أولوية قصوى · مميزات حصرية</div>
+          <div class="price-card feat"><div class="price-pname" style="color:var(--gold)">Pro — شهري</div><div class="price-amt"><span class="am">250</span><span class="per"> جنيه</span></div><div class="price-alt">أو 4 دولار</div><ul class="price-feats"><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>كل مميزات Plus</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>توثيق Pro الذهبي ★</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>تثبيت المنشورات</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>إحصائيات المنشورات</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>أولوية الدعم الفني</li></ul><button class="btn btn-p" onclick="paypal(4,'USD','Pro Monthly 404')">اشترك الآن — $4</button></div>
+          <div class="price-card"><div class="price-pname" style="color:var(--gold)">Pro — نصف سنوي</div><div class="price-amt"><span class="am">1400</span><span class="per"> جنيه</span></div><div class="price-alt">أو 20 دولار</div><button class="btn btn-g" onclick="paypal(20,'USD','Pro 6Month 404')">اشترك — $20</button></div>
+          <div class="price-card"><div class="price-pname" style="color:var(--gold)">Pro — سنوي</div><div class="price-amt"><span class="am">2800</span><span class="per"> جنيه</span></div><div class="price-alt">أو 35 دولار</div><button class="btn btn-g" onclick="paypal(35,'USD','Pro Annual 404')">اشترك — $35</button></div>
         </div>
       </div>
     </div>
@@ -750,10 +419,9 @@
 
 </div><!-- end #app -->
 
-<!-- ══ ALL SCRIPTS ══ -->
 <script>
-// ── Countries data ──
-const COUNTRIES_DATA = [
+// Countries
+const CTRS=[
   {n:"مصر",c:"+20"},{n:"السعودية",c:"+966"},{n:"الإمارات",c:"+971"},{n:"الكويت",c:"+965"},
   {n:"قطر",c:"+974"},{n:"البحرين",c:"+973"},{n:"عُمان",c:"+968"},{n:"الأردن",c:"+962"},
   {n:"لبنان",c:"+961"},{n:"سوريا",c:"+963"},{n:"العراق",c:"+964"},{n:"اليمن",c:"+967"},
@@ -764,281 +432,29 @@ const COUNTRIES_DATA = [
   {n:"ماليزيا",c:"+60"},{n:"نيجيريا",c:"+234"},{n:"السنغال",c:"+221"},{n:"غانا",c:"+233"},
   {n:"المملكة المتحدة",c:"+44"},{n:"الولايات المتحدة",c:"+1"},{n:"كندا",c:"+1"},
   {n:"أستراليا",c:"+61"},{n:"ألمانيا",c:"+49"},{n:"فرنسا",c:"+33"},{n:"إيطاليا",c:"+39"},
-  {n:"إسبانيا",c:"+34"},{n:"روسيا",c:"+7"},{n:"اليابان",c:"+81"},{n:"الصين",c:"+86"},
-  {n:"كوريا الجنوبية",c:"+82"},{n:"البرازيل",c:"+55"},{n:"المكسيك",c:"+52"},
+  {n:"إسبانيا",c:"+34"},{n:"هولندا",c:"+31"},{n:"روسيا",c:"+7"},{n:"اليابان",c:"+81"},
+  {n:"الصين",c:"+86"},{n:"كوريا الجنوبية",c:"+82"},{n:"البرازيل",c:"+55"},{n:"المكسيك",c:"+52"},
   {n:"جنوب أفريقيا",c:"+27"},{n:"إثيوبيا",c:"+251"},{n:"كينيا",c:"+254"}
 ];
-
-// Populate all country selects
-function populateCountrySelects() {
-  ['reg-nationality','gc-nationality'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    COUNTRIES_DATA.forEach(c => {
-      const o = document.createElement('option');
-      o.value = c.n; o.textContent = c.n;
-      el.appendChild(o);
-    });
-  });
-  ['reg-country-code','gc-country-code'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    COUNTRIES_DATA.forEach(c => {
-      const o = document.createElement('option');
-      o.value = c.c; o.textContent = `${c.n} (${c.c})`;
-      el.appendChild(o);
-    });
-  });
+function fillSel(id,type){
+  const el=document.getElementById(id);if(!el)return;
+  CTRS.forEach(c=>{const o=document.createElement("option");o.value=type==="nat"?c.n:c.c;o.textContent=type==="nat"?c.n:`${c.n} (${c.c})`;el.appendChild(o)});
 }
-document.addEventListener('DOMContentLoaded', populateCountrySelects);
-
-// ── Cookie Consent ──
-function showCookieBanner() {
-  const banner = document.getElementById('cookie-banner');
-  const consent = localStorage.getItem('cookieConsent');
-  if (!consent) banner.classList.remove('hidden');
-}
-function acceptCookies() {
-  localStorage.setItem('cookieConsent', 'all');
-  localStorage.setItem('sessionPersist', 'true');
-  document.getElementById('cookie-banner').classList.add('hidden');
-}
-function declineCookies() {
-  localStorage.setItem('cookieConsent', 'minimal');
-  document.getElementById('cookie-banner').classList.add('hidden');
-}
-window.addEventListener('load', () => setTimeout(showCookieBanner, 2000));
-
-// ── Pricing plan tabs ──
-function showPricingPlan(plan, el) {
-  document.querySelectorAll('.pricing-tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('plan-plus').style.display = plan === 'plus' ? 'block' : 'none';
-  document.getElementById('plan-pro').style.display = plan === 'pro' ? 'block' : 'none';
-}
-
-// ── Google Complete Profile ──
-let gcStep = 1;
-let gcData = {};
-
-function showGoogleComplete(uid, displayName, email, photoURL) {
-  const modal = document.getElementById('google-complete-modal');
-  modal.style.display = 'flex';
-  modal.dataset.uid = uid;
-  modal.dataset.name = displayName || '';
-  modal.dataset.email = email || '';
-  modal.dataset.photo = photoURL || '';
-  gcStep = 1;
-  updateGcStep();
-}
-
-function updateGcStep() {
-  ['gc-step-1','gc-step-2','gc-step-3'].forEach((id,i) => {
-    document.getElementById(id).style.display = i+1 === gcStep ? 'block' : 'none';
-  });
-  document.querySelectorAll('#gc-step-indicator .step-dot').forEach((d,i) => {
-    d.classList.toggle('active', i+1 === gcStep);
-    d.classList.toggle('done', i+1 < gcStep);
-  });
-  const labels = ['البيانات الشخصية','بيانات التواصل','رمز الأمان'];
-  document.getElementById('gc-step-label').textContent = labels[gcStep-1];
-  const btn = document.getElementById('gc-next-btn');
-  btn.textContent = gcStep < 3 ? 'التالي' : 'إنشاء الحساب';
-}
-
-async function gcNextStep() {
-  const btn = document.getElementById('gc-next-btn');
-  if (gcStep === 1) {
-    const username = document.getElementById('gc-username').value.trim().toLowerCase();
-    const dob = document.getElementById('gc-dob').value;
-    const nationality = document.getElementById('gc-nationality').value;
-    if (!username || !dob || !nationality) { showToast('أكمل جميع الحقول','error'); return; }
-    if (username.length < 3) { showToast('اسم المستخدم قصير جداً','error'); return; }
-    gcData = { username, dob, nationality };
-    gcStep = 2; updateGcStep();
-  } else if (gcStep === 2) {
-    const countryCode = document.getElementById('gc-country-code').value;
-    const phone = document.getElementById('gc-phone').value.trim();
-    if (!phone) { showToast('أدخل رقم الهاتف','error'); return; }
-    gcData = { ...gcData, countryCode, phone };
-    gcStep = 3; updateGcStep();
-  } else if (gcStep === 3) {
-    const pin = document.getElementById('gc-pin').value;
-    const pinConfirm = document.getElementById('gc-pin-confirm').value;
-    if (!/^\d{6}$/.test(pin)) { showToast('PIN يجب أن يكون 6 أرقام','error'); return; }
-    if (pin !== pinConfirm) { showToast('رمزا PIN غير متطابقين','error'); return; }
-    gcData.pin = pin;
-    btn.disabled = true; btn.textContent = 'جاري الإنشاء...';
-    await finalizeGoogleProfile();
-  }
-}
-
-async function finalizeGoogleProfile() {
-  // Called from app.js after Google sign-in
-  if (window._gcFinalizeCallback) {
-    await window._gcFinalizeCallback(gcData);
-  }
-  document.getElementById('google-complete-modal').style.display = 'none';
-}
-
-// ── Biometric ──
-async function tryBiometric() {
-  try {
-    const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-    if (available) {
-      showToast('البصمة غير مفعّلة بعد في هذا الإصدار','info');
-    } else {
-      showToast('البصمة غير مدعومة على هذا الجهاز','info');
-    }
-  } catch {
-    showToast('البصمة غير متاحة','info');
-  }
-}
-
-// ── Prevent image save ──
-document.addEventListener('contextmenu', e => { if (e.target.tagName === 'IMG') e.preventDefault(); });
-document.addEventListener('dragstart', e => { if (e.target.tagName === 'IMG') e.preventDefault(); });
-
-// ── Back button / History management (Android back button) ──
-// Navigation stack
-window._navStack = [];
-
-function pushNavState(page) {
-  window._navStack.push(page);
-  history.pushState({ page }, '', '#' + page);
-}
-
-window.addEventListener('popstate', (e) => {
-  const stack = window._navStack;
-  if (stack.length > 1) {
-    stack.pop();
-    const prev = stack[stack.length - 1];
-    // Navigate without pushing new state
-    if (window.navigateTo) {
-      window.navigateTo(prev, false);
-    }
-  } else {
-    // If at root, push state again to prevent app exit
-    history.pushState({ page: 'home' }, '', '#home');
-    // Close any open modal first
-    const modals = document.querySelectorAll('.modal-overlay.open');
-    if (modals.length) {
-      modals[modals.length - 1].classList.remove('open');
-    } else {
-      // Show "exit?" toast instead of exiting
-      showExitPrompt();
-    }
-  }
+document.addEventListener("DOMContentLoaded",()=>{
+  ["r-nat","gc-nat"].forEach(id=>fillSel(id,"nat"));
+  ["r-cc","gc-cc"].forEach(id=>fillSel(id,"code"));
+  // Setup mention on compose textarea
+  setTimeout(()=>{
+    const ta=document.getElementById("compose-ta"),dd=document.getElementById("compose-mdd");
+    if(ta&&dd&&window.setupMention)setupMention(ta,dd);
+  },2000);
 });
-
-let _exitPromptActive = false;
-function showExitPrompt() {
-  if (_exitPromptActive) { return; }
-  _exitPromptActive = true;
-  const toast = document.createElement('div');
-  toast.className = 'toast info';
-  toast.innerHTML = `
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-    <span>اضغط مرة أخرى للخروج</span>`;
-  document.getElementById('toast-container').appendChild(toast);
-  setTimeout(() => {
-    toast.classList.add('removing');
-    setTimeout(() => { toast.remove(); _exitPromptActive = false; }, 300);
-  }, 2500);
-}
-
-function closeChatWindow() {
-  document.getElementById('chat-window').classList.add('hidden');
-  if (window._navStack[window._navStack.length - 1] === 'chat') {
-    window._navStack.pop();
-  }
-}
-
-// ── Chat file attach (placeholder) ──
-function attachChatFile() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '.pdf,video/mp4,audio/mp3,audio/mpeg,image/*';
-  input.onchange = () => showToast('رفع الملفات في الشات سيكون متاحاً قريباً','info');
-  input.click();
-}
-
-// ── PWA Install prompt ──
-let _deferredInstall = null;
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  _deferredInstall = e;
-  setTimeout(showInstallBanner, 3000);
-});
-
-function showInstallBanner() {
-  if (!_deferredInstall) return;
-  const banner = document.createElement('div');
-  banner.id = 'install-banner';
-  banner.style.cssText = `
-    position:fixed;bottom:72px;left:12px;right:12px;z-index:999;
-    background:rgba(20,20,20,0.97);backdrop-filter:blur(20px);
-    border:1px solid rgba(255,255,255,0.15);border-radius:16px;
-    padding:14px 16px;display:flex;align-items:center;gap:12px;
-    box-shadow:0 8px 32px rgba(0,0,0,0.6);
-    animation:slide-up-banner .4s ease;`;
-  banner.innerHTML = `
-    <style>@keyframes slide-up-banner{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}</style>
-    <img src="https://ibb.co/rKD2MxX7" style="width:40px;height:40px;border-radius:10px" onerror="this.style.display='none'">
-    <div style="flex:1">
-      <div style="font-size:.9rem;font-weight:700;margin-bottom:2px">ثبّت تطبيق 404</div>
-      <div style="font-size:.75rem;color:rgba(255,255,255,.5)">احصل على تجربة أفضل كتطبيق</div>
-    </div>
-    <button onclick="installPWA()" style="
-      background:#fff;color:#000;border:none;border-radius:20px;
-      padding:8px 16px;font-weight:700;font-size:.85rem;cursor:pointer;">تثبيت</button>
-    <button onclick="this.closest('#install-banner').remove()" style="
-      background:none;border:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:1.2rem;">×</button>`;
-  document.body.appendChild(banner);
-  setTimeout(() => banner.remove(), 15000);
-}
-
-async function installPWA() {
-  if (!_deferredInstall) return;
-  _deferredInstall.prompt();
-  const { outcome } = await _deferredInstall.userChoice;
-  if (outcome === 'accepted') showToast('تم تثبيت التطبيق ✓','success');
-  _deferredInstall = null;
-  document.getElementById('install-banner')?.remove();
-}
-
-window.addEventListener('appinstalled', () => showToast('تم تثبيت 404 بنجاح ✓','success'));
-
-// ── Service Worker ──
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
-}
-
-// ── Toast (available before module loads) ──
-function showToast(msg, type = 'info', dur = 3000) {
-  const icons = {
-    success: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>`,
-    error: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>`,
-    info: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>`
-  };
-  const t = document.createElement('div');
-  t.className = `toast ${type}`;
-  t.innerHTML = `${icons[type]}<span>${msg}</span>`;
-  document.getElementById('toast-container').appendChild(t);
-  setTimeout(() => { t.classList.add('removing'); setTimeout(() => t.remove(), 300); }, dur);
-}
-window.showToast = showToast;
-window.showGoogleComplete = showGoogleComplete;
-window.gcNextStep = gcNextStep;
-window.pushNavState = pushNavState;
-window.closeChatWindow = closeChatWindow;
-window.showPricingPlan = showPricingPlan;
-window.installPWA = installPWA;
-window.tryBiometric = tryBiometric;
-window.acceptCookies = acceptCookies;
-window.declineCookies = declineCookies;
+// Prevent logo save
+document.addEventListener("contextmenu",e=>{if(e.target.tagName==="IMG")e.preventDefault()});
+document.addEventListener("dragstart",e=>{if(e.target.tagName==="IMG")e.preventDefault()});
+// expose setupMention if loaded
+window.setupMention=window.setupMention||null;
 </script>
-
-<script type="module" src="app2.js"></script>
+<script type="module" src="app.js"></script>
 </body>
 </html>
