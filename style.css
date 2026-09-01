@@ -92,6 +92,7 @@ input,textarea,select{ font-family:"F404-Body",sans-serif; }
   background:var(--glass-strong); border-bottom:1px solid var(--line);
 }
 .topbar h1{ font-size:19px; margin:0; }
+.topbar-logo{ width:34px; height:34px; border-radius:11px; object-fit:cover; }
 .icon-btn{
   width:38px; height:38px; display:flex; align-items:center; justify-content:center;
   border-radius:50%; background:var(--bg-sunk); border:1px solid var(--line); cursor:pointer;
@@ -137,6 +138,7 @@ input,textarea,select{ font-family:"F404-Body",sans-serif; }
   border:1.5px solid var(--line-strong); background:var(--bg-sunk);
 }
 .pin-row input:focus{ border-color:var(--accent); background:#fff; }
+.pin-hint{ font-size:11.5px; color:var(--muted); max-width:280px; margin:-8px auto 4px; line-height:1.7; }
 
 /* ---------- شاشة القفل / الدخول ---------- */
 .center-screen{ min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:26px; gap:22px; text-align:center; }

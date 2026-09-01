@@ -31,6 +31,7 @@
       <div>
         <h2 style="margin:0 0 6px">أدخل رمز الدخول</h2>
         <p class="subtitle">اكتب رمز الـPIN المكوّن من ٦ أرقام لفتح حسابك</p>
+        <p class="pin-hint">الكتابة تبدأ من الخانة الأولى (أقصى اليمين)، وكل خانة تُقفل ولا تُملأ إلا بعد ما اللي قبلها تتملي</p>
       </div>
       <div class="pin-row" id="pinlock-inputs">
         <input maxlength="1" inputmode="numeric" type="password">
@@ -117,6 +118,7 @@
       <!-- الخطوة 4: أمان الدخول PIN -->
       <div class="reg-step hidden" id="reg-step-4" style="width:100%; max-width:340px; text-align:center;">
         <p class="subtitle">اختر رمز PIN مكوّن من ٦ أرقام، هتستخدمه لفتح التطبيق كل مرة</p>
+        <p class="pin-hint">ابدأ من الخانة الأولى، وكل خانة بعدها ما تتملاش غير بعد اللي قبلها</p>
         <div class="pin-row" id="reg-pin-inputs">
           <input maxlength="1" inputmode="numeric" type="password"><input maxlength="1" inputmode="numeric" type="password"><input maxlength="1" inputmode="numeric" type="password"><input maxlength="1" inputmode="numeric" type="password"><input maxlength="1" inputmode="numeric" type="password"><input maxlength="1" inputmode="numeric" type="password">
         </div>
@@ -139,7 +141,7 @@
   <section class="screen" id="screen-feed">
     <div class="topbar">
       <div class="icon-btn" id="btn-open-profile-mini"><img id="mini-avatar" class="avatar" style="width:100%;height:100%;border-radius:50%;" src=""></div>
-      <h1>404</h1>
+      <img class="topbar-logo" src="https://i.ibb.co/WN3DTcGc/logo.jpg" alt="404">
       <div class="icon-btn" id="btn-open-notifs">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
       </div>
@@ -250,13 +252,48 @@
         <h3 style="margin:0 0 12px;">الملف الشخصي</h3>
         <div class="field"><label>الاسم الكامل</label><input id="set-fullname"></div>
         <div class="field"><label>النبذة (Bio)</label><textarea id="set-bio" rows="3"></textarea></div>
-        <div id="set-links-wrap"></div>
-        <button class="btn btn-ghost btn-sm" id="btn-add-link" style="margin-top:6px;">+ إضافة رابط</button>
         <div style="margin-top:14px;"><label style="display:block; font-size:13px; color:var(--muted); margin-bottom:7px;">صورة الملف الشخصي</label>
           <input type="file" id="set-avatar-file" accept="image/*" style="display:none;">
           <button class="btn btn-ghost btn-sm" id="btn-upload-avatar">اختيار صورة ورفعها</button>
         </div>
         <button class="btn btn-primary" style="margin-top:14px;" id="btn-save-profile">حفظ التغييرات</button>
+      </div>
+
+      <div class="glass-card section-pad">
+        <h3 style="margin:0 0 4px;">اسم المستخدم</h3>
+        <p class="subtitle" style="margin:0 0 10px; text-align:right;">ممكن تغيّره مرة كل ١٨ يوم فقط</p>
+        <div class="field" style="display:flex; gap:8px; margin-bottom:0;">
+          <span style="align-self:center; color:var(--muted);">@</span>
+          <input id="set-username" style="flex:1;">
+          <button class="btn btn-primary btn-sm" id="btn-save-username">تغيير</button>
+        </div>
+        <p id="username-cooldown-note" class="locked-note hidden" style="margin-top:10px;"></p>
+      </div>
+
+      <div class="glass-card section-pad">
+        <h3 style="margin:0 0 4px;">روابط التواصل</h3>
+        <p class="subtitle" style="margin:0 0 10px; text-align:right;" id="links-limit-note"></p>
+        <div id="set-socials-wrap"></div>
+        <button class="btn btn-ghost btn-sm" id="btn-add-link" style="margin-top:10px;">+ إضافة رابط</button>
+      </div>
+
+      <div class="glass-card section-pad">
+        <h3 style="margin:0 0 4px;">طلب توثيق</h3>
+        <p class="subtitle" style="margin:0 0 12px; text-align:right;">ارفع صورة هويتك، وفريقنا هيراجع طلبك</p>
+        <div id="verify-status-box"></div>
+        <div id="verify-form">
+          <div class="field"><label>نوع التوثيق المطلوب</label>
+            <select id="verify-type">
+              <option value="pro">توثيق برو</option>
+              <option value="investigator">شخصية موثّقة / محقق منها</option>
+              <option value="developer">توثيق مبرمجين</option>
+            </select>
+          </div>
+          <input type="file" id="verify-id-file" accept="image/*" style="display:none;">
+          <button class="btn btn-ghost btn-sm" id="btn-upload-id">رفع صورة الهوية</button>
+          <p class="post-username" id="verify-id-status" style="margin-top:8px;"></p>
+          <button class="btn btn-primary" style="margin-top:12px;" id="btn-submit-verify">إرسال طلب التوثيق</button>
+        </div>
       </div>
 
       <div class="glass-card section-pad">
@@ -280,7 +317,10 @@
 
       <div class="glass-card section-pad hidden" id="settings-admin-box">
         <h3 style="margin:0 0 10px;">لوحة الإدارة</h3>
-        <button class="btn btn-outline" id="btn-open-admin">فتح لوحة الإدارة</button>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <button class="btn btn-outline" id="btn-open-admin">إدارة المستخدمين</button>
+          <button class="btn btn-outline" id="btn-open-verify-requests">طلبات التوثيق</button>
+        </div>
       </div>
 
       <button class="btn btn-outline" id="btn-logout">تسجيل خروج</button>
@@ -310,6 +350,15 @@
       <p class="subtitle" id="notfound-reason">يمكن الرابط اتغيّر، أو المحتوى اتشال، أو كتبت حاجة غلط</p>
       <button class="btn btn-primary" style="width:auto; padding:13px 26px;" id="btn-404-home">العودة للرئيسية</button>
     </div>
+  </section>
+
+  <!-- ================= طلبات التوثيق (أدمن) ================= -->
+  <section class="screen" id="screen-verify-requests">
+    <div class="topbar">
+      <div class="icon-btn" id="btn-verify-requests-back"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+      <h1>طلبات التوثيق</h1><div style="width:38px;"></div>
+    </div>
+    <div class="section-pad" id="verify-requests-list"></div>
   </section>
 
   <!-- ================= لوحة الإدارة ================= -->

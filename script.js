@@ -77,12 +77,35 @@ function badgeHTML(type){
   const c = map[type]; if(!c) return "";
   return `<span class="badge ${c.cls}" title="${c.title}"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span>`;
 }
+function lockChip(){
+  return `<span class="chip" style="gap:4px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> خاص</span>`;
+}
+function socialLinkChip(l){
+  const label = (SOCIAL_PLATFORMS[l.platform]||SOCIAL_PLATFORMS.other).label;
+  let href = l.url;
+  if(l.platform==="phone" && !href.startsWith("tel:")) href = "tel:"+href.replace(/\s/g,"");
+  else if(!href.startsWith("http") && !href.startsWith("tel:")) href = "https://"+href;
+  return `<a class="chip" href="${href}" target="_blank" rel="noopener">${socialIconSvg(l.platform)} ${label}</a>`;
+}
 function planExpiryLabel(profile){
-  if(!profile.isPro) return null;
-  if(!profile.proExpiresAt) return "برو (بدون تاريخ انتهاء)";
+  if(!profile.planTier || profile.planTier==="free") return null;
+  if(!profile.proExpiresAt) return null;
   const d = profile.proExpiresAt.toDate ? profile.proExpiresAt.toDate() : new Date(profile.proExpiresAt);
   if(d.getTime() < Date.now()) return null;
-  return "ساري حتى " + d.toLocaleDateString("ar-EG");
+  const label = profile.planTier==="pro" ? "Pro" : "Plus";
+  return `${label} — ساري حتى ${d.toLocaleDateString("ar-EG")}`;
+}
+function linkLimitFor(profile){
+  if(profile.verifiedType) return 8;
+  if(profile.planTier==="pro") return 8;
+  if(profile.planTier==="plus") return 3;
+  return 1;
+}
+function planChip(profile){
+  if(profile.verifiedType) return "";
+  if(profile.planTier==="pro") return '<span class="chip">Pro</span>';
+  if(profile.planTier==="plus") return '<span class="chip">Plus</span>';
+  return "";
 }
 
 /* ---------------- قوائم الجنسيات وأكواد الدول ---------------- */
@@ -135,24 +158,34 @@ $("btn-login").onclick = async ()=>{
 };
 
 $("btn-google-login").onclick = async ()=>{
+  awaitingManualFlow = true;
   try{
     const provider = new GoogleAuthProvider();
     const res = await signInWithPopup(auth, provider);
+    currentUser = res.user;
     const uref = doc(db, USERS_COL, res.user.uid);
     const snap = await getDoc(uref);
     if(!snap.exists()){
-      // حساب جديد بجوجل — ننشئ بروفايل مبدئي ونطلب منه ضبط PIN
       const username = await generateUniqueUsername(res.user.displayName || "user");
-      await setDoc(uref, {
-        fullName: res.user.displayName || "مستخدم 404",
-        email: res.user.email,
-        username, bio:"", links:[], profilePic: res.user.photoURL || DEFAULT_AVATAR,
-        isPrivate:false, autoAcceptFollow:true, isAdmin:false, isPro:false,
-        verifiedType:null, followers:[], following:[], followRequests:[],
-        banned:false, pinHash:null, createdAt: serverTimestamp()
-      });
+      const profileData = {
+        fullName: res.user.displayName || "مستخدم 404", email: res.user.email,
+        username, bio:"", links:[], socials:{}, profilePic: res.user.photoURL || DEFAULT_AVATAR,
+        isPrivate:false, autoAcceptFollow:true, isAdmin:false, isPro:false, planTier:"free",
+        verifiedType:null, verificationStatus:null, followers:[], following:[], followRequests:[],
+        banned:false, pinHash:null, usernameChangedAt:null, createdAt: serverTimestamp()
+      };
+      await setDoc(uref, profileData);
+      awaitingManualFlow = false;
+      await proceedAfterAuth(res.user, { id: res.user.uid, ...profileData });
+    }else{
+      awaitingManualFlow = false;
+      await proceedAfterAuth(res.user, { id: res.user.uid, ...snap.data() });
     }
-  }catch(err){ toast("تعذر الدخول بحساب جوجل"); }
+  }catch(err){
+    awaitingManualFlow = false;
+    console.error(err);
+    toast("تعذر الدخول بحساب جوجل، تأكد من تفعيل تسجيل الدخول بجوجل في Firebase");
+  }
 };
 
 $("link-forgot").onclick = async (e)=>{
@@ -205,19 +238,26 @@ $("btn-step4-back").onclick = ()=> goRegStep(3);
 
 function setupPinAutoAdvance(containerId){
   const inputs = [...$(containerId).querySelectorAll("input")];
+  inputs.forEach((inp,i)=>{ if(i>0) inp.disabled = true; });
   inputs.forEach((inp,i)=>{
     inp.addEventListener("input", ()=>{
       inp.value = inp.value.replace(/\D/g,"");
-      if(inp.value && i<inputs.length-1) inputs[i+1].focus();
+      if(inp.value && i<inputs.length-1){ inputs[i+1].disabled = false; inputs[i+1].focus(); }
     });
-    inp.addEventListener("keydown",(e)=>{ if(e.key==="Backspace" && !inp.value && i>0) inputs[i-1].focus(); });
+    inp.addEventListener("keydown",(e)=>{
+      if(e.key==="Backspace" && !inp.value && i>0){ inputs[i-1].focus(); inputs[i-1].value=""; for(let j=i;j<inputs.length;j++) inputs[j].disabled = true; }
+    });
   });
 }
 setupPinAutoAdvance("pinlock-inputs");
 setupPinAutoAdvance("reg-pin-inputs");
 setupPinAutoAdvance("reg-pin-confirm-inputs");
 function pinValue(containerId){ return [...$(containerId).querySelectorAll("input")].map(i=>i.value).join(""); }
-function clearPinInputs(containerId){ $(containerId).querySelectorAll("input").forEach(i=>i.value=""); $(containerId).querySelector("input").focus(); }
+function clearPinInputs(containerId){
+  const inputs = [...$(containerId).querySelectorAll("input")];
+  inputs.forEach((i,idx)=>{ i.value=""; i.disabled = idx>0; });
+  inputs[0].focus();
+}
 
 async function generateUniqueUsername(base){
   let clean = base.toString().trim().toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g,"").slice(0,16) || "user404";
@@ -241,11 +281,13 @@ $("btn-finish-register").onclick = async ()=>{
   if(pin !== pinConfirm){ err.textContent="الرمز غير متطابق"; err.style.display="block"; clearPinInputs("reg-pin-confirm-inputs"); return; }
 
   const btn = $("btn-finish-register"); btn.innerHTML='<div class="spinner"></div>'; btn.disabled=true;
+  awaitingManualFlow = true;
   try{
     const cred = await createUserWithEmailAndPassword(auth, $("r-email").value.trim(), $("r-pass").value);
+    currentUser = cred.user;
     const pinHash = await sha256(pin);
     const username = await generateUniqueUsername($("r-fullname").value);
-    await setDoc(doc(db, USERS_COL, cred.user.uid), {
+    const profileData = {
       fullName: $("r-fullname").value.trim(),
       dob: $("r-dob").value,
       age: Number($("r-age").value)||null,
@@ -253,15 +295,23 @@ $("btn-finish-register").onclick = async ()=>{
       countryCode: $("r-countrycode").value,
       phone: $("r-phone").value.trim(),
       email: $("r-email").value.trim(),
-      username, bio:"", links:[], profilePic: DEFAULT_AVATAR,
-      isPrivate:false, autoAcceptFollow:true, isAdmin:false, isPro:false,
-      verifiedType:null, followers:[], following:[], followRequests:[],
-      banned:false, pinHash, createdAt: serverTimestamp()
-    });
+      username, bio:"", links:[], socials:{}, profilePic: DEFAULT_AVATAR,
+      isPrivate:false, autoAcceptFollow:true, isAdmin:false, isPro:false, planTier:"free",
+      verifiedType:null, verificationStatus:null, followers:[], following:[], followRequests:[],
+      banned:false, pinHash, usernameChangedAt:null, createdAt: serverTimestamp()
+    };
+    await setDoc(doc(db, USERS_COL, cred.user.uid), profileData);
     sessionStorage.setItem("pinVerified","1");
+    awaitingManualFlow = false;
+    myProfile = { id: cred.user.uid, ...profileData };
     toast("تم إنشاء الحساب بنجاح");
+    enterApp();
   }catch(e){
-    err.textContent = e.code==="auth/email-already-in-use" ? "البريد الإلكتروني مستخدم بالفعل" : "حدث خطأ، حاول مرة أخرى";
+    awaitingManualFlow = false;
+    console.error(e);
+    err.textContent = e.code==="auth/email-already-in-use" ? "البريد الإلكتروني مستخدم بالفعل"
+      : e.code==="permission-denied" ? "صلاحيات قاعدة البيانات مش مفعّلة، راجع قواعد Firestore"
+      : "حدث خطأ، حاول مرة أخرى";
     err.style.display="block";
   }
   btn.innerHTML="إنشاء الحساب"; btn.disabled=false;
@@ -290,28 +340,22 @@ $("btn-logout").onclick = async ()=>{ sessionStorage.removeItem("pinVerified"); 
 /* ============================================================
    دورة حياة المصادقة
    ============================================================ */
-onAuthStateChanged(auth, async (user)=>{
-  currentUser = user;
-  if(unsubFeed) unsubFeed(); if(unsubCodeFeed) unsubCodeFeed(); if(unsubNotifs) unsubNotifs();
-  $("splash").classList.add("hide");
-  if(!user){ myProfile=null; $("tabbar").classList.add("hidden"); show("screen-login"); return; }
+let awaitingManualFlow = false;
 
-  const uref = doc(db, USERS_COL, user.uid);
-  const snap = await getDoc(uref);
-  if(!snap.exists()){ show("screen-register"); return; }
-  myProfile = { id:user.uid, ...snap.data() };
-
+async function proceedAfterAuth(user, profile){
+  myProfile = profile;
   if(myProfile.banned){ renderBannedScreen(); return; }
 
   if(!myProfile.pinHash){
-    // مستخدم جوجل جديد بدون PIN — نوجهه لضبط الرمز عبر خطوة التسجيل الرابعة فقط
     show("screen-register"); goRegStep(4);
+    clearPinInputs("reg-pin-inputs"); clearPinInputs("reg-pin-confirm-inputs");
     $("btn-finish-register").onclick = async ()=>{
       const pin = pinValue("reg-pin-inputs"); const pinConfirm = pinValue("reg-pin-confirm-inputs");
       if(pin.length!==6){ toast("اكتب 6 أرقام"); return; }
       if(pin!==pinConfirm){ toast("الرمز غير متطابق"); return; }
-      await updateDoc(uref, { pinHash: await sha256(pin) });
-      myProfile.pinHash = await sha256(pin);
+      const hash = await sha256(pin);
+      await updateDoc(doc(db, USERS_COL, user.uid), { pinHash: hash });
+      myProfile.pinHash = hash;
       sessionStorage.setItem("pinVerified","1");
       enterApp();
     };
@@ -319,9 +363,28 @@ onAuthStateChanged(auth, async (user)=>{
   }
 
   if(sessionStorage.getItem("pinVerified")==="1"){ enterApp(); }
-  else{ show("screen-pinlock"); }
+  else{ show("screen-pinlock"); clearPinInputs("pinlock-inputs"); }
 
   sendLoginNotificationMail(user, myProfile);
+}
+
+onAuthStateChanged(auth, async (user)=>{
+  currentUser = user;
+  if(unsubFeed) unsubFeed(); if(unsubCodeFeed) unsubCodeFeed(); if(unsubNotifs) unsubNotifs();
+  $("splash").classList.add("hide");
+  if(!user){ myProfile=null; $("tabbar").classList.add("hidden"); show("screen-login"); return; }
+  if(awaitingManualFlow) return; // شاشة التسجيل بتتظبط يدويًا بعد ما المستند يتحفظ
+
+  try{
+    const uref = doc(db, USERS_COL, user.uid);
+    const snap = await getDoc(uref);
+    if(!snap.exists()){ show("screen-register"); return; }
+    await proceedAfterAuth(user, { id:user.uid, ...snap.data() });
+  }catch(e){
+    console.error(e);
+    toast("تعذر الاتصال بقاعدة البيانات، راجع قواعد Firestore");
+    show("screen-login");
+  }
 });
 
 function showNotFound(reason){
@@ -531,16 +594,16 @@ async function renderMyProfile(){
     <div class="profile-cover"></div>
     <div class="profile-head">
       <img class="profile-avatar" src="${p.profilePic||DEFAULT_AVATAR}">
-      <div class="profile-name">${p.fullName} ${badgeHTML(p.verifiedType)} ${p.isPro?'<span class="chip">Pro</span>':''}</div>
-      <div class="post-username">@${p.username} ${p.isPrivate?'· 🔒 خاص':''}</div>
+      <div class="profile-name">${p.fullName} ${badgeHTML(p.verifiedType)} ${planChip(p)}</div>
+      <div class="post-username">@${p.username} ${p.isPrivate?lockChip():''}</div>
       ${p.bio?`<div class="profile-bio">${linkify(p.bio)}</div>`:""}
-      ${(p.links&&p.links.length)?`<div class="profile-links">${p.links.map(l=>`<a class="chip" href="${l}" target="_blank">${l.replace(/^https?:\/\//,"").slice(0,26)}</a>`).join("")}</div>`:""}
+      ${(p.links&&p.links.length)?`<div class="profile-links">${p.links.map(l=>socialLinkChip(l)).join("")}</div>`:""}
       <div class="profile-stats">
         <div><b>${(p.followers||[]).length}</b> <span>متابِع</span></div>
         <div><b>${(p.following||[]).length}</b> <span>متابَع</span></div>
       </div>
       ${expiry?`<div class="locked-note" style="margin-top:14px;">${expiry}</div>`:""}
-      ${!p.isPro?`<button class="btn btn-accent" style="margin-top:14px;" id="btn-goto-plans">الترقية إلى برو</button>`:""}
+      ${(!p.planTier || p.planTier==="free")?`<button class="btn btn-accent" style="margin-top:14px;" id="btn-goto-plans">الترقية إلى Plus أو Pro</button>`:""}
     </div>
     <div class="divider"></div>
     <div class="feed" id="my-posts-feed"></div>
@@ -588,9 +651,9 @@ async function openOtherProfile(username){
     <div class="profile-head">
       <img class="profile-avatar" src="${u.profilePic||DEFAULT_AVATAR}">
       <div class="profile-name">${u.fullName} ${badgeHTML(u.verifiedType)}</div>
-      <div class="post-username">@${u.username} ${u.isPrivate?'· 🔒 خاص':''}</div>
+      <div class="post-username">@${u.username} ${u.isPrivate?lockChip():''}</div>
       ${u.bio?`<div class="profile-bio">${linkify(u.bio)}</div>`:""}
-      ${(u.links&&u.links.length)?`<div class="profile-links">${u.links.map(l=>`<a class="chip" href="${l}" target="_blank">${l.replace(/^https?:\/\//,"").slice(0,26)}</a>`).join("")}</div>`:""}
+      ${(u.links&&u.links.length)?`<div class="profile-links">${u.links.map(l=>socialLinkChip(l)).join("")}</div>`:""}
       <div class="profile-stats"><div><b>${(u.followers||[]).length}</b> <span>متابِع</span></div><div><b>${(u.following||[]).length}</b> <span>متابَع</span></div></div>
       <div style="margin-top:14px; display:flex; gap:10px;">${followBtn}</div>
     </div>
@@ -629,6 +692,22 @@ async function toggleFollow(uid, u, iAmFollowing, requested){
   openOtherProfile(viewingUsername);
 }
 
+const SOCIAL_PLATFORMS = {
+  phone:     { label:"هاتف",     icon:`<path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012.1 4.2 2 2 0 014.1 2h3a2 2 0 012 1.7c.1.9.3 1.8.6 2.7a2 2 0 01-.4 2.1L8.1 9.7a16 16 0 006.2 6.2l1.2-1.2a2 2 0 012.1-.4c.9.3 1.8.5 2.7.6a2 2 0 011.7 2z"/>` },
+  whatsapp:  { label:"واتساب",   icon:`<path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/>` },
+  telegram:  { label:"تيليجرام", icon:`<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>` },
+  linkedin:  { label:"لينكدإن",  icon:`<rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/><path d="M9 21v-9a2 2 0 012-2h1a4 4 0 014 4v7"/><path d="M9 12h.01"/>` },
+  instagram: { label:"انستجرام", icon:`<rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/>` },
+  snapchat:  { label:"سناب شات", icon:`<circle cx="12" cy="12" r="10"/><path d="M8 13c1 1.5 2.5 2 4 2s3-.5 4-2"/><path d="M9 9h.01M15 9h.01"/>` },
+  youtube:   { label:"يوتيوب",   icon:`<rect x="2" y="5" width="20" height="14" rx="4"/><path d="M10 9l6 3-6 3V9z"/>` },
+  x:         { label:"X (تويتر)", icon:`<path d="M4 4l16 16M20 4L4 20"/>` },
+  other:     { label:"رابط آخر", icon:`<path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/>` }
+};
+function socialIconSvg(key){
+  const p = SOCIAL_PLATFORMS[key] || SOCIAL_PLATFORMS.other;
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">${p.icon}</svg>`;
+}
+
 /* ============================================================
    الإعدادات
    ============================================================ */
@@ -636,34 +715,146 @@ function renderSettings(){
   const p = myProfile;
   $("set-fullname").value = p.fullName || "";
   $("set-bio").value = p.bio || "";
+  $("set-username").value = p.username || "";
   $("toggle-private").checked = !!p.isPrivate;
   $("toggle-autoaccept").checked = !!p.autoAcceptFollow;
-  renderLinkInputs(p.links || []);
+  renderSocialInputs(p.links || []);
+  $("links-limit-note").textContent = `أقصى عدد روابط حسب باقتك: ${linkLimitFor(p)}`;
+
+  const cd = usernameCooldownDaysLeft(p);
+  if(cd > 0){
+    $("username-cooldown-note").classList.remove("hidden");
+    $("username-cooldown-note").textContent = `تقدر تغيّر اسم المستخدم تاني بعد ${cd} يوم`;
+    $("set-username").disabled = true; $("btn-save-username").disabled = true;
+  }else{
+    $("username-cooldown-note").classList.add("hidden");
+    $("set-username").disabled = false; $("btn-save-username").disabled = false;
+  }
+
+  renderVerifyBox(p);
 
   const status = planExpiryLabel(p);
   $("settings-pro-status").innerHTML = status
     ? `<p class="subtitle" style="text-align:right;">${status}</p><button class="btn btn-outline" id="btn-manage-plan">إدارة الاشتراك</button>`
-    : `<p class="subtitle" style="text-align:right;">مفيش اشتراك برو حاليًا</p><button class="btn btn-accent" id="btn-manage-plan">عرض الباقات</button>`;
+    : `<p class="subtitle" style="text-align:right;">مفيش اشتراك Plus أو Pro حاليًا</p><button class="btn btn-accent" id="btn-manage-plan">عرض الباقات</button>`;
   $("btn-manage-plan").onclick = ()=>{ renderPlans(); show("screen-plans"); };
 
   if(p.isAdmin){ $("settings-admin-box").classList.remove("hidden"); }
   else{ $("settings-admin-box").classList.add("hidden"); }
 }
-function renderLinkInputs(links){
-  const wrap = $("set-links-wrap");
-  const maxLinks = myProfile.verifiedType ? 8 : (myProfile.isPro ? 3 : 1);
-  wrap.innerHTML = links.map((l,i)=>`<div class="field" style="display:flex; gap:8px;"><input value="${l}" data-link-idx="${i}"><button class="btn btn-ghost btn-sm" data-remove-link="${i}">حذف</button></div>`).join("");
+
+function usernameCooldownDaysLeft(p){
+  if(!p.usernameChangedAt) return 0;
+  const d = p.usernameChangedAt.toDate ? p.usernameChangedAt.toDate() : new Date(p.usernameChangedAt);
+  const diffDays = (Date.now() - d.getTime()) / 86400000;
+  return diffDays >= 18 ? 0 : Math.ceil(18 - diffDays);
+}
+$("btn-save-username").onclick = async ()=>{
+  const newUsername = $("set-username").value.trim().toLowerCase().replace(/[^a-z0-9_\u0600-\u06FF]/g,"");
+  if(!newUsername || newUsername.length < 3){ toast("اسم المستخدم قصير جدًا"); return; }
+  if(newUsername === myProfile.username){ toast("ده نفس اسم المستخدم الحالي"); return; }
+  const q = query(collection(db, USERS_COL), where("username","==",newUsername), limit(1));
+  const snap = await getDocs(q);
+  if(!snap.empty){ toast("اسم المستخدم ده محجوز بالفعل"); return; }
+  await updateDoc(doc(db, USERS_COL, currentUser.uid), { username:newUsername, usernameChangedAt: serverTimestamp() });
+  myProfile.username = newUsername; myProfile.usernameChangedAt = new Date();
+  toast("تم تغيير اسم المستخدم");
+  renderSettings();
+};
+
+function renderSocialInputs(links){
+  const wrap = $("set-socials-wrap");
+  const maxLinks = linkLimitFor(myProfile);
   wrap.dataset.max = maxLinks;
-  wrap.querySelectorAll("[data-remove-link]").forEach(b=> b.onclick = ()=>{ links.splice(Number(b.dataset.removeLink),1); renderLinkInputs(links); });
+  wrap.innerHTML = links.map((l,i)=>`
+    <div class="field" style="display:flex; gap:8px; align-items:center;">
+      <select data-social-platform="${i}" style="width:120px; flex-shrink:0;">
+        ${Object.entries(SOCIAL_PLATFORMS).map(([k,v])=>`<option value="${k}" ${l.platform===k?'selected':''}>${v.label}</option>`).join("")}
+      </select>
+      <input value="${l.url||''}" data-social-url="${i}" placeholder="الرابط أو الرقم">
+      <button class="icon-btn" data-remove-link="${i}" style="flex-shrink:0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </div>`).join("");
+  wrap.querySelectorAll("[data-remove-link]").forEach(b=> b.onclick = ()=>{ links.splice(Number(b.dataset.removeLink),1); renderSocialInputs(links); });
 }
 $("btn-add-link").onclick = ()=>{
-  const wrap = $("set-links-wrap");
-  const current = [...wrap.querySelectorAll("input")].map(i=>i.value);
+  const wrap = $("set-socials-wrap");
+  const current = [...wrap.querySelectorAll("select")].map((sel,i)=>({ platform: sel.value, url: wrap.querySelectorAll("input")[i].value }));
   const max = Number(wrap.dataset.max || 1);
   if(current.length >= max){ toast(`الحد الأقصى ${max} روابط حسب باقتك`); return; }
-  current.push("");
-  renderLinkInputs(current);
+  current.push({platform:"other", url:""});
+  renderSocialInputs(current);
 };
+
+/* ---------------- طلب التوثيق ---------------- */
+let pendingVerifyIdUrl = null;
+function renderVerifyBox(p){
+  const box = $("verify-status-box"); const form = $("verify-form");
+  if(p.verifiedType){
+    box.innerHTML = `<div class="locked-note">حسابك موثّق بالفعل ✓ (${p.verifiedType==='pro'?'برو':p.verifiedType==='investigator'?'محقق منه':'مبرمج'})</div>`;
+    form.classList.add("hidden");
+  }else if(p.verificationStatus==="pending"){
+    box.innerHTML = `<div class="locked-note">طلب التوثيق قيد المراجعة من الفريق</div>`;
+    form.classList.add("hidden");
+  }else{
+    box.innerHTML = p.verificationStatus==="rejected" ? `<p class="subtitle" style="text-align:right; color:var(--danger);">تم رفض طلبك السابق، تقدر تعيد التقديم</p>` : "";
+    form.classList.remove("hidden");
+  }
+}
+$("btn-upload-id").onclick = ()=> $("verify-id-file").click();
+$("verify-id-file").addEventListener("change", async (e)=>{
+  const file = e.target.files[0]; if(!file) return;
+  const btn = $("btn-upload-id"); btn.innerHTML='<div class="spinner spinner-dark"></div>'; btn.disabled=true;
+  try{
+    const fd = new FormData(); fd.append("image", file);
+    const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method:"POST", body:fd });
+    const data = await res.json();
+    if(data.success){ pendingVerifyIdUrl = data.data.url; $("verify-id-status").textContent = "تم رفع الصورة بنجاح"; }
+    else{ toast("تعذر رفع الصورة"); }
+  }catch(err){ toast("تعذر رفع الصورة"); }
+  btn.textContent = "رفع صورة الهوية"; btn.disabled=false;
+});
+$("btn-submit-verify").onclick = async ()=>{
+  if(!pendingVerifyIdUrl){ toast("ارفع صورة الهوية الأول"); return; }
+  await addDoc(collection(db,"verificationRequests"), {
+    uid: currentUser.uid, username: myProfile.username, fullName: myProfile.fullName,
+    type: $("verify-type").value, idPhotoUrl: pendingVerifyIdUrl, status:"pending", createdAt: serverTimestamp()
+  });
+  await updateDoc(doc(db, USERS_COL, currentUser.uid), { verificationStatus:"pending" });
+  myProfile.verificationStatus = "pending";
+  toast("تم إرسال طلب التوثيق");
+  renderVerifyBox(myProfile);
+};
+
+$("btn-open-verify-requests").onclick = ()=>{ renderVerifyRequests(); show("screen-verify-requests"); };
+$("btn-verify-requests-back").onclick = ()=> show("screen-settings");
+async function renderVerifyRequests(){
+  const snap = await getDocs(query(collection(db,"verificationRequests"), where("status","==","pending"), orderBy("createdAt","desc")));
+  const wrap = $("verify-requests-list");
+  if(snap.empty){ wrap.innerHTML = `<div class="empty-state"><p>مفيش طلبات توثيق حاليًا</p></div>`; return; }
+  const typeLabel = {pro:"توثيق برو", investigator:"محقق منه", developer:"مبرمجين"};
+  wrap.innerHTML = snap.docs.map(d=>{
+    const r = d.data();
+    return `<div class="glass-card section-pad" style="margin-bottom:12px;">
+      <div style="font-weight:700;">${r.fullName} <span class="post-username">@${r.username}</span></div>
+      <div class="chip" style="margin-top:8px;">${typeLabel[r.type]||r.type}</div>
+      <img src="${r.idPhotoUrl}" style="width:100%; border-radius:14px; margin-top:10px; border:1px solid var(--line);">
+      <div style="display:flex; gap:8px; margin-top:12px;">
+        <button class="btn btn-primary btn-sm" data-approve="${d.id}" data-uid="${r.uid}" data-type="${r.type}">قبول</button>
+        <button class="btn btn-outline btn-sm" data-reject="${d.id}" data-uid="${r.uid}">رفض</button>
+      </div>
+    </div>`;
+  }).join("");
+  wrap.querySelectorAll("[data-approve]").forEach(b=> b.onclick = async ()=>{
+    await updateDoc(doc(db, USERS_COL, b.dataset.uid), { verifiedType: b.dataset.type, verificationStatus:"approved" });
+    await updateDoc(doc(db,"verificationRequests", b.dataset.approve), { status:"approved" });
+    renderVerifyRequests();
+  });
+  wrap.querySelectorAll("[data-reject]").forEach(b=> b.onclick = async ()=>{
+    await updateDoc(doc(db, USERS_COL, b.dataset.uid), { verificationStatus:"rejected" });
+    await updateDoc(doc(db,"verificationRequests", b.dataset.reject), { status:"rejected" });
+    renderVerifyRequests();
+  });
+}
 
 $("btn-upload-avatar").onclick = ()=> $("set-avatar-file").click();
 $("set-avatar-file").addEventListener("change", async (e)=>{
@@ -684,7 +875,9 @@ $("set-avatar-file").addEventListener("change", async (e)=>{
 });
 
 $("btn-save-profile").onclick = async ()=>{
-  const links = [...$("set-links-wrap").querySelectorAll("input")].map(i=>i.value.trim()).filter(Boolean);
+  const wrap = $("set-socials-wrap");
+  const selects = [...wrap.querySelectorAll("select")]; const urlInputs = [...wrap.querySelectorAll("input")];
+  const links = selects.map((sel,i)=>({ platform: sel.value, url: urlInputs[i].value.trim() })).filter(l=>l.url);
   await updateDoc(doc(db, USERS_COL, currentUser.uid), { fullName: $("set-fullname").value.trim(), bio: $("set-bio").value.trim(), links });
   myProfile.fullName = $("set-fullname").value.trim(); myProfile.bio = $("set-bio").value.trim(); myProfile.links = links;
   toast("تم حفظ التغييرات");
@@ -703,6 +896,7 @@ $("btn-open-admin").onclick = ()=>{ renderAdmin(); show("screen-admin"); };
 /* ============================================================
    الباقات والدفع (PayPal)
    ============================================================ */
+const FREE_FEATURES = ["نشر منشورات نصية بلا حدود","إعجاب وتعليق ومشاركة","غرفة البرمجة والدردشات العامة","رابط واحد فقط في البروفايل","ملف شخصي عام أو خاص"];
 const PLANS = {
   plus: { name:"باقة Plus", features:["فتح كل مميزات التطبيق ما عدا التوثيق","رفع صور وفيديوهات وملفات بلا حدود إضافية","دعم فني بأولوية","شارة مميزة على المنشورات","حتى 3 روابط في البروفايل"],
     tiers:[{label:"أسبوعي", egp:60, usd:1, days:7},{label:"شهري", egp:150, usd:2, days:30},{label:"3 أشهر", egp:450, usd:5, days:90},{label:"سنوي", egp:1800, usd:20, days:365}] },
@@ -711,7 +905,12 @@ const PLANS = {
 };
 function renderPlans(){
   const wrap = $("plans-content");
-  wrap.innerHTML = Object.entries(PLANS).map(([key,plan])=>`
+  wrap.innerHTML = `
+    <div class="glass-card plan-card" style="margin-bottom:16px;">
+      <h3 style="margin:0;">الباقة المجانية</h3>
+      <ul class="plan-list">${FREE_FEATURES.map(f=>`<li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>${f}</li>`).join("")}</ul>
+    </div>` +
+    Object.entries(PLANS).map(([key,plan])=>`
     <div class="glass-card plan-card" style="margin-bottom:16px;">
       <h3 style="margin:0;">${plan.name}</h3>
       <ul class="plan-list">${plan.features.map(f=>`<li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>${f}</li>`).join("")}</ul>
@@ -732,8 +931,8 @@ function renderPlans(){
           await actions.order.capture();
           const days = Number(slot.dataset.days);
           const expires = new Date(Date.now() + days*86400000);
-          await updateDoc(doc(db, USERS_COL, currentUser.uid), { isPro:true, proExpiresAt: expires, proPlan: slot.dataset.plan, proTier: slot.dataset.label });
-          myProfile.isPro = true; myProfile.proExpiresAt = expires;
+          await updateDoc(doc(db, USERS_COL, currentUser.uid), { planTier: slot.dataset.plan, isPro: slot.dataset.plan!=="free", proExpiresAt: expires, proTier: slot.dataset.label });
+          myProfile.planTier = slot.dataset.plan; myProfile.proExpiresAt = expires;
           toast("تم تفعيل اشتراكك، أهلاً بك في برو");
           show("screen-settings"); renderSettings();
         },
@@ -768,7 +967,7 @@ function renderAdminList(users){
       </div>
       <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;">
         <button class="btn btn-sm ${u.banned?'btn-outline':'btn-danger'}" data-ban="${u.id}" data-state="${u.banned}">${u.banned?'إلغاء الحظر':'حظر'}</button>
-        <button class="btn btn-sm btn-outline" data-pro="${u.id}" data-state="${u.isPro}">${u.isPro?'إلغاء برو':'تفعيل برو'}</button>
+        <button class="btn btn-sm btn-outline" data-pro="${u.id}" data-state="${u.planTier||'free'}">${u.planTier==='pro'?'إرجاع لمجاني':(u.planTier==='plus'?'ترقية لـPro':'تفعيل Plus')}</button>
         <button class="btn btn-sm btn-outline" data-admin="${u.id}" data-state="${u.isAdmin}">${u.isAdmin?'إزالة أدمن':'تعيين أدمن'}</button>
         <select class="btn btn-sm btn-outline" data-verify="${u.id}" style="appearance:auto;">
           <option value="">بدون توثيق</option>
@@ -785,7 +984,9 @@ function renderAdminList(users){
     renderAdmin();
   });
   $("admin-users-list").querySelectorAll("[data-pro]").forEach(b=> b.onclick = async ()=>{
-    await updateDoc(doc(db,USERS_COL,b.dataset.pro), { isPro: !(b.dataset.state==="true") });
+    const cur = b.dataset.state;
+    const next = cur==="free" ? "plus" : (cur==="plus" ? "pro" : "free");
+    await updateDoc(doc(db,USERS_COL,b.dataset.pro), { planTier: next, isPro: next!=="free" });
     renderAdmin();
   });
   $("admin-users-list").querySelectorAll("[data-admin]").forEach(b=> b.onclick = async ()=>{
