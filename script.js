@@ -201,7 +201,7 @@ $("btn-google-login").onclick = async ()=>{
   }catch(err){
     awaitingManualFlow = false;
     console.error(err);
-    toast("تعذر الدخول بحساب جوجل، تأكد من تفعيل تسجيل الدخول بجوجل في Firebase");
+    toast("تعذر الدخول بحساب جوجل، حاول تاني");
   }
 };
 
@@ -360,7 +360,7 @@ $("btn-finish-register").onclick = async ()=>{
     awaitingManualFlow = false;
     console.error(e);
     err.textContent = e.code==="auth/email-already-in-use" ? "البريد الإلكتروني مستخدم بالفعل"
-      : e.code==="permission-denied" ? "صلاحيات قاعدة البيانات مش مفعّلة، راجع قواعد Firestore"
+      : e.code==="permission-denied" ? "حصلت مشكلة، حاول تاني بعد شوية"
       : "حدث خطأ، حاول مرة أخرى";
     err.style.display="block";
   }
@@ -432,7 +432,7 @@ let resettingPassword = false;
 onAuthStateChanged(auth, async (user)=>{
   currentUser = user;
   if(unsubFeed) unsubFeed(); if(unsubCodeFeed) unsubCodeFeed(); if(unsubNotifs) unsubNotifs();
-  $("splash").classList.add("hide");
+  $("splash").classList.add("hide"); sessionStorage.removeItem("__autoRetried");
   if(resettingPassword) return; // فتح رابط استعادة كلمة المرور — منسيبش أي تنقل يقاطعه
   if(!user){ myProfile=null; $("tabbar").classList.add("hidden"); show("screen-login"); return; }
   if(awaitingManualFlow) return; // شاشة التسجيل بتتظبط يدويًا بعد ما المستند يتحفظ
@@ -444,7 +444,7 @@ onAuthStateChanged(auth, async (user)=>{
     await proceedAfterAuth(user, { id:user.uid, ...snap.data() });
   }catch(e){
     console.error(e);
-    toast("تعذر الاتصال بقاعدة البيانات، راجع قواعد Firestore");
+    toast("تعذر الاتصال، حاول تاني");
     show("screen-login");
   }
 });
@@ -715,7 +715,7 @@ async function toggleGlobalPinAction(postId, currentlyPinned){
 async function deletePostAction(postId){
   if(!confirm("تأكيد حذف المنشور؟ الإجراء ده نهائي")) return;
   try{ await deleteDoc(doc(db, POSTS_COL, postId)); toast("تم حذف المنشور"); }
-  catch(e){ toast("تعذر حذف المنشور، راجع صلاحيات Firestore"); }
+  catch(e){ toast("تعذر حذف المنشور، حاول تاني"); }
 }
 function openReportModal(postId){
   const overlay = document.createElement("div");
@@ -750,7 +750,7 @@ function attachPostEvents(container){
         await updateDoc(pref, { likes: liked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid) });
       }catch(err){
         console.error(err);
-        toast("تعذر تسجيل الإعجاب، راجع صلاحيات Firestore");
+        toast("تعذر تسجيل الإعجاب، حاول تاني");
       }
       btn.disabled = false;
     };
@@ -935,7 +935,7 @@ function startFeedListener(){
     docs.sort((a,b)=> (b.globalPinned===true) - (a.globalPinned===true));
     list.innerHTML = docs.map(p=>postRowHTML(p)).join("");
     attachPostEvents(list);
-  }, (err)=>{ console.error("feed error:", err); toast("تعذر تحميل الفيد، راجع صلاحيات Firestore"); });
+  }, (err)=>{ console.error("feed error:", err); toast("تعذر تحميل الفيد، حاول تاني"); });
 }
 function startCodeFeedListener(){
   const q = query(collection(db, POSTS_COL), where("room","==","code"), limit(80));
@@ -946,7 +946,7 @@ function startCodeFeedListener(){
     const docs = sortByCreatedAtDesc(snap.docs.map(d=>({id:d.id, ...d.data()})));
     list.innerHTML = docs.map(p=>postRowHTML(p)).join("");
     attachPostEvents(list);
-  }, (err)=>{ console.error("code feed error:", err); toast("تعذر تحميل غرفة البرمجة، راجع صلاحيات Firestore"); });
+  }, (err)=>{ console.error("code feed error:", err); toast("تعذر تحميل غرفة البرمجة، حاول تاني"); });
 }
 
 /* ============================================================
@@ -1524,7 +1524,7 @@ async function openChatWithUser(otherUid){
       return `<div class="msg-bubble ${mine?'msg-mine':'msg-theirs'}">${linkify(m.text||"")}<div class="msg-time">${timeAgo(m.createdAt)}</div></div>`;
     }).join("");
     msgsWrap.scrollTop = msgsWrap.scrollHeight;
-  }, (err)=>{ console.error(err); msgsWrap.innerHTML = `<div class="empty-state"><p>تعذر تحميل الرسائل، راجع صلاحيات Firestore</p></div>`; });
+  }, (err)=>{ console.error(err); msgsWrap.innerHTML = `<div class="empty-state"><p>تعذر تحميل الرسائل، حاول تاني</p></div>`; });
 
   $("btn-chat-send").onclick = ()=> sendChatMessage(otherUid, other);
 }
@@ -1545,7 +1545,7 @@ async function sendChatMessage(otherUid, otherProfile){
     }, { merge:true });
     await addDoc(collection(db,"chats",chatId,"messages"), { senderId: currentUser.uid, text, createdAt: serverTimestamp() });
     input.value = "";
-  }catch(e){ console.error(e); toast("تعذر إرسال الرسالة، راجع صلاحيات Firestore"); }
+  }catch(e){ console.error(e); toast("تعذر إرسال الرسالة، حاول تاني"); }
 }
 $("chat-message-input").addEventListener("keydown", (e)=>{ if(e.key==="Enter" && currentChatOtherUid) $("btn-chat-send").click(); });
 
@@ -1671,7 +1671,7 @@ async function renderAdmin(){
     renderAdminList(snap.docs.map(d=>({id:d.id,...d.data()})));
   }catch(e){
     console.error(e);
-    $("admin-users-list").innerHTML = `<div class="empty-state"><p>تعذر تحميل قائمة المستخدمين، راجع صلاحيات Firestore</p></div>`;
+    $("admin-users-list").innerHTML = `<div class="empty-state"><p>تعذر تحميل قائمة المستخدمين، حاول تاني</p></div>`;
   }
 }
 function renderAdminList(users){
@@ -1700,7 +1700,7 @@ function renderAdminList(users){
     try{
       await updateDoc(doc(db,USERS_COL,b.dataset.ban), { banned: !(b.dataset.state==="true") });
       renderAdmin();
-    }catch(e){ console.error(e); toast("تعذر تنفيذ العملية، راجع صلاحيات Firestore"); }
+    }catch(e){ console.error(e); toast("تعذر تنفيذ العملية، حاول تاني"); }
   });
   $("admin-users-list").querySelectorAll("[data-pro]").forEach(b=> b.onclick = async ()=>{
     try{
@@ -1708,17 +1708,17 @@ function renderAdminList(users){
       const next = cur==="free" ? "plus" : (cur==="plus" ? "pro" : "free");
       await updateDoc(doc(db,USERS_COL,b.dataset.pro), { planTier: next, isPro: next!=="free" });
       renderAdmin();
-    }catch(e){ console.error(e); toast("تعذر تنفيذ العملية، راجع صلاحيات Firestore"); }
+    }catch(e){ console.error(e); toast("تعذر تنفيذ العملية، حاول تاني"); }
   });
   $("admin-users-list").querySelectorAll("[data-admin]").forEach(b=> b.onclick = async ()=>{
     try{
       await updateDoc(doc(db,USERS_COL,b.dataset.admin), { isAdmin: !(b.dataset.state==="true") });
       renderAdmin();
-    }catch(e){ console.error(e); toast("تعذر تنفيذ العملية، راجع صلاحيات Firestore"); }
+    }catch(e){ console.error(e); toast("تعذر تنفيذ العملية، حاول تاني"); }
   });
   $("admin-users-list").querySelectorAll("[data-verify]").forEach(sel=> sel.onchange = async ()=>{
     try{ await updateDoc(doc(db,USERS_COL,sel.dataset.verify), { verifiedType: sel.value || null }); }
-    catch(e){ console.error(e); toast("تعذر تنفيذ العملية، راجع صلاحيات Firestore"); }
+    catch(e){ console.error(e); toast("تعذر تنفيذ العملية، حاول تاني"); }
   });
 }
 $("admin-search").addEventListener("input", async ()=>{
@@ -1727,7 +1727,7 @@ $("admin-search").addEventListener("input", async ()=>{
     const snap = await getDocs(query(collection(db, USERS_COL), orderBy("createdAt","desc"), limit(200)));
     const all = snap.docs.map(d=>({id:d.id,...d.data()}));
     renderAdminList(term ? all.filter(u=> (u.username||"").includes(term) || (u.fullName||"").toLowerCase().includes(term)) : all);
-  }catch(e){ console.error(e); toast("تعذر تحميل المستخدمين، راجع صلاحيات Firestore"); }
+  }catch(e){ console.error(e); toast("تعذر تحميل المستخدمين، حاول تاني"); }
 });
 
 /* ============================================================
@@ -1753,7 +1753,7 @@ window.addEventListener("load", ()=>{
 
   if(mode==="resetPassword" && oobCode){
     resettingPassword = true;
-    $("splash").classList.add("hide");
+    $("splash").classList.add("hide"); sessionStorage.removeItem("__autoRetried");
     handlePasswordResetLink(oobCode);
     return;
   }

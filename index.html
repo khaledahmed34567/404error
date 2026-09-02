@@ -517,21 +517,26 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  // حماية أساسية: لو ملف script.js فشل يتحمّل أو حصل فيه خطأ قبل ما يشتغل، امنع شاشة اللوجو من التعليق للأبد
+  // حماية أساسية: لو التحميل اتأخر، نجرب نعيد المحاولة تلقائيًا مرة واحدة بهدوء من غير ما نضايق اليوزر برسائل تقنية
   window.__appBooted = false;
   setTimeout(function(){
     if(window.__appBooted) return;
+    if(!sessionStorage.getItem("__autoRetried")){
+      sessionStorage.setItem("__autoRetried","1");
+      location.reload();
+      return;
+    }
     var splash = document.getElementById("splash");
     if(splash){
       splash.innerHTML =
         '<div style="max-width:320px;text-align:center;padding:24px;font-family:sans-serif;direction:rtl;">' +
-        '<h2 style="margin:0 0 10px;color:#0B0B0C;">تعذر تحميل التطبيق</h2>' +
-        '<p style="color:#86868B;font-size:14px;line-height:1.8;margin:0 0 18px;">حصلت مشكلة في تحميل ملفات التطبيق (script.js). تأكد إن كل الملفات مرفوعة صح على نفس المكان، أو جرّب تفتح الرابط الأصلي بتاع GitHub Pages بدل أي دومين مختصر.</p>' +
-        '<button onclick="location.reload()" style="padding:12px 24px;border-radius:14px;background:#0B0B0C;color:#fff;border:none;font-size:14px;">إعادة المحاولة</button>' +
+        '<div class="splash-logo" style="margin:0 auto 18px;"><img src="https://i.ibb.co/WN3DTcGc/logo.jpg" style="width:100%;height:100%;object-fit:cover;"></div>' +
+        '<p style="color:#86868B;font-size:14px;line-height:1.8;margin:0 0 18px;">في تأخير بسيط في الاتصال، جرّب تاني</p>' +
+        '<button onclick="sessionStorage.removeItem(\'__autoRetried\');location.reload()" style="padding:12px 24px;border-radius:14px;background:#0B0B0C;color:#fff;border:none;font-size:14px;">إعادة المحاولة</button>' +
         '</div>';
       splash.classList.remove("hide");
     }
-  }, 6000);
+  }, 12000);
 </script>
 <script type="module" src="script.js"></script>
 </body>
