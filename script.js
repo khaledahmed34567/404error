@@ -30,6 +30,8 @@ const db = getFirestore(fbApp);
 const USERS_COL = "moustagdem";
 const POSTS_COL = "posssst";
 const SUPPORT_EMAIL = "khwailedapp@gmail.com";
+const ADMIN_WELCOME_EMAIL = "soudadteam@gmail.com";
+const ADMIN_EMAILS = ["khwailedapp@gmail.com", "soudadteam@gmail.com"];
 const IMGBB_KEY = "36b0e2658ed6fad2ca48081442f1539b";
 const PAYPAL_CLIENT_ID = "AW_M1acPABnrPp2AJklYALUDZ1OUA2NS6CPGp3D3ZB9fVIfmfD87le9WZmHF3fOCqINDO3RAtQGWLteZ";
 const LOGO_URL = "https://i.ibb.co/WN3DTcGc/logo.jpg";
@@ -86,6 +88,13 @@ function socialLinkChip(l){
   if(l.platform==="phone" && !href.startsWith("tel:")) href = "tel:"+href.replace(/\s/g,"");
   else if(!href.startsWith("http") && !href.startsWith("tel:")) href = "https://"+href;
   return `<a class="chip" href="${href}" target="_blank" rel="noopener">${socialIconSvg(l.platform)} ${label}</a>`;
+}
+function sortByCreatedAtDesc(arr){
+  return arr.sort((a,b)=>{
+    const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+    const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+    return tb - ta;
+  });
 }
 function planExpiryLabel(profile){
   if(!profile.planTier || profile.planTier==="free") return null;
@@ -334,8 +343,8 @@ $("pinlock-inputs").addEventListener("input", async ()=>{
     }
   }
 });
-$("btn-pinlock-logout").onclick = async ()=>{ sessionStorage.removeItem("pinVerified"); await signOut(auth); };
-$("btn-logout").onclick = async ()=>{ sessionStorage.removeItem("pinVerified"); await signOut(auth); };
+$("btn-pinlock-logout").onclick = async ()=>{ sessionStorage.removeItem("pinVerified"); sessionStorage.removeItem("welcomeSent"); await signOut(auth); };
+$("btn-logout").onclick = async ()=>{ sessionStorage.removeItem("pinVerified"); sessionStorage.removeItem("welcomeSent"); await signOut(auth); };
 
 /* ============================================================
    دورة حياة المصادقة
@@ -344,6 +353,16 @@ let awaitingManualFlow = false;
 
 async function proceedAfterAuth(user, profile){
   myProfile = profile;
+
+  // منح صلاحية الأدمن تلقائيًا لحسابات فريق الإدارة المعروفة
+  if(ADMIN_EMAILS.includes((myProfile.email||"").toLowerCase()) && !myProfile.isAdmin){
+    try{
+      await updateDoc(doc(db, USERS_COL, user.uid), { isAdmin:true, planTier:"pro", isPro:true, verifiedType: myProfile.verifiedType || "app" });
+      myProfile.isAdmin = true; myProfile.planTier = "pro"; myProfile.isPro = true;
+      if(!myProfile.verifiedType) myProfile.verifiedType = "app";
+    }catch(e){ console.error("تعذر منح صلاحية الأدمن:", e); }
+  }
+
   if(myProfile.banned){ renderBannedScreen(); return; }
 
   if(!myProfile.pinHash){
@@ -365,7 +384,7 @@ async function proceedAfterAuth(user, profile){
   if(sessionStorage.getItem("pinVerified")==="1"){ enterApp(); }
   else{ show("screen-pinlock"); clearPinInputs("pinlock-inputs"); }
 
-  sendLoginNotificationMail(user, myProfile);
+  sendLoginWelcome(user, myProfile);
 }
 
 onAuthStateChanged(auth, async (user)=>{
@@ -411,16 +430,25 @@ function renderBannedScreen(){
   </div>`;
 }
 
-async function sendLoginNotificationMail(user, profile){
+async function sendLoginWelcome(user, profile){
+  if(sessionStorage.getItem("welcomeSent")==="1") return;
+  sessionStorage.setItem("welcomeSent","1");
   try{
     await addDoc(collection(db,"mail"), {
       to:[user.email],
       message:{
-        subject:`Welcome ${profile.fullName} — تسجيل دخول جديد`,
-        text:`Welcome ${profile.fullName}, a user has logged into your account on 404.\nأهلاً بك يا ${profile.fullName}، قام أحد المستخدمين بالدخول إلى حسابك على تطبيق 404.`
+        subject:`Welcome ${profile.fullName} — تسجيل دخول جديد على 404`,
+        text:`Welcome ${profile.fullName}, a user has logged into your account on 404.\nأهلاً بك يا ${profile.fullName}، قام أحد المستخدمين بالدخول إلى حسابك على تطبيق 404.\n\nفريق الدعم — ${ADMIN_WELCOME_EMAIL}`,
+        from: `فريق 404 <${ADMIN_WELCOME_EMAIL}>`
       }
     });
   }catch(e){ /* يتطلب تفعيل إضافة Trigger Email من Firebase Extensions */ }
+  try{
+    await addDoc(collection(db, USERS_COL, user.uid, "notifications"), {
+      text:`مرحبًا بك يا ${profile.fullName}، رسالة ترحيب من فريق الإدارة (${ADMIN_WELCOME_EMAIL})`,
+      fromAdmin:true, createdAt: serverTimestamp()
+    });
+  }catch(e){ /* لو فشل الإشعار، الرسالة بالبريد اتبعتت بالفعل */ }
 }
 
 function enterApp(){
@@ -441,42 +469,121 @@ $("code-composer-text").addEventListener("input", ()=>{ $("code-composer-counter
 $("btn-post-submit").onclick = ()=> submitPost($("composer-text"), 500, false);
 $("btn-code-post-submit").onclick = ()=> submitPost($("code-composer-text"), 800, true);
 
+/* ---------- إرفاق صورة في المنشور (متاح لكل المستخدمين) ---------- */
+let pendingComposerImageUrl = null;
+$("btn-composer-image").onclick = ()=> $("composer-image-file").click();
+$("composer-image-file").addEventListener("change", async (e)=>{
+  const file = e.target.files[0]; if(!file) return;
+  const btn = $("btn-composer-image"); btn.innerHTML = '<div class="spinner spinner-dark"></div>';
+  try{
+    const fd = new FormData(); fd.append("image", file);
+    const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method:"POST", body:fd });
+    const data = await res.json();
+    if(data.success){
+      pendingComposerImageUrl = data.data.url;
+      $("composer-media-preview").innerHTML = `<div class="composer-media-preview protected-media"><img src="${pendingComposerImageUrl}" oncontextmenu="return false" draggable="false"><div class="remove-media" id="btn-remove-composer-image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg></div></div>`;
+      $("btn-remove-composer-image").onclick = ()=>{ pendingComposerImageUrl=null; $("composer-media-preview").innerHTML=""; };
+    }else{ toast("تعذر رفع الصورة"); }
+  }catch(err){ toast("تعذر رفع الصورة"); }
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>`;
+  e.target.value = "";
+});
+if(myProfile && myProfile.isAdmin) $("composer-admin-note").style.display = "flex";
+
+/* ---------- اكتشاف روابط PDF / فيديو / صوت — نشرها للأدمن فقط ---------- */
+function extractMediaLink(text){
+  const m = text.match(/https?:\/\/[^\s]+?\.(pdf|mp4|mp3|wav|m4a)(\?[^\s]*)?/i);
+  if(!m) return null;
+  const ext = m[1].toLowerCase();
+  const type = ext==="pdf" ? "pdf" : (ext==="mp4" ? "video" : "audio");
+  return { type, url:m[0] };
+}
+
 async function submitPost(textarea, maxLen, isCode){
   const text = textarea.value.trim();
-  if(!text){ toast("اكتب شيئًا أولاً"); return; }
+  if(!text && !pendingComposerImageUrl){ toast("اكتب شيئًا أولاً"); return; }
   if(text.length > maxLen){ toast("النص طويل جدًا"); return; }
+
+  const media = extractMediaLink(text);
+  if(media && !myProfile.isAdmin){
+    toast("ملفات PDF والفيديو والصوت بيرفعها فريق التطبيق بس");
+    return;
+  }
+
   try{
-    await addDoc(collection(db, POSTS_COL), {
+    const postData = {
       authorId: currentUser.uid,
       authorUsername: myProfile.username,
       authorName: myProfile.fullName,
+      authorNameColor: myProfile.nameColor || null,
       authorPic: myProfile.profilePic || DEFAULT_AVATAR,
       authorVerified: myProfile.verifiedType || null,
+      authorPlan: myProfile.isAdmin ? "admin" : (myProfile.planTier||"free"),
       text, room: isCode ? "code" : "general",
+      imageUrl: !isCode && pendingComposerImageUrl ? pendingComposerImageUrl : null,
+      mediaType: media ? media.type : null,
+      mediaUrl: media ? media.url : null,
+      pinned:false, globalPinned:false,
       likes:[], commentsCount:0, createdAt: serverTimestamp()
-    });
+    };
+    await addDoc(collection(db, POSTS_COL), postData);
     textarea.value=""; textarea.dispatchEvent(new Event("input"));
+    pendingComposerImageUrl = null; $("composer-media-preview") && ($("composer-media-preview").innerHTML="");
     toast("تم النشر");
   }catch(e){ toast("تعذر النشر، حاول مرة أخرى"); }
 }
 
-function postRowHTML(p, dark){
+function mediaBlockHTML(p){
+  let html = "";
+  if(p.imageUrl){
+    html += `<div class="post-image-wrap protected-media"><img src="${p.imageUrl}" oncontextmenu="return false" draggable="false" loading="lazy"></div>`;
+  }
+  if(p.mediaType==="pdf" && p.mediaUrl){
+    html += `<div class="post-media-card">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
+      <div class="media-info"><b>ملف PDF من فريق 404</b><span class="post-username">اضغط للتحميل المباشر</span></div>
+      <a class="btn btn-primary btn-sm" href="${p.mediaUrl}" download target="_blank" rel="noopener">تحميل</a>
+    </div>`;
+  }
+  if(p.mediaType==="video" && p.mediaUrl){
+    html += `<div class="post-video-wrap protected-media"><video src="${p.mediaUrl}" controls controlsList="nodownload" disablePictureInPicture oncontextmenu="return false"></video></div>`;
+  }
+  if(p.mediaType==="audio" && p.mediaUrl){
+    html += `<div class="post-audio-wrap protected-media"><audio src="${p.mediaUrl}" controls controlsList="nodownload" oncontextmenu="return false"></audio></div>`;
+  }
+  return html;
+}
+
+function postRowHTML(p){
   const liked = (p.likes||[]).includes(currentUser?.uid);
+  const nameStyle = p.authorNameColor ? `style="color:${p.authorNameColor}"` : "";
+  const avatarHTML = (p.authorPlan==="pro" || p.authorPlan==="admin")
+    ? `<span class="avatar-pro-ring"><img class="avatar" style="width:38px;height:38px;" src="${p.authorPic||DEFAULT_AVATAR}"></span>`
+    : `<img class="avatar" src="${p.authorPic||DEFAULT_AVATAR}">`;
+  const pinTag = (p.pinned||p.globalPinned) ? `<div class="pinned-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l1.5 5.5L19 9l-4 3.5L16 18l-4-3-4 3 1-5.5L5 9l5.5-1.5L12 2z"/></svg>${p.globalPinned?'مثبّت من الإدارة':'منشور مثبّت'}</div>` : "";
+  const adminPinBtn = (myProfile && myProfile.isAdmin) ? `<button class="post-action" data-global-pin="${p.id}" data-state="${!!p.globalPinned}" title="تثبيت في الفيد للجميع">
+    <svg viewBox="0 0 24 24" fill="${p.globalPinned?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M12 2l1.5 5.5L19 9l-4 3.5L16 18l-4-3-4 3 1-5.5L5 9l5.5-1.5L12 2z"/></svg>
+  </button>` : "";
+  const ownPinBtn = (myProfile && myProfile.id===p.authorId && (myProfile.planTier==="pro"||myProfile.isAdmin)) ? `<button class="post-action" data-own-pin="${p.id}" data-state="${!!p.pinned}" title="تثبيت في بروفايلي">
+    <svg viewBox="0 0 24 24" fill="${p.pinned?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M12 2l1.5 5.5L19 9l-4 3.5L16 18l-4-3-4 3 1-5.5L5 9l5.5-1.5L12 2z"/></svg>
+  </button>` : "";
   return `
   <div class="glass-card post" data-id="${p.id}">
+    ${pinTag}
     <div class="post-head">
-      <img class="avatar" src="${p.authorPic||DEFAULT_AVATAR}">
+      ${avatarHTML}
       <div>
-        <div class="post-author" data-open-user="${p.authorUsername}">${p.authorName||"مستخدم"} ${badgeHTML(p.authorVerified)}</div>
+        <div class="post-author" data-open-user="${p.authorUsername}" ${nameStyle}>${p.authorName||"مستخدم"} ${badgeHTML(p.authorVerified)}</div>
         <div class="post-username">@${p.authorUsername||""}</div>
         <div class="post-time meta-font">${timeAgo(p.createdAt)}</div>
       </div>
     </div>
     <div class="post-text">${linkify(p.text||"")}</div>
+    ${mediaBlockHTML(p)}
     <div class="post-actions">
       <button class="post-action like-btn ${liked?"liked":""}" data-id="${p.id}" data-liked="${liked}">
         <svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 00-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 000-7.8z"/></svg>
-        <span>${(p.likes||[]).length}</span>
+        <span class="like-count" data-open-likers="${p.id}">${(p.likes||[]).length}</span>
       </button>
       <button class="post-action comment-btn" data-id="${p.id}">
         <svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
@@ -486,17 +593,22 @@ function postRowHTML(p, dark){
         <svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v14"/></svg>
         <span>مشاركة</span>
       </button>
+      ${ownPinBtn}${adminPinBtn}
     </div>
   </div>`;
 }
 
 function attachPostEvents(container){
   container.querySelectorAll(".like-btn").forEach(btn=>{
-    btn.onclick = async ()=>{
+    btn.onclick = async (e)=>{
+      if(e.target.closest("[data-open-likers]")) return;
       const id = btn.dataset.id; const liked = btn.dataset.liked==="true";
       const pref = doc(db, POSTS_COL, id);
       await updateDoc(pref, { likes: liked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid) });
     };
+  });
+  container.querySelectorAll("[data-open-likers]").forEach(el=>{
+    el.onclick = async (e)=>{ e.stopPropagation(); openLikersModal(el.dataset.openLikers); };
   });
   container.querySelectorAll(".comment-btn").forEach(btn=>{
     btn.onclick = async ()=>{
@@ -514,45 +626,114 @@ function attachPostEvents(container){
       toast("تم نسخ رابط المنشور");
     };
   });
+  container.querySelectorAll("[data-own-pin]").forEach(btn=>{
+    btn.onclick = async ()=>{
+      const newState = !(btn.dataset.state==="true");
+      if(newState){
+        // نلغي أي تثبيت سابق لباقي منشورات نفس المستخدم أولًا
+        const prev = await getDocs(query(collection(db,POSTS_COL), where("authorId","==",myProfile.id), where("pinned","==",true), limit(5)));
+        await Promise.all(prev.docs.map(d=> updateDoc(doc(db,POSTS_COL,d.id), { pinned:false })));
+      }
+      await updateDoc(doc(db, POSTS_COL, btn.dataset.ownPin), { pinned:newState });
+      toast(newState ? "تم تثبيت المنشور في بروفايلك" : "تم إلغاء التثبيت");
+    };
+  });
+  container.querySelectorAll("[data-global-pin]").forEach(btn=>{
+    btn.onclick = async ()=>{
+      const newState = !(btn.dataset.state==="true");
+      if(newState){
+        const prev = await getDocs(query(collection(db,POSTS_COL), where("globalPinned","==",true), limit(5)));
+        await Promise.all(prev.docs.map(d=> updateDoc(doc(db,POSTS_COL,d.id), { globalPinned:false })));
+      }
+      await updateDoc(doc(db, POSTS_COL, btn.dataset.globalPin), { globalPinned:newState });
+      toast(newState ? "تم تثبيت المنشور للجميع" : "تم إلغاء التثبيت العام");
+    };
+  });
   container.querySelectorAll("[data-open-user]").forEach(el=>{
     el.style.cursor="pointer";
     el.onclick = ()=> openOtherProfile(el.dataset.openUser);
   });
 }
 
+async function openLikersModal(postId){
+  const psnap = await getDoc(doc(db, POSTS_COL, postId));
+  if(!psnap.exists()) return;
+  const likes = psnap.data().likes || [];
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="modal-sheet"><div class="modal-sheet-handle"></div><h3 style="margin:0 0 10px;">الإعجابات (${likes.length})</h3><div id="likers-list-inner"></div></div>`;
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+  const inner = overlay.querySelector("#likers-list-inner");
+  if(!likes.length){ inner.innerHTML = `<p class="subtitle">محدش عمل لايك لسه</p>`; return; }
+  const chunks = [];
+  for(let i=0;i<likes.length;i+=10) chunks.push(likes.slice(i,i+10));
+  let html = "";
+  for(const chunk of chunks){
+    const q = query(collection(db, USERS_COL), where("__name__","in",chunk));
+    const snap = await getDocs(q);
+    snap.docs.forEach(d=>{
+      const u = d.data();
+      html += `<div class="likers-row"><img class="avatar avatar-sm" src="${u.profilePic||DEFAULT_AVATAR}"><div style="font-weight:600; font-size:13.5px;">${u.fullName} ${badgeHTML(u.verifiedType)}</div></div>`;
+    });
+  }
+  inner.innerHTML = html || `<p class="subtitle">محدش عمل لايك لسه</p>`;
+}
+
 function startFeedListener(){
-  const q = query(collection(db, POSTS_COL), where("room","==","general"), orderBy("createdAt","desc"), limit(60));
+  const q = query(collection(db, POSTS_COL), where("room","==","general"), limit(80));
   unsubFeed = onSnapshot(q, (snap)=>{
     const list = $("feed-list");
     if(snap.empty){ list.innerHTML=""; $("feed-empty").classList.remove("hidden"); return; }
     $("feed-empty").classList.add("hidden");
-    list.innerHTML = snap.docs.map(d=>postRowHTML({id:d.id, ...d.data()})).join("");
+    const docs = sortByCreatedAtDesc(snap.docs.map(d=>({id:d.id, ...d.data()})));
+    docs.sort((a,b)=> (b.globalPinned===true) - (a.globalPinned===true));
+    list.innerHTML = docs.map(p=>postRowHTML(p)).join("");
     attachPostEvents(list);
-  });
+  }, (err)=>{ console.error("feed error:", err); toast("تعذر تحميل الفيد، راجع صلاحيات Firestore"); });
 }
 function startCodeFeedListener(){
-  const q = query(collection(db, POSTS_COL), where("room","==","code"), orderBy("createdAt","desc"), limit(60));
+  const q = query(collection(db, POSTS_COL), where("room","==","code"), limit(80));
   unsubCodeFeed = onSnapshot(q, (snap)=>{
     const list = $("code-feed-list");
     if(snap.empty){ list.innerHTML=""; $("code-feed-empty").classList.remove("hidden"); return; }
     $("code-feed-empty").classList.add("hidden");
-    list.innerHTML = snap.docs.map(d=>postRowHTML({id:d.id, ...d.data()})).join("");
+    const docs = sortByCreatedAtDesc(snap.docs.map(d=>({id:d.id, ...d.data()})));
+    list.innerHTML = docs.map(p=>postRowHTML(p)).join("");
     attachPostEvents(list);
-  });
+  }, (err)=>{ console.error("code feed error:", err); toast("تعذر تحميل غرفة البرمجة، راجع صلاحيات Firestore"); });
 }
 
 /* ============================================================
-   الإشعارات
+   الإشعارات — مع صوت عند وصول إشعار جديد
    ============================================================ */
+function playNotifSound(){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const osc = ctx.createOscillator(); const gain = ctx.createGain();
+    osc.type = "sine"; osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime+0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.35);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime+0.36);
+  }catch(e){}
+}
+let notifsFirstLoad = true;
 function startNotifsListener(){
+  notifsFirstLoad = true;
   const q = query(collection(db, USERS_COL, currentUser.uid, "notifications"), orderBy("createdAt","desc"), limit(40));
   unsubNotifs = onSnapshot(q, (snap)=>{
+    if(!notifsFirstLoad){
+      snap.docChanges().forEach(ch=>{ if(ch.type==="added") playNotifSound(); });
+    }
+    notifsFirstLoad = false;
     const list = $("notifs-list");
     if(snap.empty){ list.innerHTML=""; $("notifs-empty").classList.remove("hidden"); return; }
     $("notifs-empty").classList.add("hidden");
     list.innerHTML = snap.docs.map(d=>{
       const n = d.data();
-      return `<div class="notif-item"><div class="notif-dot"></div><div><div style="font-size:14px;">${n.text||""}</div><div class="post-time meta-font" style="margin-top:4px;">${timeAgo(n.createdAt)}</div></div></div>`;
+      return `<div class="notif-item">${n.fromAdmin?'<div class="notif-dot" style="background:var(--gold);"></div>':'<div class="notif-dot"></div>'}<div>${n.fromAdmin?'<div class="chip" style="margin-bottom:5px;">رسالة من الإدارة</div>':''}<div style="font-size:14px;">${n.text||""}</div><div class="post-time meta-font" style="margin-top:4px;">${timeAgo(n.createdAt)}</div></div></div>`;
     }).join("");
   });
 }
@@ -591,7 +772,7 @@ async function renderMyProfile(){
   const p = myProfile;
   const expiry = planExpiryLabel(p);
   $("profile-content").innerHTML = `
-    <div class="profile-cover"></div>
+    <div class="profile-cover" style="${p.coverPhoto?`background-image:url('${p.coverPhoto}'); background-size:cover; background-position:center;`:''}"></div>
     <div class="profile-head">
       <img class="profile-avatar" src="${p.profilePic||DEFAULT_AVATAR}">
       <div class="profile-name">${p.fullName} ${badgeHTML(p.verifiedType)} ${planChip(p)}</div>
@@ -610,10 +791,12 @@ async function renderMyProfile(){
   `;
   $("btn-goto-plans") && ($("btn-goto-plans").onclick = ()=>{ renderPlans(); show("screen-plans"); });
 
-  const q = query(collection(db, POSTS_COL), where("authorId","==",currentUser.uid), orderBy("createdAt","desc"), limit(40));
+  const q = query(collection(db, POSTS_COL), where("authorId","==",currentUser.uid), limit(60));
   const psnap = await getDocs(q);
   const wrap = $("my-posts-feed");
-  wrap.innerHTML = psnap.empty ? `<div class="empty-state"><p>لسه مفيش منشورات</p></div>` : psnap.docs.map(d=>postRowHTML({id:d.id,...d.data()})).join("");
+  const myPosts = sortByCreatedAtDesc(psnap.docs.map(d=>({id:d.id,...d.data()})));
+  myPosts.sort((a,b)=> (b.pinned===true) - (a.pinned===true));
+  wrap.innerHTML = psnap.empty ? `<div class="empty-state"><p>لسه مفيش منشورات</p></div>` : myPosts.map(p=>postRowHTML(p)).join("");
   attachPostEvents(wrap);
 }
 
@@ -647,7 +830,7 @@ async function openOtherProfile(username){
   }
 
   $("other-profile-content").innerHTML = `
-    <div class="profile-cover"></div>
+    <div class="profile-cover" style="${u.coverPhoto?`background-image:url('${u.coverPhoto}'); background-size:cover; background-position:center;`:''}"></div>
     <div class="profile-head">
       <img class="profile-avatar" src="${u.profilePic||DEFAULT_AVATAR}">
       <div class="profile-name">${u.fullName} ${badgeHTML(u.verifiedType)}</div>
@@ -667,10 +850,11 @@ async function openOtherProfile(username){
   if(followBtnEl) followBtnEl.onclick = ()=> toggleFollow(uid, u, iAmFollowing, requested);
 
   if(!isLockedForMe){
-    const pq = query(collection(db, POSTS_COL), where("authorId","==",uid), where("room","==","general"), orderBy("createdAt","desc"), limit(40));
+    const pq = query(collection(db, POSTS_COL), where("authorId","==",uid), where("room","==","general"), limit(60));
     const psnap = await getDocs(pq);
     const wrap = $("other-posts-feed");
-    wrap.innerHTML = psnap.empty ? `<div class="empty-state"><p>لا يوجد منشورات</p></div>` : psnap.docs.map(d=>postRowHTML({id:d.id,...d.data()})).join("");
+    const theirPosts = sortByCreatedAtDesc(psnap.docs.map(d=>({id:d.id,...d.data()})));
+    wrap.innerHTML = psnap.empty ? `<div class="empty-state"><p>لا يوجد منشورات</p></div>` : theirPosts.map(p=>postRowHTML(p)).join("");
     attachPostEvents(wrap);
   }
 }
@@ -790,7 +974,7 @@ let pendingVerifyIdUrl = null;
 function renderVerifyBox(p){
   const box = $("verify-status-box"); const form = $("verify-form");
   if(p.verifiedType){
-    box.innerHTML = `<div class="locked-note">حسابك موثّق بالفعل ✓ (${p.verifiedType==='pro'?'برو':p.verifiedType==='investigator'?'محقق منه':'مبرمج'})</div>`;
+    box.innerHTML = `<div class="locked-note">حسابك موثّق بالفعل (${p.verifiedType==='pro'?'برو':p.verifiedType==='investigator'?'محقق منه':'مبرمج'})</div>`;
     form.classList.add("hidden");
   }else if(p.verificationStatus==="pending"){
     box.innerHTML = `<div class="locked-note">طلب التوثيق قيد المراجعة من الفريق</div>`;
@@ -828,19 +1012,19 @@ $("btn-submit-verify").onclick = async ()=>{
 $("btn-open-verify-requests").onclick = ()=>{ renderVerifyRequests(); show("screen-verify-requests"); };
 $("btn-verify-requests-back").onclick = ()=> show("screen-settings");
 async function renderVerifyRequests(){
-  const snap = await getDocs(query(collection(db,"verificationRequests"), where("status","==","pending"), orderBy("createdAt","desc")));
+  const snap = await getDocs(query(collection(db,"verificationRequests"), where("status","==","pending")));
   const wrap = $("verify-requests-list");
   if(snap.empty){ wrap.innerHTML = `<div class="empty-state"><p>مفيش طلبات توثيق حاليًا</p></div>`; return; }
   const typeLabel = {pro:"توثيق برو", investigator:"محقق منه", developer:"مبرمجين"};
-  wrap.innerHTML = snap.docs.map(d=>{
-    const r = d.data();
+  const reqs = sortByCreatedAtDesc(snap.docs.map(d=>({id:d.id, ...d.data()})));
+  wrap.innerHTML = reqs.map(r=>{
     return `<div class="glass-card section-pad" style="margin-bottom:12px;">
       <div style="font-weight:700;">${r.fullName} <span class="post-username">@${r.username}</span></div>
       <div class="chip" style="margin-top:8px;">${typeLabel[r.type]||r.type}</div>
       <img src="${r.idPhotoUrl}" style="width:100%; border-radius:14px; margin-top:10px; border:1px solid var(--line);">
       <div style="display:flex; gap:8px; margin-top:12px;">
-        <button class="btn btn-primary btn-sm" data-approve="${d.id}" data-uid="${r.uid}" data-type="${r.type}">قبول</button>
-        <button class="btn btn-outline btn-sm" data-reject="${d.id}" data-uid="${r.uid}">رفض</button>
+        <button class="btn btn-primary btn-sm" data-approve="${r.id}" data-uid="${r.uid}" data-type="${r.type}">قبول</button>
+        <button class="btn btn-outline btn-sm" data-reject="${r.id}" data-uid="${r.uid}">رفض</button>
       </div>
     </div>`;
   }).join("");
@@ -874,6 +1058,23 @@ $("set-avatar-file").addEventListener("change", async (e)=>{
   btn.textContent = original; btn.disabled=false;
 });
 
+$("btn-upload-cover").onclick = ()=> $("set-cover-file").click();
+$("set-cover-file").addEventListener("change", async (e)=>{
+  const file = e.target.files[0]; if(!file) return;
+  const btn = $("btn-upload-cover"); const original = btn.textContent; btn.innerHTML='<div class="spinner spinner-dark"></div>'; btn.disabled=true;
+  try{
+    const fd = new FormData(); fd.append("image", file);
+    const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method:"POST", body:fd });
+    const data = await res.json();
+    if(data.success){
+      await updateDoc(doc(db, USERS_COL, currentUser.uid), { coverPhoto: data.data.url });
+      myProfile.coverPhoto = data.data.url;
+      toast("تم تحديث صورة الغلاف");
+    }else{ toast("تعذر رفع الصورة"); }
+  }catch(err){ toast("تعذر رفع الصورة"); }
+  btn.textContent = original; btn.disabled=false;
+});
+
 $("btn-save-profile").onclick = async ()=>{
   const wrap = $("set-socials-wrap");
   const selects = [...wrap.querySelectorAll("select")]; const urlInputs = [...wrap.querySelectorAll("input")];
@@ -892,6 +1093,43 @@ $("toggle-autoaccept").addEventListener("change", async ()=>{
   myProfile.autoAcceptFollow = $("toggle-autoaccept").checked;
 });
 $("btn-open-admin").onclick = ()=>{ renderAdmin(); show("screen-admin"); };
+
+/* ============================================================
+   قائمة الصفحات
+   ============================================================ */
+$("btn-open-pages-list").onclick = ()=>{ renderPagesList(); show("screen-pages-list"); };
+$("btn-pages-list-back").onclick = ()=> show("screen-settings");
+function renderPagesList(){
+  const items = [
+    { icon:`<path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/>`, label:"الرئيسية", target:"screen-feed", tab:true },
+    { icon:`<path d="M16 18l6-6-6-6"/><path d="M8 6l-6 6 6 6"/>`, label:"غرفة البرمجة", target:"screen-code", tab:true },
+    { icon:`<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>`, label:"البحث", target:"screen-search", tab:true },
+    { icon:`<path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/>`, label:"الإشعارات", target:"screen-notifs" },
+    { icon:`<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/>`, label:"حسابي", target:"screen-profile", tab:true },
+    { icon:`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09A1.65 1.65 0 0015 4.6a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.36.4.66.74.85`, label:"الإعدادات", target:"screen-settings" },
+    { icon:`<path d="M12 2l1.5 5.5L19 9l-4 3.5L16 18l-4-3-4 3 1-5.5L5 9l5.5-1.5L12 2z"/>`, label:"باقات Plus وPro", target:"screen-plans", action: ()=>renderPlans() },
+  ];
+  if(myProfile.isAdmin){
+    items.push({ icon:`<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 014-4h6a4 4 0 014 4v2"/><path d="M16 3.13a4 4 0 010 7.75"/><path d="M22 21v-2a4 4 0 00-3-3.87"/>`, label:"إدارة المستخدمين", target:"screen-admin", action:()=>renderAdmin() });
+    items.push({ icon:`<path d="M20 6L9 17l-5-5"/>`, label:"طلبات التوثيق", target:"screen-verify-requests", action:()=>renderVerifyRequests() });
+  }
+  items.push({ icon:`<path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012.1 4.2 2 2 0 014.1 2h3a2 2 0 012 1.7c.1.9.3 1.8.6 2.7a2 2 0 01-.4 2.1L8.1 9.7a16 16 0 006.2 6.2l1.2-1.2a2 2 0 012.1-.4c.9.3 1.8.5 2.7.6a2 2 0 011.7 2z"/>`, label:"تواصل مع الدعم الفني", mail:SUPPORT_EMAIL });
+
+  $("pages-list-content").innerHTML = items.map((it,i)=>`
+    <div class="page-list-item" data-page-idx="${i}" style="${i<items.length-1?'border-bottom:1px solid var(--line);':''}">
+      <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17">${it.icon}</svg></div>
+      <span>${it.label}</span>
+    </div>`).join("");
+  $("pages-list-content").querySelectorAll("[data-page-idx]").forEach(el=>{
+    const it = items[Number(el.dataset.pageIdx)];
+    el.onclick = ()=>{
+      if(it.mail){ window.location.href = `mailto:${it.mail}`; return; }
+      if(it.action) it.action();
+      if(it.tab){ document.querySelector(`.tab-item[data-target="${it.target}"]`)?.click(); }
+      else show(it.target);
+    };
+  });
+}
 
 /* ============================================================
    الباقات والدفع (PayPal)

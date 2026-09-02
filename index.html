@@ -31,7 +31,6 @@
       <div>
         <h2 style="margin:0 0 6px">أدخل رمز الدخول</h2>
         <p class="subtitle">اكتب رمز الـPIN المكوّن من ٦ أرقام لفتح حسابك</p>
-        <p class="pin-hint">الكتابة تبدأ من الخانة الأولى (أقصى اليمين)، وكل خانة تُقفل ولا تُملأ إلا بعد ما اللي قبلها تتملي</p>
       </div>
       <div class="pin-row" id="pinlock-inputs">
         <input maxlength="1" inputmode="numeric" type="password">
@@ -118,7 +117,6 @@
       <!-- الخطوة 4: أمان الدخول PIN -->
       <div class="reg-step hidden" id="reg-step-4" style="width:100%; max-width:340px; text-align:center;">
         <p class="subtitle">اختر رمز PIN مكوّن من ٦ أرقام، هتستخدمه لفتح التطبيق كل مرة</p>
-        <p class="pin-hint">ابدأ من الخانة الأولى، وكل خانة بعدها ما تتملاش غير بعد اللي قبلها</p>
         <div class="pin-row" id="reg-pin-inputs">
           <input maxlength="1" inputmode="numeric" type="password"><input maxlength="1" inputmode="numeric" type="password"><input maxlength="1" inputmode="numeric" type="password"><input maxlength="1" inputmode="numeric" type="password"><input maxlength="1" inputmode="numeric" type="password"><input maxlength="1" inputmode="numeric" type="password">
         </div>
@@ -149,10 +147,18 @@
     <div class="feed">
       <div class="glass-card composer">
         <textarea id="composer-text" placeholder="بماذا تفكر؟ اكتب منشورك هنا..." rows="2"></textarea>
+        <div id="composer-media-preview"></div>
+        <input type="file" id="composer-image-file" accept="image/*" style="display:none;">
         <div class="composer-actions">
-          <span class="chip" id="composer-counter">0 / 500</span>
+          <div class="composer-tools">
+            <div class="composer-tool-btn" id="btn-composer-image" title="إضافة صورة">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            </div>
+            <span class="chip" id="composer-counter">0 / 500</span>
+          </div>
           <button class="btn btn-accent btn-sm" id="btn-post-submit">نشر</button>
         </div>
+        <p class="feature-lock-note" id="composer-admin-note" style="display:none;">إنت أدمن — لو كتبت رابط بيخلص بـ pdf. / mp4. / mp3. هيتحول تلقائيًا لملف يفتح عند الكل</p>
       </div>
       <div id="feed-list"></div>
       <div id="feed-empty" class="empty-state hidden">
@@ -256,6 +262,10 @@
           <input type="file" id="set-avatar-file" accept="image/*" style="display:none;">
           <button class="btn btn-ghost btn-sm" id="btn-upload-avatar">اختيار صورة ورفعها</button>
         </div>
+        <div style="margin-top:14px;"><label style="display:block; font-size:13px; color:var(--muted); margin-bottom:7px;">صورة الغلاف</label>
+          <input type="file" id="set-cover-file" accept="image/*" style="display:none;">
+          <button class="btn btn-ghost btn-sm" id="btn-upload-cover">اختيار صورة غلاف ورفعها</button>
+        </div>
         <button class="btn btn-primary" style="margin-top:14px;" id="btn-save-profile">حفظ التغييرات</button>
       </div>
 
@@ -323,6 +333,13 @@
         </div>
       </div>
 
+      <div class="glass-card section-pad" style="padding:0;">
+        <div class="page-list-item" id="btn-open-pages-list">
+          <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg></div>
+          <span>قائمة الصفحات</span>
+        </div>
+      </div>
+
       <button class="btn btn-outline" id="btn-logout">تسجيل خروج</button>
     </div>
   </section>
@@ -334,6 +351,15 @@
       <h1>باقة برو</h1><div style="width:38px;"></div>
     </div>
     <div class="section-pad" id="plans-content"></div>
+  </section>
+
+  <!-- ================= قائمة الصفحات ================= -->
+  <section class="screen" id="screen-pages-list">
+    <div class="topbar">
+      <div class="icon-btn" id="btn-pages-list-back"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+      <h1>قائمة الصفحات</h1><div style="width:38px;"></div>
+    </div>
+    <div class="glass-card section-pad" style="margin:14px; padding:0;" id="pages-list-content"></div>
   </section>
 
   <!-- ================= صفحة 404 ================= -->

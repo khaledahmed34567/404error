@@ -59,6 +59,42 @@ body{
 h1,h2,h3,h4,.title-font{ font-family:"F404-Title","Baloo Bhaijaan 2",sans-serif; letter-spacing:.2px; }
 time,.meta-font,.time-font{ font-family:"F404-Meta","IBM Plex Sans Arabic",sans-serif; }
 img{ user-select:none; -webkit-user-drag:none; }
+.protected-media{ -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; -webkit-user-drag:none; pointer-events:auto; }
+.protected-media img, .protected-media video{ -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; -webkit-user-drag:none; }
+
+/* ---------- وسائط المنشورات ---------- */
+.post-image-wrap{ margin-top:10px; border-radius:var(--radius-md); overflow:hidden; border:1px solid var(--line); position:relative; }
+.post-image-wrap img{ width:100%; height:auto; display:block; }
+.post-media-card{ margin-top:10px; padding:12px; border-radius:var(--radius-md); background:var(--bg-sunk); border:1px solid var(--line); display:flex; align-items:center; gap:12px; }
+.post-media-card svg{ width:26px; height:26px; stroke:var(--ink); flex-shrink:0; }
+.post-media-card .media-info{ flex:1; min-width:0; }
+.post-media-card .media-info b{ display:block; font-size:13.5px; }
+.post-video-wrap{ margin-top:10px; border-radius:var(--radius-md); overflow:hidden; background:#000; }
+.post-video-wrap video{ width:100%; display:block; max-height:420px; }
+.post-audio-wrap{ margin-top:10px; padding:12px 14px; border-radius:var(--radius-md); background:var(--bg-sunk); border:1px solid var(--line); }
+.post-audio-wrap audio{ width:100%; accent-color:var(--accent); }
+.composer-media-preview{ position:relative; margin-top:10px; border-radius:14px; overflow:hidden; max-width:160px; }
+.composer-media-preview img{ width:100%; display:block; }
+.composer-media-preview .remove-media{ position:absolute; top:6px; left:6px; width:24px; height:24px; border-radius:50%; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.composer-media-preview .remove-media svg{ width:13px; height:13px; stroke:#fff; }
+.composer-tools{ display:flex; gap:8px; align-items:center; }
+.composer-tool-btn{ width:34px; height:34px; border-radius:50%; background:var(--bg-sunk); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.composer-tool-btn svg{ width:17px; height:17px; stroke:var(--ink); }
+.avatar-pro-ring{ padding:2px; background:linear-gradient(135deg,#0A84FF,#5E5CE6,#C89B3C); border-radius:50%; }
+.avatar-pro-ring img{ display:block; border-radius:50%; border:2px solid #fff; }
+.pinned-tag{ display:inline-flex; align-items:center; gap:4px; font-size:11px; color:var(--accent); font-weight:700; margin-bottom:6px; }
+.pinned-tag svg{ width:12px; height:12px; }
+.modal-overlay{ position:fixed; inset:0; background:rgba(11,11,12,.35); backdrop-filter:blur(4px); z-index:300; display:flex; align-items:flex-end; justify-content:center; }
+.modal-sheet{ background:#fff; width:100%; max-width:560px; max-height:70vh; overflow-y:auto; border-radius:24px 24px 0 0; padding:18px; box-shadow:var(--shadow-glass); }
+.modal-sheet-handle{ width:40px; height:4px; background:var(--line-strong); border-radius:4px; margin:0 auto 14px; }
+.likers-row{ display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); }
+.color-swatches{ display:flex; gap:10px; flex-wrap:wrap; }
+.color-swatch{ width:30px; height:30px; border-radius:50%; cursor:pointer; border:2px solid transparent; }
+.color-swatch.active{ border-color:var(--ink); }
+.page-list-item{ display:flex; align-items:center; gap:14px; padding:15px 16px; cursor:pointer; }
+.page-list-item .icon-btn{ pointer-events:none; }
+.page-list-item span{ font-size:14.5px; font-weight:600; }
+.feature-lock-note{ display:flex; align-items:center; gap:8px; padding:11px 13px; background:var(--bg-sunk); border-radius:12px; font-size:12.5px; color:var(--muted); margin-top:8px; }
 a{ color:inherit; text-decoration:none; }
 button{ font-family:inherit; }
 input,textarea,select{ font-family:"F404-Body",sans-serif; }
