@@ -51,13 +51,13 @@ body{
     radial-gradient(1000px 500px at 110% 10%, #FFF3F0 0%, transparent 50%),
     var(--bg);
   color:var(--ink);
-  font-family:"F404-Body","Rubik",sans-serif;
+  font-family:"F404-Body",sans-serif;
   direction:rtl;
   overflow-x:hidden;
   -webkit-font-smoothing:antialiased;
 }
-h1,h2,h3,h4,.title-font{ font-family:"F404-Title","Baloo Bhaijaan 2",sans-serif; letter-spacing:.2px; }
-time,.meta-font,.time-font{ font-family:"F404-Meta","IBM Plex Sans Arabic",sans-serif; }
+h1,h2,h3,h4,.title-font{ font-family:"F404-Title",sans-serif; letter-spacing:.2px; }
+time,.meta-font,.time-font{ font-family:"F404-Meta",sans-serif; }
 img{ user-select:none; -webkit-user-drag:none; }
 .protected-media{ -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; -webkit-user-drag:none; pointer-events:auto; }
 .protected-media img, .protected-media video{ -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; -webkit-user-drag:none; }
@@ -88,6 +88,46 @@ img{ user-select:none; -webkit-user-drag:none; }
 .modal-sheet{ background:#fff; width:100%; max-width:560px; max-height:70vh; overflow-y:auto; border-radius:24px 24px 0 0; padding:18px; box-shadow:var(--shadow-glass); }
 .modal-sheet-handle{ width:40px; height:4px; background:var(--line-strong); border-radius:4px; margin:0 auto 14px; }
 .likers-row{ display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); }
+/* ---------- الستوريز ---------- */
+.stories-bar{ display:flex; gap:12px; padding:14px 14px 4px; overflow-x:auto; }
+.story-circle{ display:flex; flex-direction:column; align-items:center; gap:5px; flex-shrink:0; cursor:pointer; }
+.story-ring{ width:58px; height:58px; border-radius:50%; padding:2.5px; background:conic-gradient(from 0deg, var(--accent), var(--violet), var(--danger), var(--accent)); }
+.story-ring img{ width:100%; height:100%; border-radius:50%; object-fit:cover; border:2.5px solid #fff; display:block; }
+.story-ring.seen{ background:var(--line-strong); }
+.story-circle span{ font-size:11px; color:var(--ink-soft); max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.story-add-btn{ width:58px; height:58px; border-radius:50%; background:var(--bg-sunk); border:1.5px dashed var(--line-strong); display:flex; align-items:center; justify-content:center; }
+.story-add-btn svg{ width:22px; height:22px; stroke:var(--muted); }
+#screen-story-viewer{ background:#000; }
+#screen-story-viewer.active{ display:flex; flex-direction:column; }
+.story-progress-row{ display:flex; gap:4px; padding:10px 12px 0; }
+.story-progress-track{ flex:1; height:2.5px; background:rgba(255,255,255,.3); border-radius:2px; overflow:hidden; }
+.story-progress-fill{ height:100%; background:#fff; width:0%; }
+.story-slide-head{ display:flex; align-items:center; gap:10px; padding:10px 14px; color:#fff; }
+.story-slide-media{ flex:1; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+.story-slide-media img{ max-width:100%; max-height:100%; object-fit:contain; }
+.story-close{ position:absolute; top:14px; left:14px; z-index:5; }
+/* ---------- الشات ---------- */
+.chat-list-item{ display:flex; align-items:center; gap:12px; padding:13px 4px; border-bottom:1px solid var(--line); cursor:pointer; }
+.chat-list-item .chat-meta{ flex:1; min-width:0; }
+.chat-list-item .chat-last{ font-size:12.5px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#screen-chat-room{ display:flex; flex-direction:column; height:100vh; }
+#screen-chat-room.active{ display:flex; }
+#chat-messages-wrap{ flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:8px; }
+.msg-bubble{ max-width:75%; padding:10px 14px; border-radius:18px; font-size:14px; line-height:1.6; }
+.msg-mine{ align-self:flex-start; background:var(--ink); color:#fff; border-bottom-left-radius:5px; }
+.msg-theirs{ align-self:flex-end; background:var(--bg-sunk); border:1px solid var(--line); border-bottom-right-radius:5px; }
+.msg-time{ font-size:10px; opacity:.6; margin-top:4px; }
+#chat-input-bar{ display:flex; gap:8px; align-items:center; padding:10px; margin:10px; border-radius:24px; position:sticky; bottom:10px; }
+#chat-input-bar input{ flex:1; border:none; background:transparent; padding:8px 10px; font-size:14px; outline:none; }
+/* ---------- قائمة المنشور (3 نقاط) ---------- */
+.post-menu-btn{ margin-right:auto; }
+.post-menu-btn svg{ width:18px; height:18px; }
+.dropdown-menu{ position:absolute; background:#fff; border-radius:16px; box-shadow:var(--shadow-glass); border:1px solid var(--line); padding:6px; z-index:60; min-width:170px; }
+.dropdown-menu button{ width:100%; text-align:right; padding:10px 12px; border-radius:10px; background:none; border:none; font-size:13.5px; display:flex; align-items:center; gap:8px; cursor:pointer; }
+.dropdown-menu button:active{ background:var(--bg-sunk); }
+.dropdown-menu button.danger{ color:var(--danger); }
+/* ---------- تنسيقات إعادة تعيين كلمة المرور ---------- */
+#screen-reset-password .center-screen{ min-height:100vh; }
 .color-swatches{ display:flex; gap:10px; flex-wrap:wrap; }
 .color-swatch{ width:30px; height:30px; border-radius:50%; cursor:pointer; border:2px solid transparent; }
 .color-swatch.active{ border-color:var(--ink); }
@@ -216,6 +256,7 @@ input,textarea,select{ font-family:"F404-Body",sans-serif; }
 .post-time{ color:var(--muted); font-size:11.5px; margin-top:1px; }
 .post-text{ font-size:15px; line-height:1.85; white-space:pre-wrap; word-break:break-word; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
 .post-text a{ color:var(--accent); }
+.hashtag{ color:var(--accent); font-weight:600; cursor:pointer; }
 .post-username{ color:var(--muted); font-size:12.5px; -webkit-user-select:text; user-select:text; }
 .post-actions{ display:flex; align-items:center; gap:18px; margin-top:12px; padding-top:10px; border-top:1px solid var(--line); }
 .post-action{ display:flex; align-items:center; gap:6px; color:var(--muted); font-size:13px; cursor:pointer; background:none; border:none; padding:4px; }
@@ -250,7 +291,7 @@ input,textarea,select{ font-family:"F404-Body",sans-serif; }
 .code-room .topbar{ background:rgba(255,255,255,.05); border-color:rgba(255,255,255,.08); }
 .code-room .topbar h1{ color:var(--code-ink); }
 .code-room .post{ background:rgba(255,255,255,.04); border-radius:var(--radius-md); margin:10px 14px; border:1px solid rgba(255,255,255,.08); }
-.code-room .post-text{ font-family:"F404-Body",monospace; color:#E8E8ED; }
+.code-room .post-text{ font-family:"F404-Body",sans-serif; color:#E8E8ED; }
 .code-room .post-author{ color:#fff; }
 .code-room .composer{ background:rgba(255,255,255,.04); margin:14px; border-radius:var(--radius-md); border:1px solid rgba(255,255,255,.08); }
 .code-room .composer textarea{ color:#fff; }
@@ -306,7 +347,7 @@ input,textarea,select{ font-family:"F404-Body",sans-serif; }
 }
 .notfound-badge svg{ width:28px; height:28px; stroke:var(--ink); }
 .notfound-num{
-  position:relative; display:flex; gap:6px; font-family:"F404-Title","Baloo Bhaijaan 2",sans-serif;
+  position:relative; display:flex; gap:6px; font-family:"F404-Title",sans-serif;
   font-size:104px; line-height:1; font-weight:800; direction:ltr; overflow:hidden;
   background:linear-gradient(135deg, var(--ink) 30%, var(--accent) 65%, var(--violet) 100%);
   -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;

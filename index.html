@@ -140,10 +140,16 @@
     <div class="topbar">
       <div class="icon-btn" id="btn-open-profile-mini"><img id="mini-avatar" class="avatar" style="width:100%;height:100%;border-radius:50%;" src=""></div>
       <img class="topbar-logo" src="https://i.ibb.co/WN3DTcGc/logo.jpg" alt="404">
-      <div class="icon-btn" id="btn-open-notifs">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+      <div style="display:flex; gap:8px;">
+        <div class="icon-btn" id="btn-open-chats" style="position:relative;">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        </div>
+        <div class="icon-btn" id="btn-open-notifs">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+        </div>
       </div>
     </div>
+    <div class="stories-bar" id="stories-bar"></div>
     <div class="feed">
       <div class="glass-card composer">
         <textarea id="composer-text" placeholder="بماذا تفكر؟ اكتب منشورك هنا..." rows="2"></textarea>
@@ -158,7 +164,12 @@
           </div>
           <button class="btn btn-accent btn-sm" id="btn-post-submit">نشر</button>
         </div>
-        <p class="feature-lock-note" id="composer-admin-note" style="display:none;">إنت أدمن — لو كتبت رابط بيخلص بـ pdf. / mp4. / mp3. هيتحول تلقائيًا لملف يفتح عند الكل</p>
+        <div id="composer-admin-tools" class="composer-tools" style="display:none; margin-top:10px; border-top:1px solid var(--line); padding-top:10px;">
+          <div class="composer-tool-btn" id="btn-attach-pdf" title="إرفاق PDF"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg></div>
+          <div class="composer-tool-btn" id="btn-attach-video" title="إرفاق فيديو"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="4"/><path d="M10 9l6 3-6 3V9z"/></svg></div>
+          <div class="composer-tool-btn" id="btn-attach-audio" title="إرفاق رسالة صوتية"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 00-3 3v6a3 3 0 006 0V5a3 3 0 00-3-3z"/><path d="M19 10v1a7 7 0 01-14 0v-1M12 18v4"/></svg></div>
+          <span class="chip" id="admin-media-preview-chip" style="display:none;"></span>
+        </div>
       </div>
       <div id="feed-list"></div>
       <div id="feed-empty" class="empty-state hidden">
@@ -287,6 +298,21 @@
         <button class="btn btn-ghost btn-sm" id="btn-add-link" style="margin-top:10px;">+ إضافة رابط</button>
       </div>
 
+      <div class="glass-card section-pad" id="my-perks-box">
+        <h3 style="margin:0 0 10px;">مميزاتك الحالية</h3>
+        <ul class="plan-list" id="my-perks-list"></ul>
+      </div>
+
+      <div class="glass-card section-pad">
+        <h3 style="margin:0 0 4px;">لون اسمك في المنشورات</h3>
+        <p class="subtitle" style="margin:0 0 12px; text-align:right;">ميزة Plus وPro — لوّن اسمك عشان يبان مميز في الفيد</p>
+        <div class="color-swatches" id="name-color-swatches"></div>
+        <p class="feature-lock-note hidden" id="name-color-locked">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          الميزة دي متاحة لمشتركي Plus وPro فقط
+        </p>
+      </div>
+
       <div class="glass-card section-pad">
         <h3 style="margin:0 0 4px;">طلب توثيق</h3>
         <p class="subtitle" style="margin:0 0 12px; text-align:right;">ارفع صورة هويتك، وفريقنا هيراجع طلبك</p>
@@ -360,6 +386,73 @@
       <h1>قائمة الصفحات</h1><div style="width:38px;"></div>
     </div>
     <div class="glass-card section-pad" style="margin:14px; padding:0;" id="pages-list-content"></div>
+  </section>
+
+  <!-- ================= نتائج الهاشتاج ================= -->
+  <section class="screen" id="screen-hashtag">
+    <div class="topbar">
+      <div class="icon-btn" id="btn-hashtag-back"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+      <h1 id="hashtag-title">#</h1><div style="width:38px;"></div>
+    </div>
+    <div class="feed" id="hashtag-results"></div>
+  </section>
+
+  <!-- ================= زوار البروفايل ================= -->
+  <section class="screen" id="screen-visitors">
+    <div class="topbar">
+      <div class="icon-btn" id="btn-visitors-back"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+      <h1>زوار بروفايلك</h1><div style="width:38px;"></div>
+    </div>
+    <div class="section-pad" id="visitors-list-wrap"></div>
+  </section>
+
+  <!-- ================= الشات ================= -->
+  <section class="screen" id="screen-chats">
+    <div class="topbar">
+      <div class="icon-btn" id="btn-chats-back"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+      <h1>الرسائل</h1><div style="width:38px;"></div>
+    </div>
+    <div class="section-pad" id="chats-list-wrap"></div>
+  </section>
+
+  <!-- ================= محادثة ================= -->
+  <section class="screen" id="screen-chat-room">
+    <div class="topbar">
+      <div class="icon-btn" id="btn-chat-room-back"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <img class="avatar avatar-sm" id="chat-room-avatar" src="">
+        <h1 id="chat-room-title" style="font-size:15px;"></h1>
+      </div>
+      <div style="width:38px;"></div>
+    </div>
+    <div id="chat-messages-wrap"></div>
+    <div class="glass-card" id="chat-input-bar">
+      <input id="chat-message-input" placeholder="اكتب رسالة...">
+      <button class="icon-btn" id="btn-chat-send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg></button>
+    </div>
+    <p class="feature-lock-note hidden" id="chat-locked-note" style="margin:14px;"></p>
+  </section>
+
+  <!-- ================= إعادة تعيين كلمة المرور ================= -->
+  <section class="screen" id="screen-reset-password">
+    <div class="center-screen">
+      <div class="brand-mark"><img src="https://i.ibb.co/WN3DTcGc/logo.jpg" alt=""></div>
+      <div>
+        <h2 style="margin:0 0 6px;">تعيين كلمة مرور جديدة</h2>
+        <p class="subtitle" id="reset-password-email-note"></p>
+      </div>
+      <div style="width:100%; max-width:340px;">
+        <div class="field"><label>كلمة المرور الجديدة</label><input type="password" id="reset-new-pass" placeholder="8 أحرف على الأقل"></div>
+        <div class="field"><label>تأكيد كلمة المرور</label><input type="password" id="reset-new-pass-confirm" placeholder="أعد كتابتها"></div>
+        <p id="reset-password-error" style="color:var(--danger); font-size:13px; display:none;"></p>
+        <button class="btn btn-primary" id="btn-confirm-reset-password">حفظ كلمة المرور الجديدة</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= الستوريز ================= -->
+  <section class="screen" id="screen-story-viewer">
+    <div id="story-viewer-content"></div>
   </section>
 
   <!-- ================= صفحة 404 ================= -->
