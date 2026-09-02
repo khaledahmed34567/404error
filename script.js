@@ -197,13 +197,45 @@ $("btn-google-login").onclick = async ()=>{
   }
 };
 
-$("link-forgot").onclick = async (e)=>{
+$("link-forgot").onclick = (e)=>{
   e.preventDefault();
-  const email = prompt("اكتب بريدك الإلكتروني لإرسال رابط إعادة تعيين كلمة المرور:");
-  if(!email) return;
-  try{ await sendPasswordResetEmail(auth, email); toast("تم إرسال رابط إعادة التعيين إلى بريدك"); }
-  catch(err){ toast("تعذر إرسال الرابط، تأكد من البريد"); }
+  openForgotPasswordModal();
 };
+
+function openForgotPasswordModal(){
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-sheet" style="text-align:right;">
+      <div class="modal-sheet-handle"></div>
+      <h3 style="margin:0 0 6px;">استعادة كلمة المرور</h3>
+      <p class="subtitle" style="margin:0 0 14px; text-align:right;">اكتب بريدك الإلكتروني وهنبعتلك رابط لتعيين كلمة مرور جديدة</p>
+      <div class="field"><input type="email" id="forgot-email-input" placeholder="name@email.com"></div>
+      <p id="forgot-email-error" style="color:var(--danger); font-size:13px; display:none;"></p>
+      <button class="btn btn-primary" id="btn-forgot-send">إرسال رابط إعادة التعيين</button>
+    </div>`;
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+  const input = overlay.querySelector("#forgot-email-input");
+  input.focus();
+  overlay.querySelector("#btn-forgot-send").onclick = async ()=>{
+    const email = input.value.trim();
+    const err = overlay.querySelector("#forgot-email-error");
+    err.style.display = "none";
+    if(!email || !email.includes("@")){ err.textContent = "اكتب بريد إلكتروني صحيح"; err.style.display="block"; return; }
+    const btn = overlay.querySelector("#btn-forgot-send");
+    btn.innerHTML = '<div class="spinner"></div>'; btn.disabled = true;
+    try{
+      await sendPasswordResetEmail(auth, email);
+      overlay.querySelector(".modal-sheet").innerHTML = `<div class="modal-sheet-handle"></div><h3 style="margin:0 0 8px;">تم الإرسال</h3><p class="subtitle" style="text-align:right;">لو البريد ده مسجّل عندنا، هيوصلّك رابط لتعيين كلمة مرور جديدة خلال دقائق. راجع صندوق الوارد أو الرسائل غير المرغوب فيها.</p><button class="btn btn-outline" style="margin-top:14px;" id="btn-forgot-close">تمام</button>`;
+      overlay.querySelector("#btn-forgot-close").onclick = ()=> overlay.remove();
+    }catch(e){
+      btn.textContent = "إرسال رابط إعادة التعيين"; btn.disabled = false;
+      err.textContent = e.code==="auth/invalid-email" ? "صيغة البريد غير صحيحة" : "تعذر إرسال الرابط، حاول مرة أخرى";
+      err.style.display = "block";
+    }
+  };
+}
 
 /* ============================================================
    إنشاء حساب — التنقل بين الخطوات
@@ -505,10 +537,7 @@ async function submitPost(textarea, maxLen, isCode){
   if(text.length > maxLen){ toast("النص طويل جدًا"); return; }
 
   const media = extractMediaLink(text);
-  if(media && !myProfile.isAdmin){
-    toast("ملفات PDF والفيديو والصوت بيرفعها فريق التطبيق بس");
-    return;
-  }
+  const isAllowedMedia = media && myProfile.isAdmin;
 
   try{
     const postData = {
@@ -521,8 +550,8 @@ async function submitPost(textarea, maxLen, isCode){
       authorPlan: myProfile.isAdmin ? "admin" : (myProfile.planTier||"free"),
       text, room: isCode ? "code" : "general",
       imageUrl: !isCode && pendingComposerImageUrl ? pendingComposerImageUrl : null,
-      mediaType: media ? media.type : null,
-      mediaUrl: media ? media.url : null,
+      mediaType: isAllowedMedia ? media.type : null,
+      mediaUrl: isAllowedMedia ? media.url : null,
       pinned:false, globalPinned:false,
       likes:[], commentsCount:0, createdAt: serverTimestamp()
     };
@@ -603,8 +632,15 @@ function attachPostEvents(container){
     btn.onclick = async (e)=>{
       if(e.target.closest("[data-open-likers]")) return;
       const id = btn.dataset.id; const liked = btn.dataset.liked==="true";
-      const pref = doc(db, POSTS_COL, id);
-      await updateDoc(pref, { likes: liked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid) });
+      btn.disabled = true;
+      try{
+        const pref = doc(db, POSTS_COL, id);
+        await updateDoc(pref, { likes: liked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid) });
+      }catch(err){
+        console.error(err);
+        toast("تعذر تسجيل الإعجاب، راجع صلاحيات Firestore");
+      }
+      btn.disabled = false;
     };
   });
   container.querySelectorAll("[data-open-likers]").forEach(el=>{
@@ -1192,8 +1228,13 @@ function loadPayPalSDK(){
    لوحة الإدارة
    ============================================================ */
 async function renderAdmin(){
-  const snap = await getDocs(query(collection(db, USERS_COL), orderBy("createdAt","desc"), limit(100)));
-  renderAdminList(snap.docs.map(d=>({id:d.id,...d.data()})));
+  try{
+    const snap = await getDocs(query(collection(db, USERS_COL), orderBy("createdAt","desc"), limit(100)));
+    renderAdminList(snap.docs.map(d=>({id:d.id,...d.data()})));
+  }catch(e){
+    console.error(e);
+    $("admin-users-list").innerHTML = `<div class="empty-state"><p>تعذر تحميل قائمة المستخدمين، راجع صلاحيات Firestore</p></div>`;
+  }
 }
 function renderAdminList(users){
   $("admin-users-list").innerHTML = users.map(u=>`
@@ -1218,28 +1259,37 @@ function renderAdminList(users){
     </div>`).join("");
 
   $("admin-users-list").querySelectorAll("[data-ban]").forEach(b=> b.onclick = async ()=>{
-    await updateDoc(doc(db,USERS_COL,b.dataset.ban), { banned: !(b.dataset.state==="true") });
-    renderAdmin();
+    try{
+      await updateDoc(doc(db,USERS_COL,b.dataset.ban), { banned: !(b.dataset.state==="true") });
+      renderAdmin();
+    }catch(e){ console.error(e); toast("تعذر تنفيذ العملية، راجع صلاحيات Firestore"); }
   });
   $("admin-users-list").querySelectorAll("[data-pro]").forEach(b=> b.onclick = async ()=>{
-    const cur = b.dataset.state;
-    const next = cur==="free" ? "plus" : (cur==="plus" ? "pro" : "free");
-    await updateDoc(doc(db,USERS_COL,b.dataset.pro), { planTier: next, isPro: next!=="free" });
-    renderAdmin();
+    try{
+      const cur = b.dataset.state;
+      const next = cur==="free" ? "plus" : (cur==="plus" ? "pro" : "free");
+      await updateDoc(doc(db,USERS_COL,b.dataset.pro), { planTier: next, isPro: next!=="free" });
+      renderAdmin();
+    }catch(e){ console.error(e); toast("تعذر تنفيذ العملية، راجع صلاحيات Firestore"); }
   });
   $("admin-users-list").querySelectorAll("[data-admin]").forEach(b=> b.onclick = async ()=>{
-    await updateDoc(doc(db,USERS_COL,b.dataset.admin), { isAdmin: !(b.dataset.state==="true") });
-    renderAdmin();
+    try{
+      await updateDoc(doc(db,USERS_COL,b.dataset.admin), { isAdmin: !(b.dataset.state==="true") });
+      renderAdmin();
+    }catch(e){ console.error(e); toast("تعذر تنفيذ العملية، راجع صلاحيات Firestore"); }
   });
   $("admin-users-list").querySelectorAll("[data-verify]").forEach(sel=> sel.onchange = async ()=>{
-    await updateDoc(doc(db,USERS_COL,sel.dataset.verify), { verifiedType: sel.value || null });
+    try{ await updateDoc(doc(db,USERS_COL,sel.dataset.verify), { verifiedType: sel.value || null }); }
+    catch(e){ console.error(e); toast("تعذر تنفيذ العملية، راجع صلاحيات Firestore"); }
   });
 }
 $("admin-search").addEventListener("input", async ()=>{
-  const term = $("admin-search").value.trim().toLowerCase();
-  const snap = await getDocs(query(collection(db, USERS_COL), orderBy("createdAt","desc"), limit(200)));
-  const all = snap.docs.map(d=>({id:d.id,...d.data()}));
-  renderAdminList(term ? all.filter(u=> (u.username||"").includes(term) || (u.fullName||"").toLowerCase().includes(term)) : all);
+  try{
+    const term = $("admin-search").value.trim().toLowerCase();
+    const snap = await getDocs(query(collection(db, USERS_COL), orderBy("createdAt","desc"), limit(200)));
+    const all = snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderAdminList(term ? all.filter(u=> (u.username||"").includes(term) || (u.fullName||"").toLowerCase().includes(term)) : all);
+  }catch(e){ console.error(e); toast("تعذر تحميل المستخدمين، راجع صلاحيات Firestore"); }
 });
 
 /* ============================================================
@@ -1281,6 +1331,19 @@ window.addEventListener("load", ()=>{
 window.addEventListener("hashchange", ()=>{
   const target = location.hash.replace("#","");
   if(target && !document.getElementById(target)){ showNotFound(); }
+});
+
+/* ---------- منع نسخ نصوص المنشورات والنبذة، مع إبقاء اسم المستخدم قابل للنسخ ---------- */
+document.addEventListener("copy", (e)=>{
+  const target = e.target;
+  if(target && target.closest && (target.closest(".post-text") || target.closest(".profile-bio"))){
+    if(!target.closest(".post-username")){ e.preventDefault(); }
+  }
+});
+document.addEventListener("contextmenu", (e)=>{
+  if(e.target && e.target.closest && (e.target.closest(".post-text") || e.target.closest(".profile-bio")) && !e.target.closest(".post-username")){
+    e.preventDefault();
+  }
 });
 
 /* ---------------- تسجيل Service Worker (PWA) ---------------- */
