@@ -924,6 +924,7 @@ async function openCommentsModal(postId){
     btn.disabled = false;
   };
 }
+async function openLikersModal(postId){
   const psnap = await getDoc(doc(db, POSTS_COL, postId));
   if(!psnap.exists()) return;
   const likes = psnap.data().likes || [];
@@ -1187,6 +1188,7 @@ async function renderVisitorsScreen(){
   wrap.querySelectorAll("[data-visit-user]").forEach(el=> el.style.cursor="pointer");
   wrap.querySelectorAll("[data-visit-user]").forEach(el=> el.onclick = ()=> openOtherProfile(el.dataset.visitUser));
 }
+async function toggleFollow(uid, u, iAmFollowing, requested){
   const myRef = doc(db, USERS_COL, currentUser.uid);
   const otherRef = doc(db, USERS_COL, uid);
   if(iAmFollowing){
