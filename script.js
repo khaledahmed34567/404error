@@ -16,6 +16,29 @@ import {
 
 window.__appBooted = true; // إشارة إن الملف اتحمّل واشتغل فعليًا (تُستخدم في شاشة الحماية بـ index.html)
 
+/* ============================================================
+   شبكة أمان مبكرة لشاشة التحميل (splash)
+   -------------------------------------------------------------
+   بتتسجل هنا فوق (قبل أي كود تاني ممكن يعمل خطأ) عشان تضمن إن
+   شاشة التحميل مش هتفضل واقفة فوق المحتوى للأبد، حتى لو حصل أي
+   خطأ برمجي غير متوقع في أي مكان تاني في الملف ده. الأكواد
+   الأصلية بتاعت الحماية في آخر الملف لسه موجودة زي ما هي، ده
+   بس نسخة إضافية بتتسجل بدري عشان تضمن التنفيذ.
+   ============================================================ */
+function __forceHideSplashEarly(){
+  const splash = document.getElementById("splash");
+  if(splash && !splash.classList.contains("hide")){
+    splash.classList.add("hide");
+    if(!document.querySelector(".screen.active")){
+      const login = document.getElementById("screen-login");
+      if(login) login.classList.add("active");
+    }
+  }
+}
+window.addEventListener("error", ()=>{ setTimeout(__forceHideSplashEarly, 300); });
+window.addEventListener("unhandledrejection", ()=>{ setTimeout(__forceHideSplashEarly, 300); });
+setTimeout(__forceHideSplashEarly, 8000);
+
 /* ---------------- Firebase ---------------- */
 const firebaseConfig = {
   apiKey: "AIzaSyCTGnFOK7m_xNod8mwBPB5HTgTP2BrNm6o",
