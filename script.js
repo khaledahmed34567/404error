@@ -1832,3 +1832,27 @@ document.addEventListener("contextmenu", (e)=>{
 if("serviceWorker" in navigator){
   window.addEventListener("load", ()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
 }
+
+/* ---------------- حماية أخيرة: لو حصل أي خطأ غير متوقع، امنع شاشة اللوجو من التعليق للأبد ---------------- */
+window.addEventListener("error", ()=>{
+  setTimeout(()=>{
+    const splash = document.getElementById("splash");
+    if(splash && !splash.classList.contains("hide")){
+      splash.classList.add("hide");
+      if(!document.querySelector(".screen.active")){
+        const login = document.getElementById("screen-login");
+        if(login) login.classList.add("active");
+      }
+    }
+  }, 300);
+});
+setTimeout(()=>{
+  const splash = document.getElementById("splash");
+  if(splash && !splash.classList.contains("hide")){
+    splash.classList.add("hide");
+    if(!document.querySelector(".screen.active")){
+      const login = document.getElementById("screen-login");
+      if(login) login.classList.add("active");
+    }
+  }
+}, 8000);
