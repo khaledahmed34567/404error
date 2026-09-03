@@ -31,9 +31,9 @@ const db = getFirestore(fbApp);
 
 const USERS_COL = "moustagdem";
 const POSTS_COL = "posssst";
-const SUPPORT_EMAIL = "khwailedapp@gmail.com";
+const SUPPORT_EMAIL = "404team@404error.qd.je";
 const ADMIN_WELCOME_EMAIL = "soudadteam@gmail.com";
-const ADMIN_EMAILS = ["khwailedapp@gmail.com", "soudadteam@gmail.com"];
+const ADMIN_EMAILS = ["khwailedapp@gmail.com", "soudadteam@gmail.com", "404team@404error.qd.je"];
 const IMGBB_KEY = "36b0e2658ed6fad2ca48081442f1539b";
 const PAYPAL_CLIENT_ID = "AW_M1acPABnrPp2AJklYALUDZ1OUA2NS6CPGp3D3ZB9fVIfmfD87le9WZmHF3fOCqINDO3RAtQGWLteZ";
 const LOGO_URL = "https://i.ibb.co/WN3DTcGc/logo.jpg";
@@ -349,7 +349,7 @@ $("btn-finish-register").onclick = async ()=>{
       username, bio:"", links:[], socials:{}, profilePic: DEFAULT_AVATAR,
       isPrivate:false, autoAcceptFollow:true, isAdmin:false, isPro:false, planTier:"free",
       verifiedType:null, verificationStatus:null, followers:[], following:[], followRequests:[],
-      banned:false, pinHash, usernameChangedAt:null, createdAt: serverTimestamp()
+      banned:false, pinHash, usernameChangedAt:null, bookmarks:[], signature:"", createdAt: serverTimestamp()
     };
     await setDoc(doc(db, USERS_COL, cred.user.uid), profileData);
     sessionStorage.setItem("pinVerified","1");
@@ -500,6 +500,7 @@ function enterApp(){
   $("tabbar").classList.remove("hidden");
   $("mini-avatar").src = myProfile.profilePic || DEFAULT_AVATAR;
   $("composer-admin-tools").style.display = myProfile.isAdmin ? "flex" : "none";
+  $("composer-counter").textContent = `${$("composer-text").value.length} / ${postCharLimit()}`;
   document.querySelector('.tab-item[data-target="screen-feed"]').click();
   startFeedListener();
   startCodeFeedListener();
@@ -509,10 +510,11 @@ function enterApp(){
 /* ============================================================
    الفيد — المنشورات
    ============================================================ */
-$("composer-text").addEventListener("input", ()=>{ $("composer-counter").textContent = `${$("composer-text").value.length} / 500`; });
+function postCharLimit(){ return (myProfile && (myProfile.planTier==="plus" || myProfile.planTier==="pro" || myProfile.isAdmin)) ? 800 : 500; }
+$("composer-text").addEventListener("input", ()=>{ $("composer-counter").textContent = `${$("composer-text").value.length} / ${postCharLimit()}`; });
 $("code-composer-text").addEventListener("input", ()=>{ $("code-composer-counter").textContent = `${$("code-composer-text").value.length} / 800`; });
 
-$("btn-post-submit").onclick = ()=> submitPost($("composer-text"), 500, false);
+$("btn-post-submit").onclick = ()=> submitPost($("composer-text"), postCharLimit(), false);
 $("btn-code-post-submit").onclick = ()=> submitPost($("code-composer-text"), 800, true);
 
 /* ---------- إرفاق صورة في المنشور (متاح لكل المستخدمين) ---------- */
@@ -602,10 +604,13 @@ async function submitPost(textarea, maxLen, isCode){
       mediaUrl: finalMedia ? finalMedia.url : null,
       hashtags,
       pinned:false, globalPinned:false,
+      isQuestion: isCode ? !!$("code-mark-question")?.checked : false,
+      solved: false,
       likes:[], commentsCount:0, createdAt: serverTimestamp()
     };
     await addDoc(collection(db, POSTS_COL), postData);
     textarea.value=""; textarea.dispatchEvent(new Event("input"));
+    if(isCode && $("code-mark-question")) $("code-mark-question").checked = false;
     pendingComposerImageUrl = null; $("composer-media-preview") && ($("composer-media-preview").innerHTML="");
     pendingAdminMedia = null; renderAdminMediaPreview();
     toast("تم النشر");
@@ -633,6 +638,18 @@ function mediaBlockHTML(p){
   return html;
 }
 
+function codeify(text){
+  const parts = text.split(/```([\s\S]*?)```/g);
+  let out = "";
+  parts.forEach((part, i)=>{
+    if(i % 2 === 1){
+      const escaped = part.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+      out += `<pre class="code-block">${escaped}</pre>`;
+    }else{ out += linkify(part); }
+  });
+  return out;
+}
+
 function postRowHTML(p){
   const liked = (p.likes||[]).includes(currentUser?.uid);
   const nameStyle = p.authorNameColor ? `style="color:${p.authorNameColor}"` : "";
@@ -645,10 +662,23 @@ function postRowHTML(p){
   const isAdmin = myProfile && myProfile.isAdmin;
   const showMenu = isOwner || isAdmin || (myProfile && !isOwner);
   const signatureHTML = p.authorSignature ? `<div class="post-time meta-font" style="margin-top:8px; color:var(--muted); font-style:italic;">${linkify(p.authorSignature)}</div>` : "";
+  const isQuestion = p.room==="code" && p.isQuestion;
+  const questionTag = isQuestion
+    ? `<span class="question-tag ${p.solved?'q-solved':'q-open'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 17h.01M9.5 9a2.5 2.5 0 015 0c0 1.5-2.5 2-2.5 4"/></svg>${p.solved?'تم الحل':'سؤال مفتوح'}</span>`
+    : "";
+  const solveBtn = (isOwner && isQuestion)
+    ? `<button class="post-action" data-toggle-solved="${p.id}" data-state="${!!p.solved}" title="${p.solved?'إلغاء علامة الحل':'تحديد كمحلول'}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+      </button>` : "";
+  const canBookmark = myProfile && (myProfile.planTier==="plus" || myProfile.planTier==="pro" || myProfile.isAdmin);
+  const isBookmarked = myProfile && (myProfile.bookmarks||[]).includes(p.id);
+  const bookmarkBtn = canBookmark ? `<button class="post-action bookmark-btn ${isBookmarked?'saved':''}" data-bookmark="${p.id}" data-state="${!!isBookmarked}" title="حفظ المنشور">
+      <svg viewBox="0 0 24 24" fill="${isBookmarked?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
+    </button>` : "";
 
   return `
   <div class="glass-card post" data-id="${p.id}">
-    ${pinTag}
+    ${pinTag}${questionTag}
     <div class="post-head">
       ${avatarHTML}
       <div style="flex:1;">
@@ -658,7 +688,7 @@ function postRowHTML(p){
       </div>
       ${showMenu ? `<button class="icon-btn post-menu-btn" data-post-menu="${p.id}" data-owner="${isOwner}" data-pinned="${!!p.pinned}" data-global-pinned="${!!p.globalPinned}" data-canpin="${canPinOwn}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="19" r="1.2"/></svg></button>` : ""}
     </div>
-    <div class="post-text">${linkify(p.text||"")}</div>
+    <div class="post-text">${p.room==="code" ? codeify(p.text||"") : linkify(p.text||"")}</div>
     ${mediaBlockHTML(p)}
     ${signatureHTML}
     <div class="post-actions">
@@ -674,6 +704,7 @@ function postRowHTML(p){
         <svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v14"/></svg>
         <span>مشاركة</span>
       </button>
+      ${bookmarkBtn}${solveBtn}
     </div>
   </div>`;
 }
@@ -770,27 +801,27 @@ function attachPostEvents(container){
       toast("تم نسخ رابط المنشور");
     };
   });
-  container.querySelectorAll("[data-own-pin]").forEach(btn=>{
+  container.querySelectorAll("[data-bookmark]").forEach(btn=>{
     btn.onclick = async ()=>{
-      const newState = !(btn.dataset.state==="true");
-      if(newState){
-        // نلغي أي تثبيت سابق لباقي منشورات نفس المستخدم أولًا
-        const prev = await getDocs(query(collection(db,POSTS_COL), where("authorId","==",myProfile.id), where("pinned","==",true), limit(5)));
-        await Promise.all(prev.docs.map(d=> updateDoc(doc(db,POSTS_COL,d.id), { pinned:false })));
-      }
-      await updateDoc(doc(db, POSTS_COL, btn.dataset.ownPin), { pinned:newState });
-      toast(newState ? "تم تثبيت المنشور في بروفايلك" : "تم إلغاء التثبيت");
+      const id = btn.dataset.bookmark; const saved = btn.dataset.state==="true";
+      btn.disabled = true;
+      try{
+        await updateDoc(doc(db, USERS_COL, currentUser.uid), { bookmarks: saved ? arrayRemove(id) : arrayUnion(id) });
+        if(saved){ myProfile.bookmarks = (myProfile.bookmarks||[]).filter(x=>x!==id); }
+        else{ myProfile.bookmarks = [...(myProfile.bookmarks||[]), id]; }
+        btn.dataset.state = (!saved).toString();
+        btn.classList.toggle("saved", !saved);
+        btn.querySelector("svg").setAttribute("fill", !saved ? "currentColor" : "none");
+        toast(saved ? "تمت إزالة المنشور من المحفوظات" : "تم حفظ المنشور");
+      }catch(e){ toast("تعذر تنفيذ العملية، حاول تاني"); }
+      btn.disabled = false;
     };
   });
-  container.querySelectorAll("[data-global-pin]").forEach(btn=>{
+  container.querySelectorAll("[data-toggle-solved]").forEach(btn=>{
     btn.onclick = async ()=>{
-      const newState = !(btn.dataset.state==="true");
-      if(newState){
-        const prev = await getDocs(query(collection(db,POSTS_COL), where("globalPinned","==",true), limit(5)));
-        await Promise.all(prev.docs.map(d=> updateDoc(doc(db,POSTS_COL,d.id), { globalPinned:false })));
-      }
-      await updateDoc(doc(db, POSTS_COL, btn.dataset.globalPin), { globalPinned:newState });
-      toast(newState ? "تم تثبيت المنشور للجميع" : "تم إلغاء التثبيت العام");
+      const id = btn.dataset.toggleSolved; const newState = !(btn.dataset.state==="true");
+      try{ await updateDoc(doc(db, POSTS_COL, id), { solved:newState }); }
+      catch(e){ toast("تعذر تنفيذ العملية، حاول تاني"); }
     };
   });
   container.querySelectorAll("[data-open-user]").forEach(el=>{
@@ -1129,6 +1160,26 @@ async function trackProfileVisit(uid){
   }catch(e){ /* لو الصلاحيات مش مفعّلة، العداد مش هيتحدث بس باقي التطبيق يشتغل عادي */ }
 }
 
+async function renderBookmarks(){
+  const wrap = $("bookmarks-list");
+  const ids = myProfile.bookmarks || [];
+  if(!ids.length){ wrap.innerHTML = `<div class="empty-state"><p>لسه مفيش منشورات محفوظة</p></div>`; return; }
+  wrap.innerHTML = `<div class="empty-state"><div class="spinner spinner-dark" style="margin:0 auto;"></div></div>`;
+  try{
+    const chunks = [];
+    for(let i=0;i<ids.length;i+=10) chunks.push(ids.slice(i,i+10));
+    let posts = [];
+    for(const chunk of chunks){
+      const snap = await getDocs(query(collection(db, POSTS_COL), where("__name__","in",chunk)));
+      posts.push(...snap.docs.map(d=>({id:d.id, ...d.data()})));
+    }
+    posts = sortByCreatedAtDesc(posts);
+    wrap.innerHTML = posts.length ? posts.map(p=>postRowHTML(p)).join("") : `<div class="empty-state"><p>لسه مفيش منشورات محفوظة</p></div>`;
+    attachPostEvents(wrap);
+  }catch(e){ console.error(e); wrap.innerHTML = `<div class="empty-state"><p>تعذر تحميل المحفوظات</p></div>`; }
+}
+$("btn-bookmarks-back").onclick = ()=> document.querySelector('.tab-item[data-target="screen-feed"]').click();
+
 async function renderVisitorsScreen(){
   const wrap = $("visitors-list-wrap");
   const p = myProfile;
@@ -1195,15 +1246,15 @@ async function toggleFollow(uid, u, iAmFollowing, requested){
 }
 
 const SOCIAL_PLATFORMS = {
-  phone:     { label:"هاتف",     icon:`<path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012.1 4.2 2 2 0 014.1 2h3a2 2 0 012 1.7c.1.9.3 1.8.6 2.7a2 2 0 01-.4 2.1L8.1 9.7a16 16 0 006.2 6.2l1.2-1.2a2 2 0 012.1-.4c.9.3 1.8.5 2.7.6a2 2 0 011.7 2z"/>` },
-  whatsapp:  { label:"واتساب",   icon:`<path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/>` },
-  telegram:  { label:"تيليجرام", icon:`<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>` },
-  linkedin:  { label:"لينكدإن",  icon:`<rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/><path d="M9 21v-9a2 2 0 012-2h1a4 4 0 014 4v7"/><path d="M9 12h.01"/>` },
-  instagram: { label:"انستجرام", icon:`<rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/>` },
-  snapchat:  { label:"سناب شات", icon:`<circle cx="12" cy="12" r="10"/><path d="M8 13c1 1.5 2.5 2 4 2s3-.5 4-2"/><path d="M9 9h.01M15 9h.01"/>` },
-  youtube:   { label:"يوتيوب",   icon:`<rect x="2" y="5" width="20" height="14" rx="4"/><path d="M10 9l6 3-6 3V9z"/>` },
-  x:         { label:"X (تويتر)", icon:`<path d="M4 4l16 16M20 4L4 20"/>` },
-  other:     { label:"رابط آخر", icon:`<path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/>` }
+  phone:     { label:"Phone",     icon:`<path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012.1 4.2 2 2 0 014.1 2h3a2 2 0 012 1.7c.1.9.3 1.8.6 2.7a2 2 0 01-.4 2.1L8.1 9.7a16 16 0 006.2 6.2l1.2-1.2a2 2 0 012.1-.4c.9.3 1.8.5 2.7.6a2 2 0 011.7 2z"/>` },
+  whatsapp:  { label:"WhatsApp",  icon:`<path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/>` },
+  telegram:  { label:"Telegram",  icon:`<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>` },
+  linkedin:  { label:"LinkedIn",  icon:`<rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/><path d="M9 21v-9a2 2 0 012-2h1a4 4 0 014 4v7"/><path d="M9 12h.01"/>` },
+  instagram: { label:"Instagram", icon:`<rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/>` },
+  snapchat:  { label:"Snapchat",  icon:`<circle cx="12" cy="12" r="10"/><path d="M8 13c1 1.5 2.5 2 4 2s3-.5 4-2"/><path d="M9 9h.01M15 9h.01"/>` },
+  youtube:   { label:"YouTube",   icon:`<rect x="2" y="5" width="20" height="14" rx="4"/><path d="M10 9l6 3-6 3V9z"/>` },
+  x:         { label:"X",         icon:`<path d="M4 4l16 16M20 4L4 20"/>` },
+  other:     { label:"Other Link", icon:`<path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/>` }
 };
 function socialIconSvg(key){
   const p = SOCIAL_PLATFORMS[key] || SOCIAL_PLATFORMS.other;
@@ -1235,6 +1286,8 @@ function renderSettings(){
 
   renderVerifyBox(p);
   renderMyPerks(p);
+  renderSignatureBox(p);
+  renderAccountStats(p);
   renderNameColorPicker(p);
 
   const status = planExpiryLabel(p);
@@ -1257,18 +1310,67 @@ function renderMyPerks(p){
     perks.push("نشر ملفات PDF وفيديوهات ورسائل صوتية تفتح عند الجميع");
     perks.push("تثبيت أي منشور في الفيد العام لكل المستخدمين");
     perks.push("إدارة كاملة: حظر، تفعيل باقات، منح توثيق، مراجعة طلبات التوثيق");
+    perks.push("حفظ المنشورات، إحصائيات الحساب، وتوقيع شخصي");
   }else if(p.planTier==="pro"){
     perks.push("تلوين اسمك في المنشورات");
     perks.push("تثبيت منشور واحد أعلى بروفايلك");
     perks.push("هالة مميزة حول صورتك في كل منشور");
     perks.push("إمكانية التقديم على شارة توثيق");
+    perks.push("توقيع شخصي يظهر تحت كل منشور");
+    perks.push("إحصائيات مفصّلة لحسابك");
+    perks.push("حفظ المنشورات وحد أعلى للحروف 800");
   }else if(p.planTier==="plus"){
     perks.push("تلوين اسمك في المنشورات");
-    perks.push("فتح كل مميزات التطبيق ما عدا التوثيق والتثبيت");
+    perks.push("حفظ المنشورات (المحفوظات)");
+    perks.push("حد أعلى للحروف في المنشور 800 بدل 500");
   }else{
     perks.push("رابط واحد بس في البروفايل — رقّي لـ Plus أو Pro عشان تفتح مميزات أكتر");
   }
   $("my-perks-list").innerHTML = perks.map(t=>`<li>${check}${t}</li>`).join("");
+}
+
+/* ---------- التوقيع الشخصي (Pro) ---------- */
+function renderSignatureBox(p){
+  const isPro = p.planTier==="pro" || p.isAdmin;
+  $("set-signature").disabled = !isPro;
+  $("set-signature").value = p.signature || "";
+  $("btn-save-signature").disabled = !isPro;
+  $("signature-locked").classList.toggle("hidden", isPro);
+}
+$("btn-save-signature").onclick = async ()=>{
+  const val = $("set-signature").value.trim();
+  try{
+    await updateDoc(doc(db, USERS_COL, currentUser.uid), { signature: val });
+    myProfile.signature = val;
+    toast("تم حفظ التوقيع");
+  }catch(e){ toast("تعذر الحفظ، حاول تاني"); }
+};
+
+/* ---------- إحصائيات الحساب (Pro) ---------- */
+async function renderAccountStats(p){
+  const isPro = p.planTier==="pro" || p.isAdmin;
+  const box = $("account-stats-box");
+  if(!isPro){
+    box.innerHTML = `<p class="feature-lock-note">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      الإحصائيات المفصّلة متاحة لمشتركي Pro فقط
+    </p>`;
+    return;
+  }
+  box.innerHTML = `<div class="empty-state"><div class="spinner spinner-dark" style="margin:0 auto;"></div></div>`;
+  try{
+    const snap = await getDocs(query(collection(db, POSTS_COL), where("authorId","==",currentUser.uid), limit(300)));
+    const posts = snap.docs.map(d=>d.data());
+    const totalLikes = posts.reduce((s,post)=> s + (post.likes||[]).length, 0);
+    const totalComments = posts.reduce((s,post)=> s + (post.commentsCount||0), 0);
+    box.innerHTML = `
+      <div style="display:flex; gap:10px; text-align:center;">
+        <div style="flex:1;"><div style="font-size:22px; font-weight:800;">${posts.length}</div><div class="post-username">منشور</div></div>
+        <div style="flex:1;"><div style="font-size:22px; font-weight:800;">${totalLikes}</div><div class="post-username">إعجاب</div></div>
+        <div style="flex:1;"><div style="font-size:22px; font-weight:800;">${totalComments}</div><div class="post-username">تعليق</div></div>
+        <div style="flex:1;"><div style="font-size:22px; font-weight:800;">${(p.followers||[]).length}</div><div class="post-username">متابِع</div></div>
+      </div>`;
+  }catch(e){ box.innerHTML = `<p class="subtitle">تعذر تحميل الإحصائيات</p>`; }
 }
 
 /* ---------- اختيار لون الاسم (Plus وPro) ---------- */
@@ -1595,6 +1697,8 @@ function renderPagesList(){
     { icon:`<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>`, label:"البحث", target:"screen-search", tab:true },
     { icon:`<path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/>`, label:"الإشعارات", target:"screen-notifs" },
     { icon:`<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/>`, label:"حسابي", target:"screen-profile", tab:true },
+    { icon:`<path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>`, label:"المحفوظات", target:"screen-bookmarks", action: ()=>renderBookmarks() },
+    { icon:`<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/>`, label:"زوار بروفايلك", target:"screen-visitors", action: ()=>renderVisitorsScreen() },
     { icon:`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09A1.65 1.65 0 0015 4.6a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.36.4.66.74.85`, label:"الإعدادات", target:"screen-settings" },
     { icon:`<path d="M12 2l1.5 5.5L19 9l-4 3.5L16 18l-4-3-4 3 1-5.5L5 9l5.5-1.5L12 2z"/>`, label:"باقات Plus وPro", target:"screen-plans", action: ()=>renderPlans() },
   ];

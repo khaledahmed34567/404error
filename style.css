@@ -4,17 +4,17 @@
 
 @font-face {
   font-family: "F404-Title";
-  src: url("https://files.catbox.moe/t4hxiu.ttf") format("truetype");
+  src: url("https://files.catbox.moe/jou1h3.ttf") format("truetype");
   font-display: swap;
 }
 @font-face {
   font-family: "F404-Body";
-  src: url("https://files.catbox.moe/5nhg4t.ttf") format("truetype");
+  src: url("https://files.catbox.moe/7uq04t.ttf") format("truetype");
   font-display: swap;
 }
 @font-face {
   font-family: "F404-Meta";
-  src: url("https://files.catbox.moe/koigd8.ttf") format("truetype");
+  src: url("https://files.catbox.moe/v9m6dt.ttf") format("truetype");
   font-display: swap;
 }
 
@@ -291,6 +291,12 @@ input,textarea,select{ font-family:"F404-Body",sans-serif; }
 .code-room .topbar h1{ color:var(--code-ink); }
 .code-room .post{ background:rgba(255,255,255,.04); border-radius:var(--radius-md); margin:10px 14px; border:1px solid rgba(255,255,255,.08); }
 .code-room .post-text{ font-family:"F404-Body",sans-serif; color:#E8E8ED; }
+.code-block{ background:#111114; color:#E8E8ED; border:1px solid rgba(255,255,255,.1); border-radius:12px; padding:12px 14px; font-family:monospace; font-size:12.5px; overflow-x:auto; white-space:pre; margin:8px 0; direction:ltr; text-align:left; }
+.question-tag{ display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; margin-bottom:6px; margin-left:6px; }
+.question-tag.q-open{ background:rgba(10,132,255,.14); color:var(--accent); }
+.question-tag.q-solved{ background:rgba(48,209,88,.14); color:var(--green); }
+.question-tag svg{ width:11px; height:11px; }
+.bookmark-btn.saved svg{ fill:var(--ink); }
 .code-room .post-author{ color:#fff; }
 .code-room .composer{ background:rgba(255,255,255,.04); margin:14px; border-radius:var(--radius-md); border:1px solid rgba(255,255,255,.08); }
 .code-room .composer textarea{ color:#fff; }
