@@ -16,29 +16,6 @@ import {
 
 window.__appBooted = true; // إشارة إن الملف اتحمّل واشتغل فعليًا (تُستخدم في شاشة الحماية بـ index.html)
 
-/* ============================================================
-   شبكة أمان مبكرة لشاشة التحميل (splash)
-   -------------------------------------------------------------
-   بتتسجل هنا فوق (قبل أي كود تاني ممكن يعمل خطأ) عشان تضمن إن
-   شاشة التحميل مش هتفضل واقفة فوق المحتوى للأبد، حتى لو حصل أي
-   خطأ برمجي غير متوقع في أي مكان تاني في الملف ده. الأكواد
-   الأصلية بتاعت الحماية في آخر الملف لسه موجودة زي ما هي، ده
-   بس نسخة إضافية بتتسجل بدري عشان تضمن التنفيذ.
-   ============================================================ */
-function __forceHideSplashEarly(){
-  const splash = document.getElementById("splash");
-  if(splash && !splash.classList.contains("hide")){
-    splash.classList.add("hide");
-    if(!document.querySelector(".screen.active")){
-      const login = document.getElementById("screen-login");
-      if(login) login.classList.add("active");
-    }
-  }
-}
-window.addEventListener("error", ()=>{ setTimeout(__forceHideSplashEarly, 300); });
-window.addEventListener("unhandledrejection", ()=>{ setTimeout(__forceHideSplashEarly, 300); });
-setTimeout(__forceHideSplashEarly, 8000);
-
 /* ---------------- Firebase ---------------- */
 const firebaseConfig = {
   apiKey: "AIzaSyCTGnFOK7m_xNod8mwBPB5HTgTP2BrNm6o",
@@ -262,7 +239,9 @@ function openForgotPasswordModal(){
       overlay.querySelector("#btn-forgot-close").onclick = ()=> overlay.remove();
     }catch(e){
       btn.textContent = "إرسال رابط إعادة التعيين"; btn.disabled = false;
-      err.textContent = e.code==="auth/invalid-email" ? "صيغة البريد غير صحيحة" : "تعذر إرسال الرابط، حاول مرة أخرى";
+      if(e.code==="auth/invalid-email") err.textContent = "صيغة البريد غير صحيحة";
+      else if(e.code==="auth/too-many-requests") err.textContent = "محاولات كتير في وقت قصير، استنى شوية وجرب تاني";
+      else err.textContent = "تعذر إرسال الرابط، حاول مرة أخرى";
       err.style.display = "block";
     }
   };
@@ -833,10 +812,18 @@ function openPostMenu(btn){
   const rect = btn.getBoundingClientRect();
   const menu = document.createElement("div");
   menu.className = "dropdown-menu";
-  menu.style.top = `${rect.bottom + window.scrollY + 6}px`;
-  menu.style.right = `${window.innerWidth - rect.right}px`;
   menu.innerHTML = opts.map((o,i)=>`<button data-opt-idx="${i}" class="${o.danger?'danger':''}">${o.label}</button>`).join("");
   document.body.appendChild(menu);
+
+  const menuWidth = menu.offsetWidth || 180;
+  const menuHeight = menu.offsetHeight || 120;
+  let left = rect.right - menuWidth; // نحاذي القائمة مع يمين الزر (اتجاه RTL)
+  left = Math.max(10, Math.min(left, window.innerWidth - menuWidth - 10));
+  let top = rect.bottom + 6;
+  if(top + menuHeight > window.innerHeight - 10){ top = rect.top - menuHeight - 6; } // لو مفيش مساحة تحت، افتحها فوق الزرار
+  menu.style.left = `${left}px`;
+  menu.style.top = `${Math.max(10, top)}px`;
+
   menu.querySelectorAll("button").forEach((b,i)=>{
     b.onclick = ()=>{ menu.remove(); opts[i].action(); };
   });
@@ -924,6 +911,7 @@ async function openCommentsModal(postId){
     btn.disabled = false;
   };
 }
+
 async function openLikersModal(postId){
   const psnap = await getDoc(doc(db, POSTS_COL, postId));
   if(!psnap.exists()) return;
@@ -1188,6 +1176,7 @@ async function renderVisitorsScreen(){
   wrap.querySelectorAll("[data-visit-user]").forEach(el=> el.style.cursor="pointer");
   wrap.querySelectorAll("[data-visit-user]").forEach(el=> el.onclick = ()=> openOtherProfile(el.dataset.visitUser));
 }
+
 async function toggleFollow(uid, u, iAmFollowing, requested){
   const myRef = doc(db, USERS_COL, currentUser.uid);
   const otherRef = doc(db, USERS_COL, uid);
@@ -1597,7 +1586,8 @@ async function sendAdminWelcomeChat(newUserUid, newUserProfile){
 }
 
 $("btn-open-pages-list").onclick = ()=>{ renderPagesList(); show("screen-pages-list"); };
-$("btn-pages-list-back").onclick = ()=> show("screen-settings");
+$("btn-home-pages-list").onclick = ()=>{ renderPagesList(); show("screen-pages-list"); };
+$("btn-pages-list-back").onclick = ()=> document.querySelector('.tab-item[data-target="screen-feed"]').click();
 function renderPagesList(){
   const items = [
     { icon:`<path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/>`, label:"الرئيسية", target:"screen-feed", tab:true },
