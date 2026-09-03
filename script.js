@@ -31,8 +31,9 @@ const db = getFirestore(fbApp);
 
 const USERS_COL = "moustagdem";
 const POSTS_COL = "posssst";
+const STORIES_COL = "stories";
 const SUPPORT_EMAIL = "404team@404error.qd.je";
-const ADMIN_WELCOME_EMAIL = "soudadteam@gmail.com";
+const ADMIN_WELCOME_EMAIL = SUPPORT_EMAIL; // كل الرسائل والإشعارات الآلية تُرسل من حساب الدعم الرسمي فقط، وإيميله لا يظهر لأي مستخدم
 const ADMIN_EMAILS = ["khwailedapp@gmail.com", "soudadteam@gmail.com", "404team@404error.qd.je"];
 const IMGBB_KEY = "36b0e2658ed6fad2ca48081442f1539b";
 const PAYPAL_CLIENT_ID = "AW_M1acPABnrPp2AJklYALUDZ1OUA2NS6CPGp3D3ZB9fVIfmfD87le9WZmHF3fOCqINDO3RAtQGWLteZ";
@@ -91,6 +92,43 @@ function badgeHTML(type){
   const c = map[type]; if(!c) return "";
   return `<span class="badge ${c.cls}" title="${c.title}"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span>`;
 }
+/* ---------------- حساب الدعم الرسمي: إشعارات كلها عبر شات هذا الحساب بدل الإيميل، وإيميله مخفي دائمًا عن المستخدمين ---------------- */
+function chatIdFor(uidA, uidB){ return [uidA, uidB].sort().join("_"); }
+let supportAccountCache = null;
+async function getSupportAccount(){
+  if(supportAccountCache) return supportAccountCache;
+  try{
+    const snap = await getDocs(query(collection(db, USERS_COL), where("email","==",SUPPORT_EMAIL), limit(1)));
+    if(snap.empty) return null;
+    supportAccountCache = { id: snap.docs[0].id, ...snap.docs[0].data() };
+    return supportAccountCache;
+  }catch(e){ return null; }
+}
+/* الحساب الرسمي هو الوحيد المسموح له يبدأ الشات؛ محدش يقدر يبعتله أو يرد عليه */
+async function sendSupportChatMessage(uid, text, extra){
+  try{
+    const admin = await getSupportAccount();
+    if(!admin || admin.id===uid) return;
+    const targetSnap = await getDoc(doc(db, USERS_COL, uid));
+    const target = targetSnap.exists() ? targetSnap.data() : {};
+    const chatId = chatIdFor(uid, admin.id);
+    await setDoc(doc(db,"chats",chatId), {
+      participants:[uid, admin.id],
+      participantInfo:{
+        [uid]: { name: target.fullName||"مستخدم", pic: target.profilePic||DEFAULT_AVATAR, verifiedType: target.verifiedType||null },
+        [admin.id]: { name: admin.fullName||"فريق 404", pic: admin.profilePic||DEFAULT_AVATAR, verifiedType: admin.verifiedType||"app" }
+      },
+      lastMessage:text, lastMessageAt: serverTimestamp()
+    }, { merge:true });
+    await addDoc(collection(db,"chats",chatId,"messages"), { senderId: admin.id, text, createdAt: serverTimestamp(), ...(extra||{}) });
+  }catch(e){ console.error("تعذر إرسال رسالة الدعم:", e); }
+}
+/* بديل موحّد لأي إشعار: يتسجل في قائمة الإشعارات وبالتوازي يوصل كرسالة من حساب الدعم في الشات، بدل أي إيميل */
+async function notifyUser(uid, text, fromAdmin){
+  try{ await addDoc(collection(db, USERS_COL, uid, "notifications"), { text, fromAdmin: !!fromAdmin, createdAt: serverTimestamp() }); }catch(e){ /* استمر حتى لو فشل تسجيل الإشعار */ }
+  sendSupportChatMessage(uid, text);
+}
+
 function lockChip(){
   return `<span class="chip" style="gap:4px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> خاص</span>`;
 }
@@ -165,14 +203,44 @@ $("link-goto-login").onclick = (e)=>{ e.preventDefault(); show("screen-login"); 
 /* ============================================================
    تسجيل الدخول
    ============================================================ */
+/* تسجيل الدخول بالبريد الإلكتروني أو اسم المستخدم أو رقم الهاتف — كلها تتحول لإيميل قبل مصادقة Firebase */
+async function resolveLoginIdentifierToEmail(identifier){
+  let raw = identifier.trim();
+  if(raw.startsWith("@")) raw = raw.slice(1);
+  if(raw.includes("@") && raw.includes(".")) return raw; // إيميل مباشر
+
+  const isPhoneLike = /^[0-9+\s-]{5,}$/.test(raw);
+  if(isPhoneLike){
+    const snap = await getDocs(query(collection(db, USERS_COL), where("phone","==",raw), limit(1)));
+    if(!snap.empty) return snap.docs[0].data().email;
+    // محاولة أخيرة بدون رموز/مسافات
+    const digitsOnly = raw.replace(/[^0-9]/g,"");
+    const all = await getDocs(query(collection(db, USERS_COL), limit(300)));
+    const match = all.docs.find(d=> (d.data().phone||"").replace(/[^0-9]/g,"").endsWith(digitsOnly.slice(-8)) && digitsOnly.length>=8);
+    if(match) return match.data().email;
+    return null;
+  }
+  // اسم مستخدم
+  const uname = raw.toLowerCase();
+  const snap = await getDocs(query(collection(db, USERS_COL), where("username","==",uname), limit(1)));
+  if(!snap.empty) return snap.docs[0].data().email;
+  return null;
+}
+
 $("btn-login").onclick = async ()=>{
-  const email = $("login-email").value.trim();
+  const identifier = $("login-email").value.trim();
   const pass = $("login-password").value;
   $("login-error").style.display="none";
-  if(!email || !pass){ $("login-error").textContent="اكتب البريد وكلمة المرور"; $("login-error").style.display="block"; return; }
+  if(!identifier || !pass){ $("login-error").textContent="اكتب بيانات الدخول وكلمة المرور"; $("login-error").style.display="block"; return; }
   const btn = $("btn-login"); btn.innerHTML='<div class="spinner"></div>'; btn.disabled=true;
   try{
-    await signInWithEmailAndPassword(auth, email, pass);
+    const email = await resolveLoginIdentifierToEmail(identifier);
+    if(!email){
+      $("login-error").textContent = "مفيش حساب بالبيانات دي";
+      $("login-error").style.display="block";
+    }else{
+      await signInWithEmailAndPassword(auth, email, pass);
+    }
   }catch(err){
     $("login-error").textContent = "بيانات الدخول غير صحيحة";
     $("login-error").style.display="block";
@@ -386,8 +454,14 @@ $("pinlock-inputs").addEventListener("input", async ()=>{
     }
   }
 });
-$("btn-pinlock-logout").onclick = async ()=>{ sessionStorage.removeItem("pinVerified"); sessionStorage.removeItem("welcomeSent"); await signOut(auth); };
-$("btn-logout").onclick = async ()=>{ sessionStorage.removeItem("pinVerified"); sessionStorage.removeItem("welcomeSent"); await signOut(auth); };
+async function doLogout(){
+  const uid = currentUser?.uid; const name = myProfile?.fullName;
+  sessionStorage.removeItem("pinVerified"); sessionStorage.removeItem("welcomeSent");
+  if(uid) await sendLogoutNotice(uid, name);
+  await signOut(auth);
+}
+$("btn-pinlock-logout").onclick = doLogout;
+$("btn-logout").onclick = doLogout;
 
 /* ============================================================
    دورة حياة المصادقة
@@ -475,25 +549,15 @@ function renderBannedScreen(){
   </div>`;
 }
 
+/* تسجيل الدخول/الخروج بيوصل كرسالة من حساب الدعم في الشات، بدون أي إيميل حقيقي وبدون إظهار إيميل الفريق للمستخدم */
 async function sendLoginWelcome(user, profile){
   if(sessionStorage.getItem("welcomeSent")==="1") return;
   sessionStorage.setItem("welcomeSent","1");
-  try{
-    await addDoc(collection(db,"mail"), {
-      to:[user.email],
-      message:{
-        subject:`Welcome ${profile.fullName} — تسجيل دخول جديد على 404`,
-        text:`Welcome ${profile.fullName}, a user has logged into your account on 404.\nأهلاً بك يا ${profile.fullName}، قام أحد المستخدمين بالدخول إلى حسابك على تطبيق 404.\n\nفريق الدعم — ${ADMIN_WELCOME_EMAIL}`,
-        from: `فريق 404 <${ADMIN_WELCOME_EMAIL}>`
-      }
-    });
-  }catch(e){ /* يتطلب تفعيل إضافة Trigger Email من Firebase Extensions */ }
-  try{
-    await addDoc(collection(db, USERS_COL, user.uid, "notifications"), {
-      text:`مرحبًا بك يا ${profile.fullName}، رسالة ترحيب من فريق الإدارة (${ADMIN_WELCOME_EMAIL})`,
-      fromAdmin:true, createdAt: serverTimestamp()
-    });
-  }catch(e){ /* لو فشل الإشعار، الرسالة بالبريد اتبعتت بالفعل */ }
+  await notifyUser(user.uid, `تم تسجيل الدخول إلى حسابك يا ${profile.fullName} — لو مش إنت، غيّر كلمة المرور فورًا من الإعدادات`, true);
+}
+async function sendLogoutNotice(uid, fullName){
+  if(!uid) return;
+  await notifyUser(uid, `تم تسجيل الخروج من حسابك يا ${fullName||"صديقنا"}`, true);
 }
 
 function enterApp(){
@@ -505,6 +569,7 @@ function enterApp(){
   startFeedListener();
   startCodeFeedListener();
   startNotifsListener();
+  renderStoriesBar();
 }
 
 /* ============================================================
@@ -644,11 +709,17 @@ function codeify(text){
   parts.forEach((part, i)=>{
     if(i % 2 === 1){
       const escaped = part.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-      out += `<pre class="code-block">${escaped}</pre>`;
+      out += `<pre class="code-block">${escaped}</pre><div class="code-copy-btn" onclick="window.copyCodeBlock(this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> نسخ الكود</div>`;
     }else{ out += linkify(part); }
   });
   return out;
 }
+window.copyCodeBlock = function(btn){
+  const pre = btn.previousElementSibling;
+  if(!pre) return;
+  navigator.clipboard?.writeText(pre.textContent);
+  toast("تم نسخ الكود");
+};
 
 function postRowHTML(p){
   const liked = (p.likes||[]).includes(currentUser?.uid);
@@ -692,7 +763,7 @@ function postRowHTML(p){
     ${mediaBlockHTML(p)}
     ${signatureHTML}
     <div class="post-actions">
-      <button class="post-action like-btn ${liked?"liked":""}" data-id="${p.id}" data-liked="${liked}">
+      <button class="post-action like-btn ${liked?"liked":""}" data-id="${p.id}" data-liked="${liked}" data-author="${p.authorId}">
         <svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 00-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 000-7.8z"/></svg>
         <span class="like-count" data-open-likers="${p.id}">${(p.likes||[]).length}</span>
       </button>
@@ -776,11 +847,12 @@ function attachPostEvents(container){
   container.querySelectorAll(".like-btn").forEach(btn=>{
     btn.onclick = async (e)=>{
       if(e.target.closest("[data-open-likers]")) return;
-      const id = btn.dataset.id; const liked = btn.dataset.liked==="true";
+      const id = btn.dataset.id; const liked = btn.dataset.liked==="true"; const authorId = btn.dataset.author;
       btn.disabled = true;
       try{
         const pref = doc(db, POSTS_COL, id);
         await updateDoc(pref, { likes: liked ? arrayRemove(currentUser.uid) : arrayUnion(currentUser.uid) });
+        if(!liked && authorId && authorId!==currentUser.uid) notifyUser(authorId, `${myProfile.fullName} أعجب بمنشورك`);
       }catch(err){
         console.error(err);
         toast("تعذر تسجيل الإعجاب، حاول تاني");
@@ -901,9 +973,14 @@ async function openCommentsModal(postId){
   const input = overlay.querySelector("#new-comment-input");
   input.addEventListener("input", ()=>{ overlay.querySelector("#comment-counter").textContent = `${input.value.length} / 300`; });
 
+  const postSnapForModal = await getDoc(doc(db, POSTS_COL, postId));
+  const postForModal = postSnapForModal.exists() ? postSnapForModal.data() : {};
+  const isOwnerOfQuestion = myProfile && postForModal.authorId===myProfile.id && postForModal.room==="code" && postForModal.isQuestion;
+
   async function loadComments(){
     const snap = await getDocs(query(collection(db, POSTS_COL, postId, "comments"), limit(100)));
-    const comments = sortByCreatedAtDesc(snap.docs.map(d=>({id:d.id,...d.data()})));
+    let comments = sortByCreatedAtDesc(snap.docs.map(d=>({id:d.id,...d.data()})));
+    comments.sort((a,b)=> (b.isBest===true) - (a.isBest===true));
     const listEl = overlay.querySelector("#comments-list-inner");
     if(!comments.length){ listEl.innerHTML = `<div class="empty-state"><p>لسه مفيش تعليقات، اكتب الأول</p></div>`; return; }
     listEl.innerHTML = comments.map(c=>`
@@ -911,14 +988,26 @@ async function openCommentsModal(postId){
         <img class="avatar avatar-sm" src="${c.authorPic||DEFAULT_AVATAR}">
         <div style="flex:1;">
           <div style="font-weight:600; font-size:13px; display:flex; align-items:center; gap:5px;" data-open-user="${c.authorUsername||''}">${c.authorName||"مستخدم"} ${badgeHTML(c.authorVerified)}</div>
-          <div class="post-text" style="font-size:13.5px; margin-top:2px; user-select:text; -webkit-user-select:text;">${linkify(c.text||"")}</div>
+          <div class="post-text" style="font-size:13.5px; margin-top:2px;">${linkify(c.text||"")}</div>
           <div class="post-time meta-font" style="margin-top:3px;">${timeAgo(c.createdAt)}</div>
+          ${c.isBest ? `<div class="best-answer-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> أفضل إجابة</div>` : (isOwnerOfQuestion ? `<span class="mark-best-btn" data-mark-best="${c.id}">تحديد كأفضل إجابة</span>` : "")}
         </div>
       </div>`).join("");
     listEl.querySelectorAll("[data-open-user]").forEach(el=>{
       if(!el.dataset.openUser) return;
       el.style.cursor="pointer";
       el.onclick = ()=>{ overlay.remove(); openOtherProfile(el.dataset.openUser); };
+    });
+    listEl.querySelectorAll("[data-mark-best]").forEach(el=>{
+      el.onclick = async ()=>{
+        try{
+          const prevBest = await getDocs(query(collection(db, POSTS_COL, postId, "comments"), where("isBest","==",true), limit(5)));
+          await Promise.all(prevBest.docs.map(d=> updateDoc(doc(db, POSTS_COL, postId, "comments", d.id), { isBest:false })));
+          await updateDoc(doc(db, POSTS_COL, postId, "comments", el.dataset.markBest), { isBest:true });
+          toast("تم تحديد أفضل إجابة");
+          loadComments();
+        }catch(e){ toast("تعذر تنفيذ العملية"); }
+      };
     });
   }
   loadComments();
@@ -935,7 +1024,9 @@ async function openCommentsModal(postId){
         text, createdAt: serverTimestamp()
       });
       const postSnap = await getDoc(doc(db, POSTS_COL, postId));
-      await updateDoc(doc(db, POSTS_COL, postId), { commentsCount: (postSnap.data().commentsCount||0)+1 });
+      const postData = postSnap.data();
+      await updateDoc(doc(db, POSTS_COL, postId), { commentsCount: (postData.commentsCount||0)+1 });
+      if(postData.authorId && postData.authorId!==currentUser.uid) notifyUser(postData.authorId, `${myProfile.fullName} علّق على منشورك: ${text.slice(0,60)}`);
       input.value = ""; input.dispatchEvent(new Event("input"));
       loadComments();
     }catch(e){ toast("تعذر إرسال التعليق"); }
@@ -980,17 +1071,29 @@ function startFeedListener(){
     attachPostEvents(list);
   }, (err)=>{ console.error("feed error:", err); toast("تعذر تحميل الفيد، حاول تاني"); });
 }
+let __lastCodeDocs = [];
 function startCodeFeedListener(){
   const q = query(collection(db, POSTS_COL), where("room","==","code"), limit(80));
   unsubCodeFeed = onSnapshot(q, (snap)=>{
     const list = $("code-feed-list");
-    if(snap.empty){ list.innerHTML=""; $("code-feed-empty").classList.remove("hidden"); return; }
+    if(snap.empty){ list.innerHTML=""; __lastCodeDocs=[]; $("code-feed-empty").classList.remove("hidden"); return; }
     $("code-feed-empty").classList.add("hidden");
-    const docs = sortByCreatedAtDesc(snap.docs.map(d=>({id:d.id, ...d.data()})));
-    list.innerHTML = docs.map(p=>postRowHTML(p)).join("");
-    attachPostEvents(list);
+    __lastCodeDocs = sortByCreatedAtDesc(snap.docs.map(d=>({id:d.id, ...d.data()})));
+    renderCodeFeedFiltered();
   }, (err)=>{ console.error("code feed error:", err); toast("تعذر تحميل غرفة البرمجة، حاول تاني"); });
 }
+function renderCodeFeedFiltered(){
+  const term = ($("code-search-input")?.value||"").trim().toLowerCase();
+  const list = $("code-feed-list");
+  const docs = term ? __lastCodeDocs.filter(p=> (p.text||"").toLowerCase().includes(term) || (p.authorUsername||"").toLowerCase().includes(term)) : __lastCodeDocs;
+  list.innerHTML = docs.length ? docs.map(p=>postRowHTML(p)).join("") : `<div class="empty-state" style="color:#6E6E73;"><p>مفيش نتائج مطابقة</p></div>`;
+  attachPostEvents(list);
+}
+let codeSearchDebounce;
+$("code-search-input")?.addEventListener("input", ()=>{
+  clearTimeout(codeSearchDebounce);
+  codeSearchDebounce = setTimeout(renderCodeFeedFiltered, 250);
+});
 
 /* ============================================================
    الإشعارات — مع صوت عند وصول إشعار جديد
@@ -1237,10 +1340,10 @@ async function toggleFollow(uid, u, iAmFollowing, requested){
   }else if(!u.isPrivate || u.autoAcceptFollow){
     await updateDoc(myRef, { following: arrayUnion(uid) });
     await updateDoc(otherRef, { followers: arrayUnion(currentUser.uid) });
-    await addDoc(collection(db, USERS_COL, uid, "notifications"), { text:`${myProfile.fullName} بدأ متابعتك`, createdAt: serverTimestamp() });
+    await notifyUser(uid, `${myProfile.fullName} بدأ متابعتك`);
   }else if(!requested){
     await updateDoc(otherRef, { followRequests: arrayUnion(currentUser.uid) });
-    await addDoc(collection(db, USERS_COL, uid, "notifications"), { text:`${myProfile.fullName} أرسل طلب متابعة`, createdAt: serverTimestamp() });
+    await notifyUser(uid, `${myProfile.fullName} أرسل طلب متابعة`);
   }
   openOtherProfile(viewingUsername);
 }
@@ -1581,8 +1684,6 @@ $("btn-open-chats").onclick = ()=>{ renderChatsList(); show("screen-chats"); };
 $("btn-chats-back").onclick = ()=> show("screen-feed");
 $("btn-chat-room-back").onclick = ()=>{ if(unsubChatMessages) unsubChatMessages(); show("screen-chats"); };
 
-function chatIdFor(uidA, uidB){ return [uidA, uidB].sort().join("_"); }
-
 async function renderChatsList(){
   const wrap = $("chats-list-wrap");
   wrap.innerHTML = `<div class="empty-state"><div class="spinner spinner-dark" style="margin:0 auto;"></div></div>`;
@@ -1617,16 +1718,20 @@ async function openChatWithUser(otherUid){
   $("chat-room-title").textContent = other.fullName;
   show("screen-chat-room");
 
+  const isOfficialSupportAccount = (other.email||"").toLowerCase() === SUPPORT_EMAIL.toLowerCase();
   const iFollow = (myProfile.following||[]).includes(otherUid);
   const chatId = chatIdFor(currentUser.uid, otherUid);
   const chatDoc = await getDoc(doc(db,"chats",chatId));
   const conversationExists = chatDoc.exists();
-  const canSend = iFollow || other.verifiedType || other.isAdmin || conversationExists;
+  // الحساب الرسمي (404team@404error.qd.je) هو اللي يبدأ ويبعت بس؛ محدش يقدر يبعتله أو يرد عليه
+  const canSend = isOfficialSupportAccount ? false : (iFollow || other.verifiedType || other.isAdmin || conversationExists);
 
   $("chat-input-bar").style.display = canSend ? "flex" : "none";
   $("chat-locked-note").classList.toggle("hidden", canSend);
   if(!canSend){
-    $("chat-locked-note").innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> لازم تتابع ${other.fullName} الأول عشان تقدر تبعتله رسالة`;
+    $("chat-locked-note").innerHTML = isOfficialSupportAccount
+      ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> ده حساب رسمي للإشعارات فقط، مش بيستقبل ردود`
+      : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> لازم تتابع ${other.fullName} الأول عشان تقدر تبعتله رسالة`;
   }
 
   if(unsubChatMessages) unsubChatMessages();
@@ -1637,7 +1742,9 @@ async function openChatWithUser(otherUid){
     msgsWrap.innerHTML = snap.docs.map(d=>{
       const m = d.data();
       const mine = m.senderId===currentUser.uid;
-      return `<div class="msg-bubble ${mine?'msg-mine':'msg-theirs'}">${linkify(m.text||"")}<div class="msg-time">${timeAgo(m.createdAt)}</div></div>`;
+      const imgHTML = m.imageUrl ? `<div class="protected-media"><img src="${m.imageUrl}" oncontextmenu="return false" draggable="false"></div>` : "";
+      const storyTagHTML = m.sharedStory ? `<div class="chip" style="margin-bottom:4px;">إعادة مشاركة ستوري</div>` : "";
+      return `<div class="msg-bubble ${mine?'msg-mine':'msg-theirs'} ${m.imageUrl?'msg-story-share':''}">${storyTagHTML}${imgHTML}${m.text?linkify(m.text):""}<div class="msg-time">${timeAgo(m.createdAt)}</div></div>`;
     }).join("");
     msgsWrap.scrollTop = msgsWrap.scrollHeight;
   }, (err)=>{ console.error(err); msgsWrap.innerHTML = `<div class="empty-state"><p>تعذر تحميل الرسائل، حاول تاني</p></div>`; });
@@ -1645,10 +1752,12 @@ async function openChatWithUser(otherUid){
   $("btn-chat-send").onclick = ()=> sendChatMessage(otherUid, other);
 }
 
-async function sendChatMessage(otherUid, otherProfile){
+async function sendChatMessage(otherUid, otherProfile, opts){
   const input = $("chat-message-input");
-  const text = input.value.trim();
-  if(!text) return;
+  const text = opts?.text ?? input.value.trim();
+  const imageUrl = opts?.imageUrl || null;
+  const sharedStory = !!opts?.sharedStory;
+  if(!text && !imageUrl) return;
   const chatId = chatIdFor(currentUser.uid, otherUid);
   try{
     await setDoc(doc(db,"chats",chatId), {
@@ -1657,10 +1766,10 @@ async function sendChatMessage(otherUid, otherProfile){
         [currentUser.uid]: { name: myProfile.fullName, pic: myProfile.profilePic||DEFAULT_AVATAR, verifiedType: myProfile.verifiedType||null },
         [otherUid]: { name: otherProfile.fullName, pic: otherProfile.profilePic||DEFAULT_AVATAR, verifiedType: otherProfile.verifiedType||null }
       },
-      lastMessage:text, lastMessageAt: serverTimestamp()
+      lastMessage: imageUrl ? (sharedStory?"📷 إعادة مشاركة ستوري":"📷 صورة") : text, lastMessageAt: serverTimestamp()
     }, { merge:true });
-    await addDoc(collection(db,"chats",chatId,"messages"), { senderId: currentUser.uid, text, createdAt: serverTimestamp() });
-    input.value = "";
+    await addDoc(collection(db,"chats",chatId,"messages"), { senderId: currentUser.uid, text: text||"", imageUrl, sharedStory, createdAt: serverTimestamp() });
+    if(!opts) input.value = "";
   }catch(e){ console.error(e); toast("تعذر إرسال الرسالة، حاول تاني"); }
 }
 $("chat-message-input").addEventListener("keydown", (e)=>{ if(e.key==="Enter" && currentChatOtherUid) $("btn-chat-send").click(); });
@@ -1687,6 +1796,304 @@ async function sendAdminWelcomeChat(newUserUid, newUserProfile){
   }catch(e){ console.error("تعذر إرسال رسالة الترحيب من الإدارة:", e); }
 }
 
+/* ============================================================
+   الاستوريز — مدة العرض حسب الباقة:
+   مجاني: 24 ساعة ثابتة | Plus: يختار 24 أو 12 ساعة | Pro: مدة مخصّصة بالساعة والدقيقة
+   ============================================================ */
+function storyTierOptions(){
+  const p = myProfile;
+  if(p.isAdmin || p.planTier==="pro") return "pro";
+  if(p.planTier==="plus") return "plus";
+  return "free";
+}
+let pendingStoryImageUrl = null;
+let pendingStoryDurationMs = 24*3600*1000;
+function openStoryComposerModal(){
+  const tier = storyTierOptions();
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  pendingStoryImageUrl = null;
+  pendingStoryDurationMs = 24*3600*1000;
+  let durationHTML = "";
+  if(tier==="free"){
+    durationHTML = `<p class="subtitle" style="text-align:right; margin:10px 0 0;">الستوري هتختفي تلقائيًا بعد 24 ساعة</p>`;
+  }else if(tier==="plus"){
+    durationHTML = `<div class="story-duration-opts">
+      <div class="chip active" data-dur="86400000">24 ساعة</div>
+      <div class="chip" data-dur="43200000">12 ساعة</div>
+    </div>`;
+  }else{
+    durationHTML = `<div class="field" style="display:flex; gap:8px; margin-top:10px;">
+      <div style="flex:1;"><label>ساعات</label><input type="number" id="story-dur-hours" min="0" max="72" value="24"></div>
+      <div style="flex:1;"><label>دقايق</label><input type="number" id="story-dur-minutes" min="0" max="59" value="0"></div>
+    </div>`;
+  }
+  overlay.innerHTML = `<div class="modal-sheet" style="text-align:right;">
+    <div class="modal-sheet-handle"></div>
+    <h3 style="margin:0 0 10px;">إضافة ستوري</h3>
+    <input type="file" id="story-image-file" accept="image/*" style="display:none;">
+    <button class="btn btn-ghost" id="btn-story-pick-image" style="width:100%;">اختيار صورة</button>
+    <div id="story-image-preview" style="margin-top:10px;"></div>
+    ${durationHTML}
+    <button class="btn btn-primary" id="btn-story-publish" style="margin-top:14px;">نشر الستوري</button>
+  </div>`;
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+
+  if(tier==="plus"){
+    overlay.querySelectorAll("[data-dur]").forEach(chip=>{
+      chip.onclick = ()=>{
+        overlay.querySelectorAll("[data-dur]").forEach(c=>c.classList.remove("active"));
+        chip.classList.add("active");
+        pendingStoryDurationMs = Number(chip.dataset.dur);
+      };
+    });
+  }
+
+  overlay.querySelector("#btn-story-pick-image").onclick = ()=> overlay.querySelector("#story-image-file").click();
+  overlay.querySelector("#story-image-file").addEventListener("change", async (e)=>{
+    const file = e.target.files[0]; if(!file) return;
+    const btn = overlay.querySelector("#btn-story-pick-image"); btn.innerHTML = '<div class="spinner spinner-dark"></div>';
+    try{
+      const fd = new FormData(); fd.append("image", file);
+      const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method:"POST", body:fd });
+      const data = await res.json();
+      if(data.success){
+        pendingStoryImageUrl = data.data.url;
+        overlay.querySelector("#story-image-preview").innerHTML = `<div class="protected-media" style="border-radius:14px; overflow:hidden; max-height:260px;"><img src="${pendingStoryImageUrl}" oncontextmenu="return false" draggable="false" style="width:100%; display:block;"></div>`;
+      }else{ toast("تعذر رفع الصورة"); }
+    }catch(err){ toast("تعذر رفع الصورة"); }
+    btn.textContent = "اختيار صورة";
+  });
+
+  overlay.querySelector("#btn-story-publish").onclick = async ()=>{
+    if(!pendingStoryImageUrl){ toast("اختار صورة الأول"); return; }
+    let durationMs = pendingStoryDurationMs;
+    if(tier==="pro"){
+      const h = Number(overlay.querySelector("#story-dur-hours").value)||0;
+      const m = Number(overlay.querySelector("#story-dur-minutes").value)||0;
+      durationMs = (h*3600 + m*60) * 1000;
+      if(durationMs <= 0){ toast("حدد مدة أكبر من صفر"); return; }
+    }
+    const btn = overlay.querySelector("#btn-story-publish"); btn.innerHTML='<div class="spinner"></div>'; btn.disabled=true;
+    try{
+      await addDoc(collection(db, STORIES_COL), {
+        authorId: currentUser.uid, authorName: myProfile.fullName, authorUsername: myProfile.username,
+        authorPic: myProfile.profilePic || DEFAULT_AVATAR, authorVerified: myProfile.verifiedType || null,
+        mediaUrl: pendingStoryImageUrl, mediaType:"image",
+        createdAt: serverTimestamp(), expiresAt: new Date(Date.now() + durationMs)
+      });
+      toast("تم نشر الستوري");
+      overlay.remove();
+      renderStoriesBar();
+    }catch(e){ console.error(e); toast("تعذر نشر الستوري، حاول تاني"); btn.textContent="نشر الستوري"; btn.disabled=false; }
+  };
+}
+
+let __seenStoryAuthors = new Set(JSON.parse(sessionStorage.getItem("seenStoryAuthors")||"[]"));
+async function renderStoriesBar(){
+  const wrap = $("stories-bar");
+  if(!wrap || !myProfile) return;
+  try{
+    const snap = await getDocs(query(collection(db, STORIES_COL), orderBy("createdAt","desc"), limit(300)));
+    const now = Date.now();
+    const allowedAuthors = new Set([...(myProfile.following||[]), myProfile.id]);
+    const active = snap.docs.map(d=>({id:d.id,...d.data()})).filter(s=>{
+      const exp = s.expiresAt?.toMillis ? s.expiresAt.toMillis() : new Date(s.expiresAt).getTime();
+      return exp > now && allowedAuthors.has(s.authorId);
+    });
+    const byAuthor = {};
+    active.forEach(s=>{ if(!byAuthor[s.authorId]) byAuthor[s.authorId]=[]; byAuthor[s.authorId].push(s); });
+    Object.values(byAuthor).forEach(arr=> arr.sort((a,b)=>{
+      const ta=a.createdAt?.toMillis?a.createdAt.toMillis():0, tb=b.createdAt?.toMillis?b.createdAt.toMillis():0; return ta-tb;
+    }));
+
+    const myStories = byAuthor[myProfile.id] || [];
+    let html = `<div class="story-circle" id="story-my-circle">
+      <div class="story-ring ${myStories.length && __seenStoryAuthors.has(myProfile.id) ? 'seen':''}" style="${myStories.length?'':'display:none;'}">
+        <img src="${myProfile.profilePic||DEFAULT_AVATAR}">
+      </div>
+      <div class="story-add-btn" id="story-add-btn" style="${myStories.length?'display:none;':''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+      <span>${myStories.length?'ستوريك':'إضافة'}</span>
+    </div>`;
+
+    Object.keys(byAuthor).filter(uid=>uid!==myProfile.id).forEach(uid=>{
+      const s = byAuthor[uid][0];
+      const seen = __seenStoryAuthors.has(uid);
+      html += `<div class="story-circle" data-open-story-author="${uid}">
+        <div class="story-ring ${seen?'seen':''}"><img src="${s.authorPic||DEFAULT_AVATAR}"></div>
+        <span>${(s.authorName||'').split(' ')[0]}</span>
+      </div>`;
+    });
+    wrap.innerHTML = html;
+
+    const myCircle = $("story-my-circle");
+    if(myStories.length){
+      myCircle.onclick = ()=> openStoryViewer(myProfile.id, myStories);
+    }
+    const addBtn = $("story-add-btn");
+    if(addBtn) addBtn.onclick = (e)=>{ e.stopPropagation(); openStoryComposerModal(); };
+    wrap.querySelectorAll("[data-open-story-author]").forEach(el=>{
+      el.onclick = ()=> openStoryViewer(el.dataset.openStoryAuthor, byAuthor[el.dataset.openStoryAuthor]);
+    });
+  }catch(e){ console.error("تعذر تحميل الاستوريز:", e); }
+}
+
+let storyViewerState = null;
+async function openStoryViewer(authorUid, stories){
+  if(!stories || !stories.length) return;
+  storyViewerState = { authorUid, stories, index:0, timer:null };
+  __seenStoryAuthors.add(authorUid);
+  sessionStorage.setItem("seenStoryAuthors", JSON.stringify([...__seenStoryAuthors]));
+  show("screen-story-viewer");
+  renderStorySlide();
+}
+function renderStorySlide(){
+  const st = storyViewerState; if(!st) return;
+  clearTimeout(st.timer);
+  const s = st.stories[st.index];
+  const isMine = s.authorId === myProfile.id;
+  const wrap = $("story-viewer-content");
+  wrap.innerHTML = `
+    <div class="story-progress-row">
+      ${st.stories.map((_,i)=>`<div class="story-progress-track"><div class="story-progress-fill" id="story-fill-${i}" style="width:${i<st.index?'100':'0'}%;"></div></div>`).join("")}
+    </div>
+    <div class="story-slide-head">
+      <img class="avatar avatar-sm" src="${s.authorPic||DEFAULT_AVATAR}">
+      <div style="flex:1;"><b>${s.authorName}</b><div class="post-time meta-font" style="color:rgba(255,255,255,.7);">${timeAgo(s.createdAt)}</div></div>
+    </div>
+    <div class="icon-btn story-close" id="btn-story-close" style="background:rgba(255,255,255,.14); color:#fff;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </div>
+    <div class="story-slide-media protected-media"><img src="${s.mediaUrl}" oncontextmenu="return false" draggable="false"></div>
+    <div class="story-tap-zone" id="story-tap-prev" style="right:0;"></div>
+    <div class="story-tap-zone" id="story-tap-next" style="left:0;"></div>
+    ${isMine ? `<div class="story-viewers-link" id="story-viewers-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/></svg> عرض المشاهدين
+      </div>` : ""}
+    <div class="story-bottom-bar">
+      ${isMine ? "" : `<input class="story-reply-input" id="story-reply-input" placeholder="اكتب ردًا...">
+      <div class="story-quick-btn" id="story-react-btn" title="تفاعل"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 00-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 000-7.8z"/></svg></div>
+      <div class="story-quick-btn" id="story-share-btn" title="إعادة مشاركة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v14"/></svg></div>`}
+    </div>`;
+
+  if(!isMine) trackStoryView(s);
+
+  $("btn-story-close").onclick = closeStoryViewer;
+  $("story-tap-prev").onclick = ()=> stepStory(-1);
+  $("story-tap-next").onclick = ()=> stepStory(1);
+  if(isMine){
+    $("story-viewers-link").onclick = ()=> openStoryViewersModal(s);
+  }else{
+    $("story-react-btn").onclick = ()=> reactToStory(s);
+    $("story-share-btn").onclick = ()=> reshareStoryToChat(s);
+    $("story-reply-input").addEventListener("keydown", (e)=>{
+      if(e.key==="Enter" && e.target.value.trim()) replyToStory(s, e.target.value.trim());
+    });
+  }
+
+  const fill = $(`story-fill-${st.index}`);
+  requestAnimationFrame(()=>{ if(fill) fill.style.transition="width 5.5s linear"; if(fill) fill.style.width="100%"; });
+  st.timer = setTimeout(()=> stepStory(1), 5500);
+}
+function stepStory(dir){
+  const st = storyViewerState; if(!st) return;
+  clearTimeout(st.timer);
+  st.index += dir;
+  if(st.index < 0){ closeStoryViewer(); return; }
+  if(st.index >= st.stories.length){ closeStoryViewer(); return; }
+  renderStorySlide();
+}
+function closeStoryViewer(){
+  if(storyViewerState) clearTimeout(storyViewerState.timer);
+  storyViewerState = null;
+  document.querySelector('.tab-item[data-target="screen-feed"]').click();
+  renderStoriesBar();
+}
+async function trackStoryView(story){
+  try{
+    const existing = await getDocs(query(collection(db, STORIES_COL, story.id, "views"), where("viewerId","==",currentUser.uid), limit(1)));
+    if(!existing.empty) return;
+    await addDoc(collection(db, STORIES_COL, story.id, "views"), {
+      viewerId: currentUser.uid, viewerName: myProfile.fullName, viewerUsername: myProfile.username,
+      viewerPic: myProfile.profilePic||DEFAULT_AVATAR, viewedAt: serverTimestamp()
+    });
+  }catch(e){ /* صامت */ }
+}
+async function reactToStory(story){
+  const emojis = ["❤️","😂","😮","😢","👏","🔥"];
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="modal-sheet" style="text-align:center;"><div class="modal-sheet-handle"></div>
+    <div style="display:flex; justify-content:space-around; font-size:30px;">${emojis.map(em=>`<span data-emoji="${em}" style="cursor:pointer;">${em}</span>`).join("")}</div></div>`;
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+  overlay.querySelectorAll("[data-emoji]").forEach(el=>{
+    el.onclick = async ()=>{
+      const emoji = el.dataset.emoji;
+      overlay.remove();
+      try{
+        await addDoc(collection(db, STORIES_COL, story.id, "reactions"), {
+          viewerId: currentUser.uid, viewerName: myProfile.fullName, viewerPic: myProfile.profilePic||DEFAULT_AVATAR, emoji, createdAt: serverTimestamp()
+        });
+        notifyUser(story.authorId, `${myProfile.fullName} تفاعل مع ستوريك بـ ${emoji}`);
+        toast("تم إرسال التفاعل");
+      }catch(e){ toast("تعذر إرسال التفاعل"); }
+    };
+  });
+}
+async function replyToStory(story, text){
+  $("story-reply-input").value = "";
+  try{
+    await sendChatMessage(story.authorId, { fullName:story.authorName, profilePic:story.authorPic, verifiedType:story.authorVerified }, { text:`رد على ستوريك: ${text}` });
+    toast("تم إرسال الرد");
+  }catch(e){ toast("تعذر إرسال الرد"); }
+}
+async function reshareStoryToChat(story){
+  if(story.authorId===myProfile.id){ toast("مينفعش تعيد مشاركة ستوريك لنفسك"); return; }
+  try{
+    await sendChatMessage(story.authorId, { fullName:story.authorName, profilePic:story.authorPic, verifiedType:story.authorVerified }, { imageUrl: story.mediaUrl, sharedStory:true, text:"" });
+    toast("تم إعادة مشاركة الستوري في الشات");
+  }catch(e){ toast("تعذر إعادة المشاركة"); }
+}
+async function openStoryViewersModal(story){
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="modal-sheet" style="max-height:75vh; overflow-y:auto;"><div class="modal-sheet-handle"></div>
+    <h3 style="margin:0 0 10px;">مشاهدو الستوري</h3><div id="story-viewers-inner"><div class="empty-state"><div class="spinner spinner-dark" style="margin:0 auto;"></div></div></div></div>`;
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+  const canSeeDetails = myProfile.planTier==="pro" || myProfile.isAdmin;
+  const canSeeCount = canSeeDetails || myProfile.planTier==="plus";
+  const inner = overlay.querySelector("#story-viewers-inner");
+  if(!canSeeCount){
+    inner.innerHTML = `<p class="feature-lock-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> قائمة المشاهدين متاحة لمشتركي Plus وPro</p>`;
+    return;
+  }
+  const [viewsSnap, reactsSnap] = await Promise.all([
+    getDocs(query(collection(db, STORIES_COL, story.id, "views"), limit(200))),
+    getDocs(query(collection(db, STORIES_COL, story.id, "reactions"), limit(200)))
+  ]);
+  const reactMap = {};
+  reactsSnap.docs.forEach(d=>{ const r=d.data(); reactMap[r.viewerId]=r.emoji; });
+  if(!canSeeDetails){
+    inner.innerHTML = `<div class="glass-card section-pad" style="text-align:center;"><div style="font-size:30px; font-weight:800;">${viewsSnap.size}</div><p class="subtitle">مشاهدة إجمالية</p>
+      <p class="feature-lock-note" style="justify-content:center; margin-top:10px;">أسماء المشاهدين والرد عليهم متاح لمشتركي Pro</p></div>`;
+    return;
+  }
+  if(viewsSnap.empty){ inner.innerHTML = `<div class="empty-state"><p>محدش شاف ستوريك لسه</p></div>`; return; }
+  inner.innerHTML = viewsSnap.docs.map(d=>{
+    const v = d.data();
+    return `<div class="story-viewer-row" data-msg-viewer="${v.viewerId}" data-name="${v.viewerName}" data-pic="${v.viewerPic}">
+      <img class="avatar avatar-sm" src="${v.viewerPic||DEFAULT_AVATAR}"><div style="flex:1;">${v.viewerName}</div>
+      ${reactMap[v.viewerId] ? `<span class="reaction-emoji">${reactMap[v.viewerId]}</span>` : ""}
+    </div>`;
+  }).join("");
+  inner.querySelectorAll("[data-msg-viewer]").forEach(row=>{
+    row.onclick = ()=>{ overlay.remove(); closeStoryViewer(); openChatWithUser(row.dataset.msgViewer); };
+  });
+}
+
 $("btn-open-pages-list").onclick = ()=>{ renderPagesList(); show("screen-pages-list"); };
 $("btn-home-pages-list").onclick = ()=>{ renderPagesList(); show("screen-pages-list"); };
 $("btn-pages-list-back").onclick = ()=> document.querySelector('.tab-item[data-target="screen-feed"]').click();
@@ -1698,6 +2105,7 @@ function renderPagesList(){
     { icon:`<path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/>`, label:"الإشعارات", target:"screen-notifs" },
     { icon:`<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/>`, label:"حسابي", target:"screen-profile", tab:true },
     { icon:`<path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>`, label:"المحفوظات", target:"screen-bookmarks", action: ()=>renderBookmarks() },
+    { icon:`<circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>`, label:"إضافة ستوري", action: ()=>openStoryComposerModal() },
     { icon:`<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/>`, label:"زوار بروفايلك", target:"screen-visitors", action: ()=>renderVisitorsScreen() },
     { icon:`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09A1.65 1.65 0 0015 4.6a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.36.4.66.74.85`, label:"الإعدادات", target:"screen-settings" },
     { icon:`<path d="M12 2l1.5 5.5L19 9l-4 3.5L16 18l-4-3-4 3 1-5.5L5 9l5.5-1.5L12 2z"/>`, label:"باقات Plus وPro", target:"screen-plans", action: ()=>renderPlans() },
@@ -1719,7 +2127,7 @@ function renderPagesList(){
       if(it.mail){ window.location.href = `mailto:${it.mail}`; return; }
       if(it.action) it.action();
       if(it.tab){ document.querySelector(`.tab-item[data-target="${it.target}"]`)?.click(); }
-      else show(it.target);
+      else if(it.target) show(it.target);
     };
   });
 }
@@ -1727,11 +2135,11 @@ function renderPagesList(){
 /* ============================================================
    الباقات والدفع (PayPal)
    ============================================================ */
-const FREE_FEATURES = ["نشر منشورات نصية بلا حدود","إعجاب وتعليق ومشاركة","غرفة البرمجة والدردشات العامة","رابط واحد فقط في البروفايل","ملف شخصي عام أو خاص"];
+const FREE_FEATURES = ["نشر منشورات نصية بلا حدود","إعجاب وتعليق ومشاركة","غرفة البرمجة والدردشات العامة","رابط واحد فقط في البروفايل","ملف شخصي عام أو خاص","نشر ستوري تختفي تلقائيًا بعد 24 ساعة"];
 const PLANS = {
-  plus: { name:"باقة Plus", features:["فتح كل مميزات التطبيق ما عدا التوثيق","رفع صور وفيديوهات وملفات بلا حدود إضافية","دعم فني بأولوية","شارة مميزة على المنشورات","حتى 3 روابط في البروفايل"],
+  plus: { name:"باقة Plus", features:["فتح كل مميزات التطبيق ما عدا التوثيق","رفع صور وفيديوهات وملفات بلا حدود إضافية","دعم فني بأولوية","شارة مميزة على المنشورات","حتى 3 روابط في البروفايل","اختيار مدة الستوري (24 أو 12 ساعة)","معرفة عدد مشاهدات الستوري الإجمالي"],
     tiers:[{label:"أسبوعي", egp:60, usd:1, days:7},{label:"شهري", egp:150, usd:2, days:30},{label:"3 أشهر", egp:450, usd:5, days:90},{label:"سنوي", egp:1800, usd:20, days:365}] },
-  pro: { name:"باقة Pro (مبرمجين وتوثيق)", features:["كل مميزات Plus مضافًا إليها","إمكانية التقديم على شارة توثيق","حتى 8 روابط في البروفايل","دخول مبكر لمميزات غرفة البرمجة","دعم فني مباشر من الفريق"],
+  pro: { name:"باقة Pro (مبرمجين وتوثيق)", features:["كل مميزات Plus مضافًا إليها","إمكانية التقديم على شارة توثيق","حتى 8 روابط في البروفايل","دخول مبكر لمميزات غرفة البرمجة","دعم فني مباشر من الفريق","تحديد مدة مخصصة للستوري بالساعة والدقيقة","قائمة تفصيلية بمن شاهد الستوري وتفاعل معها مع إمكانية الرد عليهم","إعادة مشاركة الستوري في الشات حتى لو كانت صورة"],
     tiers:[{label:"شهري", egp:250, usd:4, days:30},{label:"نصف سنوي", egp:1400, usd:20, days:182},{label:"سنة كاملة", egp:2800, usd:35, days:365}] }
 };
 function renderPlans(){
@@ -1948,6 +2356,15 @@ document.addEventListener("contextmenu", (e)=>{
     e.preventDefault();
   }
 });
+
+/* ---------------- منع الخروج من التطبيق بزر الرجوع في الموبايل ---------------- */
+(function trapExitButton(){
+  history.pushState({app404:true}, "", location.href);
+  window.addEventListener("popstate", ()=>{
+    // بدل ما يسيب التطبيق أو يرجع لصفحة قبله، نرجّع نفس الحالة تاني فورًا فيبقى الزرار من غير أي أثر
+    history.pushState({app404:true}, "", location.href);
+  });
+})();
 
 /* ---------------- تسجيل Service Worker (PWA) ---------------- */
 if("serviceWorker" in navigator){

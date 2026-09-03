@@ -54,7 +54,7 @@
         <p class="subtitle">لازم تسجل دخول أو تنشئ حساب عشان تكمل</p>
       </div>
       <div style="width:100%; max-width:340px;">
-        <div class="field"><label>البريد الإلكتروني</label><input type="email" id="login-email" placeholder="name@email.com"></div>
+        <div class="field"><label>البريد الإلكتروني أو اسم المستخدم أو رقم الهاتف</label><input type="text" id="login-email" placeholder="name@email.com أو @username أو رقم الهاتف" autocapitalize="off"></div>
         <div class="field"><label>كلمة المرور</label><input type="password" id="login-password" placeholder="••••••••"></div>
         <button class="btn btn-primary" id="btn-login">دخول</button>
         <p id="login-error" style="color:var(--danger); font-size:13px; margin-top:10px; display:none;"></p>
@@ -203,6 +203,7 @@
           <button class="btn btn-accent btn-sm" id="btn-code-post-submit">نشر</button>
         </div>
       </div>
+      <div class="code-search-wrap"><input id="code-search-input" placeholder="ابحث في غرفة البرمجة..."></div>
       <div id="code-feed-list"></div>
       <div id="code-feed-empty" class="empty-state hidden" style="color:#6E6E73;">
         <p>الغرفة هادية دلوقتي، افتح نقاش برمجي!</p>
