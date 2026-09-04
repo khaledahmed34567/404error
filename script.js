@@ -406,8 +406,17 @@ $("btn-finish-register").onclick = async ()=>{
   const btn = $("btn-finish-register"); btn.innerHTML='<div class="spinner"></div>'; btn.disabled=true;
   awaitingManualFlow = true;
   try{
-    const cred = await createUserWithEmailAndPassword(auth, $("r-email").value.trim(), $("r-pass").value);
-    currentUser = cred.user;
+    /* إصلاح: لو فيه حساب مصادقة (Auth) اتعمل قبل كده بنجاح لكن مستند البروفايل فشل يتحفظ (مشكلة شبكة مثلًا)،
+       متعملش حساب جديد تاني (هيدي auth/email-already-in-use) — كمّل واحفظ المستند الناقص بس لنفس الحساب. */
+    let uid;
+    if(auth.currentUser && auth.currentUser.email===$("r-email").value.trim()){
+      uid = auth.currentUser.uid;
+      currentUser = auth.currentUser;
+    }else{
+      const cred = await createUserWithEmailAndPassword(auth, $("r-email").value.trim(), $("r-pass").value);
+      uid = cred.user.uid;
+      currentUser = cred.user;
+    }
     const pinHash = await sha256(pin);
     const username = await generateUniqueUsername($("r-fullname").value);
     const profileData = {
@@ -423,17 +432,17 @@ $("btn-finish-register").onclick = async ()=>{
       verifiedType:null, verificationStatus:null, followers:[], following:[], followRequests:[],
       banned:false, pinHash, usernameChangedAt:null, bookmarks:[], signature:"", createdAt: serverTimestamp()
     };
-    await setDoc(doc(db, USERS_COL, cred.user.uid), profileData);
+    await setDoc(doc(db, USERS_COL, uid), profileData);
     sessionStorage.setItem("pinVerified","1");
     awaitingManualFlow = false;
-    myProfile = { id: cred.user.uid, ...profileData };
+    myProfile = { id: uid, ...profileData };
     toast("تم إنشاء الحساب بنجاح");
-    sendAdminWelcomeChat(cred.user.uid, myProfile);
+    sendAdminWelcomeChat(uid, myProfile);
     enterApp();
   }catch(e){
     awaitingManualFlow = false;
     console.error(e);
-    err.textContent = e.code==="auth/email-already-in-use" ? "البريد الإلكتروني مستخدم بالفعل"
+    err.textContent = e.code==="auth/email-already-in-use" ? "البريد الإلكتروني مستخدم بالفعل، سجل دخول بدل الإنشاء"
       : e.code==="permission-denied" ? "حصلت مشكلة، حاول تاني بعد شوية"
       : "حدث خطأ، حاول مرة أخرى";
     err.style.display="block";
@@ -524,6 +533,7 @@ let awaitingManualFlow = false;
 
 async function proceedAfterAuth(user, profile){
   myProfile = profile;
+  updateDoc(doc(db, USERS_COL, user.uid), { lastActiveAt: serverTimestamp() }).catch(()=>{});
 
   // منح صلاحية الأدمن تلقائيًا لحسابات فريق الإدارة المعروفة
   if(ADMIN_EMAILS.includes((myProfile.email||"").toLowerCase()) && !myProfile.isAdmin){
@@ -657,7 +667,10 @@ $("btn-code-post-submit").onclick = ()=> submitPost($("code-composer-text"), 800
 
 /* ---------- إرفاق صور في المنشور: مجاني صورة واحدة، Plus حتى 3، Pro حتى 10 بتصميم كاروسيل ---------- */
 let pendingComposerImages = [];
-function isPlusOrAbove(){ return myProfile.planTier==="plus" || myProfile.planTier==="pro" || myProfile.isAdmin || myProfile.isStudentVerified; }
+function isPlusOrAbove(profileObj){
+  const p = profileObj || myProfile;
+  return p.planTier==="plus" || p.planTier==="pro" || p.isAdmin || p.isStudentVerified;
+}
 function maxPostImages(){
   if(myProfile.isAdmin || myProfile.planTier==="pro") return 10;
   if(myProfile.isStudentVerified) return 5;
@@ -747,7 +760,7 @@ async function submitPost(textarea, maxLen, isCode){
   if(text.length > maxLen){ toast("النص طويل جدًا"); return; }
 
   const detectedMedia = extractMediaLink(text);
-  const finalMedia = myProfile.isAdmin ? (pendingAdminMedia || detectedMedia) : null;
+  const finalMedia = (myProfile.isAdmin || myProfile.planTier==="pro") ? (pendingAdminMedia || detectedMedia) : null;
   const hashtags = extractHashtags(text);
   const images = !isCode ? pendingComposerImages.slice(0, maxPostImages()) : [];
   let scheduledAt = null;
@@ -1506,6 +1519,12 @@ async function openOtherProfile(username){
   const requested = (u.followRequests||[]).includes(currentUser.uid);
   const isLockedForMe = u.isPrivate && !iAmFollowing && u.verifiedType==null;
 
+  const lastActiveMs = u.lastActiveAt?.toMillis ? u.lastActiveAt.toMillis() : (u.lastActiveAt ? new Date(u.lastActiveAt).getTime() : 0);
+  const isOnlineNow = lastActiveMs && (Date.now()-lastActiveMs < 5*60*1000);
+  const showOnlineDot = isOnlineNow && (u.planTier==="pro" || u.isAdmin);
+  const showLastSeen = !showOnlineDot && lastActiveMs && isPlusOrAbove(u);
+  const hideCounts = u.hideFollowCounts && isPlusOrAbove(u);
+
   let followBtn = "";
   if(!u.isPrivate || u.autoAcceptFollow){
     followBtn = `<button class="btn ${iAmFollowing?'btn-outline':'btn-accent'}" id="btn-follow-toggle">${iAmFollowing?'إلغاء المتابعة':'متابعة'}</button>`;
@@ -1516,12 +1535,16 @@ async function openOtherProfile(username){
   $("other-profile-content").innerHTML = `
     <div class="profile-cover" style="${u.coverPhoto?`background-image:url('${u.coverPhoto}'); background-size:cover; background-position:center;`:''}"></div>
     <div class="profile-head">
-      <img class="profile-avatar" src="${u.profilePic||DEFAULT_AVATAR}">
+      <div style="position:relative; display:inline-block;">
+        <img class="profile-avatar" src="${u.profilePic||DEFAULT_AVATAR}">
+        ${showOnlineDot ? `<span style="position:absolute; bottom:4px; left:4px; width:14px; height:14px; border-radius:50%; background:var(--green); border:2px solid #fff;" title="متصل الآن"></span>` : ""}
+      </div>
       <div class="profile-name">${u.fullName} ${badgeHTML(u.verifiedType)}</div>
       <div class="post-username">@${u.username} ${u.isPrivate?lockChip():''}</div>
+      ${showLastSeen ? `<div class="post-time meta-font" style="margin-top:2px;">آخر ظهور ${timeAgo(u.lastActiveAt)}</div>` : ""}
       ${u.bio?`<div class="profile-bio">${linkify(u.bio)}</div>`:""}
       ${(u.links&&u.links.length)?`<div class="profile-links">${u.links.map(l=>socialLinkChip(l)).join("")}</div>`:""}
-      <div class="profile-stats"><div><b>${(u.followers||[]).length}</b> <span>متابِع</span></div><div><b>${(u.following||[]).length}</b> <span>متابَع</span></div>${u.bestAnswersCount ? `<div><b>${u.bestAnswersCount}</b> <span>إجابة مميزة</span></div>` : ""}</div>
+      ${hideCounts ? "" : `<div class="profile-stats"><div><b>${(u.followers||[]).length}</b> <span>متابِع</span></div><div><b>${(u.following||[]).length}</b> <span>متابَع</span></div>${u.bestAnswersCount ? `<div><b>${u.bestAnswersCount}</b> <span>إجابة مميزة</span></div>` : ""}</div>`}
       <div style="margin-top:14px; display:flex; gap:10px;">${followBtn}<button class="btn btn-outline" id="btn-message-user" style="flex:0; padding:12px 16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></button></div>
       ${(u.highlights && u.highlights.length) ? `<div class="highlights-row">${u.highlights.map((h,i)=>`<div class="highlight-circle" data-other-highlight="${i}"><img src="${h.url}"></div>`).join("")}</div>` : ""}
     </div>
@@ -1685,6 +1708,16 @@ function renderSettings(){
   renderVerifyBox(p);
   renderMyPerks(p);
   renderSignatureBox(p);
+  $("hide-counts-wrap").style.display = isPlusOrAbove(p) ? "block" : "none";
+  $("hide-counts-label").textContent = p.hideFollowCounts ? "إظهار عدد المتابعين والمتابَعين للزوار" : "إخفاء عدد المتابعين والمتابَعين عن الزوار";
+  $("btn-toggle-hide-counts").onclick = async ()=>{
+    try{
+      await updateDoc(doc(db, USERS_COL, currentUser.uid), { hideFollowCounts: !p.hideFollowCounts });
+      myProfile.hideFollowCounts = !p.hideFollowCounts;
+      toast(myProfile.hideFollowCounts ? "اتخفى عدد المتابعين عن الزوار" : "بقى ظاهر للزوار تاني");
+      renderSettings();
+    }catch(e){ toast("تعذر تنفيذ العملية"); }
+  };
   renderAccountStats(p);
   renderNameColorPicker(p);
 
@@ -2527,12 +2560,12 @@ function renderPagesList(){
 /* ============================================================
    الباقات والدفع (PayPal)
    ============================================================ */
-const FREE_FEATURES = ["نشر منشورات نصية بلا حدود","إعجاب وتعليق ومشاركة","غرفة البرمجة والدردشات العامة","رابط واحد فقط في البروفايل","ملف شخصي عام أو خاص","نشر ستوري تختفي تلقائيًا بعد 24 ساعة","الوضع الليلي التلقائي حسب إعدادات جهازك","تصدير نسخة من بياناتك في أي وقت","حذف حسابك نهائيًا من الإعدادات وقتما تحب"];
+const FREE_FEATURES = ["نشر منشورات نصية بلا حدود","إعجاب وتعليق ومشاركة","غرفة البرمجة والدردشات العامة","رابط واحد فقط في البروفايل","ملف شخصي عام أو خاص","نشر ستوري تختفي تلقائيًا بعد 24 ساعة","تصدير نسخة من بياناتك في أي وقت","حذف حسابك نهائيًا من الإعدادات وقتما تحب","إشعارات فورية بأي رد أو تفاعل عبر شات فريق الدعم"];
 const CODE_ROOM_FEATURES = ["نسخ أي كود بزر واحد مباشرة للحافظة","بحث فوري داخل كل منشورات الغرفة","تصنيف المنشورات بوسم (سؤال / شرح / مشروع / أدوات / وظائف) وفلترة بيها","تحديد تعليق كـ«أفضل إجابة» على أي سؤال","متابعة سؤال معيّن وأخذ إشعار فوري بأي رد جديد عليه","تثبيت منشور في أعلى الغرفة (لمشتركي Pro والأدمن)","فرز المنشورات حسب الأحدث أو الأكثر تفاعلاً","متابعة وسم كامل وأخذ إشعار بأي منشور جديد بيه","شريط إحصائيات فوري: عدد الأسئلة المفتوحة والمحلولة","شارة «إجابات مميزة» على بروفايلك تتزايد تلقائيًا"];
 const PLANS = {
-  plus: { name:"باقة Plus", features:["فتح كل مميزات التطبيق ما عدا التوثيق","رفع صور وفيديوهات وملفات بلا حدود إضافية","دعم فني بأولوية","شارة مميزة على المنشورات","حتى 3 روابط في البروفايل","اختيار مدة الستوري (24 أو 12 ساعة)","معرفة عدد مشاهدات الستوري الإجمالي","إرسال الصور في الشات","متابعة حتى 5 أسئلة في غرفة البرمجة والتنبيه عند الرد عليها","شارة اسمك المميزة تظهر في التعليقات أيضًا","تثبيت تعليق واحد في أعلى تعليقات منشورك"],
+  plus: { name:"باقة Plus", features:["فتح كل مميزات التطبيق ما عدا التوثيق","رفع صور وفيديوهات وملفات بلا حدود إضافية","دعم فني بأولوية","شارة مميزة على المنشورات","حتى 3 روابط في البروفايل","اختيار مدة الستوري (24 أو 12 ساعة)","معرفة عدد مشاهدات الستوري الإجمالي","إرسال الصور في الشات","متابعة حتى 5 أسئلة في غرفة البرمجة والتنبيه عند الرد عليها","شارة اسمك المميزة تظهر في التعليقات أيضًا","تثبيت تعليق واحد في أعلى تعليقات منشورك","عرض آخر ظهور لك في بروفايلك للمتابعين","إخفاء عدد المتابعين والمتابَعين عن الزوار"],
     tiers:[{label:"أسبوعي", egp:60, usd:1, days:7},{label:"شهري", egp:150, usd:2, days:30},{label:"3 أشهر", egp:450, usd:5, days:90},{label:"سنوي", egp:1800, usd:20, days:365}] },
-  pro: { name:"باقة Pro (مبرمجين وتوثيق)", features:["كل مميزات Plus مضافًا إليها","إمكانية التقديم على شارة توثيق","حتى 8 روابط في البروفايل","دخول مبكر لمميزات غرفة البرمجة","دعم فني مباشر من الفريق","تحديد مدة مخصصة للستوري بالساعة والدقيقة","قائمة تفصيلية بمن شاهد الستوري وتفاعل معها مع إمكانية الرد عليهم","إعادة مشاركة الستوري في الشات حتى لو كانت صورة","رفع حتى 10 صور في المنشور الواحد بعرض كاروسيل زي إنستجرام","تثبيت منشوراتك في أعلى غرفة البرمجة","إرسال أكتر من صورة في نفس محادثة الشات","متابعة عدد غير محدود من الأسئلة في غرفة البرمجة","أولوية ظهور منشوراتك في الاقتراحات والبحث","جدولة نشر منشوراتك لوقت لاحق تختاره","حفظ الاستوريز كـ«لحظات» دائمة على بروفايلك","تحميل نسخة أصلية من صور منشوراتك الخاصة"],
+  pro: { name:"باقة Pro (مبرمجين وتوثيق)", features:["كل مميزات Plus مضافًا إليها","إمكانية التقديم على شارة توثيق","حتى 8 روابط في البروفايل","دخول مبكر لمميزات غرفة البرمجة","دعم فني مباشر من الفريق","تحديد مدة مخصصة للستوري بالساعة والدقيقة","قائمة تفصيلية بمن شاهد الستوري وتفاعل معها مع إمكانية الرد عليهم","إعادة مشاركة الستوري في الشات حتى لو كانت صورة","رفع حتى 10 صور في المنشور الواحد بعرض كاروسيل زي إنستجرام","تثبيت منشوراتك في أعلى غرفة البرمجة","إرسال أكتر من صورة في نفس محادثة الشات","متابعة عدد غير محدود من الأسئلة في غرفة البرمجة","أولوية ظهور منشوراتك في الاقتراحات والبحث","جدولة نشر منشوراتك لوقت لاحق تختاره","حفظ الاستوريز كـ«لحظات» دائمة على بروفايلك","تحميل نسخة أصلية من صور منشوراتك الخاصة","تضمين روابط يوتيوب والفيديوهات تلقائيًا داخل منشوراتك","نقطة «متصل الآن» خضراء حية بجانب صورتك الشخصية"],
     tiers:[{label:"شهري", egp:250, usd:4, days:30},{label:"نصف سنوي", egp:1400, usd:20, days:182},{label:"سنة كاملة", egp:2800, usd:35, days:365}] }
 };
 const STUDENT_FEATURES = ["شارة توثيق طالب خاصة بتصميم ولون مختلف (أخضر مميز)","فتح كل مميزات باقة Plus مجانًا طول فترة التوثيق","رفع حتى 5 صور في المنشور الواحد بعرض كاروسيل","اختيار مدة الستوري (24 أو 12 ساعة)","إرسال الصور في الشات مباشرة","متابعة حتى 10 أسئلة في غرفة البرمجة مع التنبيه بالرد","تثبيت تعليق وشارة اسمك المميزة في كل تعليقاتك","دعم فني بأولوية خاصة بالطلاب","ترقية تلقائية لباقة Pro مجانًا بعد شهر واحد من التوثيق"];
