@@ -502,6 +502,7 @@ async function proceedAfterAuth(user, profile){
   else{ show("screen-pinlock"); clearPinInputs("pinlock-inputs"); }
 
   sendLoginWelcome(user, myProfile);
+  if(!myProfile.isAdmin) autoFollowAllAdmins(user.uid);
 }
 
 let resettingPassword = false;
@@ -582,25 +583,47 @@ $("code-composer-text").addEventListener("input", ()=>{ $("code-composer-counter
 $("btn-post-submit").onclick = ()=> submitPost($("composer-text"), postCharLimit(), false);
 $("btn-code-post-submit").onclick = ()=> submitPost($("code-composer-text"), 800, true);
 
-/* ---------- إرفاق صورة في المنشور (متاح لكل المستخدمين) ---------- */
-let pendingComposerImageUrl = null;
-$("btn-composer-image").onclick = ()=> $("composer-image-file").click();
+/* ---------- إرفاق صور في المنشور: مجاني صورة واحدة، Plus حتى 3، Pro حتى 10 بتصميم كاروسيل ---------- */
+let pendingComposerImages = [];
+function maxPostImages(){
+  if(myProfile.isAdmin || myProfile.planTier==="pro") return 10;
+  if(myProfile.planTier==="plus") return 3;
+  return 1;
+}
+$("btn-composer-image").onclick = ()=>{
+  $("composer-image-file").setAttribute("multiple", maxPostImages()>1 ? "multiple" : "");
+  $("composer-image-file").click();
+};
 $("composer-image-file").addEventListener("change", async (e)=>{
-  const file = e.target.files[0]; if(!file) return;
+  const max = maxPostImages();
+  const room = pendingComposerImages.length;
+  const files = [...e.target.files].slice(0, Math.max(0, max - room));
+  if(!files.length){ e.target.value=""; return; }
+  if(e.target.files.length > files.length) toast(`أقصى عدد صور تقدر ترفعه دلوقتي ${max}`);
   const btn = $("btn-composer-image"); btn.innerHTML = '<div class="spinner spinner-dark"></div>';
-  try{
-    const fd = new FormData(); fd.append("image", file);
-    const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method:"POST", body:fd });
-    const data = await res.json();
-    if(data.success){
-      pendingComposerImageUrl = data.data.url;
-      $("composer-media-preview").innerHTML = `<div class="composer-media-preview protected-media"><img src="${pendingComposerImageUrl}" oncontextmenu="return false" draggable="false"><div class="remove-media" id="btn-remove-composer-image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg></div></div>`;
-      $("btn-remove-composer-image").onclick = ()=>{ pendingComposerImageUrl=null; $("composer-media-preview").innerHTML=""; };
-    }else{ toast("تعذر رفع الصورة"); }
-  }catch(err){ toast("تعذر رفع الصورة"); }
+  for(const file of files){
+    try{
+      const fd = new FormData(); fd.append("image", file);
+      const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method:"POST", body:fd });
+      const data = await res.json();
+      if(data.success) pendingComposerImages.push(data.data.url);
+      else toast("تعذر رفع إحدى الصور");
+    }catch(err){ toast("تعذر رفع إحدى الصور"); }
+  }
+  renderComposerMediaPreview();
   btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>`;
   e.target.value = "";
 });
+function renderComposerMediaPreview(){
+  const wrap = $("composer-media-preview");
+  if(!pendingComposerImages.length){ wrap.innerHTML=""; return; }
+  wrap.innerHTML = `<div class="composer-media-grid">${pendingComposerImages.map((url,i)=>`
+    <div class="composer-media-preview protected-media"><img src="${url}" oncontextmenu="return false" draggable="false"><div class="remove-media" data-rm-composer-img="${i}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg></div></div>
+  `).join("")}</div>`;
+  wrap.querySelectorAll("[data-rm-composer-img]").forEach(el=>{
+    el.onclick = ()=>{ pendingComposerImages.splice(Number(el.dataset.rmComposerImg),1); renderComposerMediaPreview(); };
+  });
+}
 /* ---------- أزرار إرفاق PDF/فيديو/صوت للأدمن فقط عبر نافذة أنيقة (بدل الرابط اليدوي) ---------- */
 let pendingAdminMedia = null;
 function renderAdminMediaPreview(){
@@ -646,12 +669,13 @@ function extractMediaLink(text){
 
 async function submitPost(textarea, maxLen, isCode){
   const text = textarea.value.trim();
-  if(!text && !pendingComposerImageUrl && !pendingAdminMedia){ toast("اكتب شيئًا أولاً"); return; }
+  if(!text && !pendingComposerImages.length && !pendingAdminMedia){ toast("اكتب شيئًا أولاً"); return; }
   if(text.length > maxLen){ toast("النص طويل جدًا"); return; }
 
   const detectedMedia = extractMediaLink(text);
   const finalMedia = myProfile.isAdmin ? (pendingAdminMedia || detectedMedia) : null;
   const hashtags = extractHashtags(text);
+  const images = !isCode ? pendingComposerImages.slice(0, maxPostImages()) : [];
 
   try{
     const postData = {
@@ -664,11 +688,14 @@ async function submitPost(textarea, maxLen, isCode){
       authorVerified: myProfile.verifiedType || null,
       authorPlan: myProfile.isAdmin ? "admin" : (myProfile.planTier||"free"),
       text, room: isCode ? "code" : "general",
-      imageUrl: !isCode && pendingComposerImageUrl ? pendingComposerImageUrl : null,
+      images,
+      imageUrl: images.length ? images[0] : null,
       mediaType: finalMedia ? finalMedia.type : null,
       mediaUrl: finalMedia ? finalMedia.url : null,
       hashtags,
       pinned:false, globalPinned:false,
+      tag: isCode ? ($("code-tag-select")?.value || null) : null,
+      subscribers: isCode ? [currentUser.uid] : [],
       isQuestion: isCode ? !!$("code-mark-question")?.checked : false,
       solved: false,
       likes:[], commentsCount:0, createdAt: serverTimestamp()
@@ -676,7 +703,7 @@ async function submitPost(textarea, maxLen, isCode){
     await addDoc(collection(db, POSTS_COL), postData);
     textarea.value=""; textarea.dispatchEvent(new Event("input"));
     if(isCode && $("code-mark-question")) $("code-mark-question").checked = false;
-    pendingComposerImageUrl = null; $("composer-media-preview") && ($("composer-media-preview").innerHTML="");
+    pendingComposerImages = []; $("composer-media-preview") && ($("composer-media-preview").innerHTML="");
     pendingAdminMedia = null; renderAdminMediaPreview();
     toast("تم النشر");
   }catch(e){ toast("تعذر النشر، حاول مرة أخرى"); }
@@ -684,8 +711,16 @@ async function submitPost(textarea, maxLen, isCode){
 
 function mediaBlockHTML(p){
   let html = "";
-  if(p.imageUrl){
-    html += `<div class="post-image-wrap protected-media"><img src="${p.imageUrl}" oncontextmenu="return false" draggable="false" loading="lazy"></div>`;
+  const images = (p.images && p.images.length) ? p.images : (p.imageUrl ? [p.imageUrl] : []);
+  if(images.length===1){
+    html += `<div class="post-image-wrap protected-media"><img src="${images[0]}" oncontextmenu="return false" draggable="false" loading="lazy"></div>`;
+  }else if(images.length>1){
+    const cid = "carousel-"+Math.random().toString(36).slice(2,9);
+    html += `<div class="post-carousel protected-media">
+      <div class="post-carousel-count">1/${images.length}</div>
+      <div class="post-carousel-track" id="${cid}" data-carousel>${images.map(url=>`<img src="${url}" oncontextmenu="return false" draggable="false" loading="lazy">`).join("")}</div>
+      <div class="post-carousel-dots">${images.map((_,i)=>`<span class="${i===0?'active':''}"></span>`).join("")}</div>
+    </div>`;
   }
   if(p.mediaType==="pdf" && p.mediaUrl){
     html += `<div class="post-media-card">
@@ -737,6 +772,13 @@ function postRowHTML(p){
   const questionTag = isQuestion
     ? `<span class="question-tag ${p.solved?'q-solved':'q-open'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 17h.01M9.5 9a2.5 2.5 0 015 0c0 1.5-2.5 2-2.5 4"/></svg>${p.solved?'تم الحل':'سؤال مفتوح'}</span>`
     : "";
+  const tagBadge = (p.room==="code" && p.tag) ? `<span class="chip" style="margin-inline-end:6px;">${p.tag}</span>` : "";
+  const isSubscribed = myProfile && (p.subscribers||[]).includes(myProfile.id);
+  const canSubscribeUnlimited = myProfile && (myProfile.planTier==="pro" || myProfile.isAdmin);
+  const subscribeBtn = (p.room==="code" && myProfile && !isOwner)
+    ? `<button class="post-action" data-subscribe="${p.id}" data-state="${isSubscribed}" data-unlimited="${canSubscribeUnlimited}" title="${isSubscribed?'إلغاء متابعة السؤال':'تابع السؤال وهتوصلك إشعار بالرد'}">
+        <svg viewBox="0 0 24 24" fill="${isSubscribed?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+      </button>` : "";
   const solveBtn = (isOwner && isQuestion)
     ? `<button class="post-action" data-toggle-solved="${p.id}" data-state="${!!p.solved}" title="${p.solved?'إلغاء علامة الحل':'تحديد كمحلول'}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
@@ -749,7 +791,7 @@ function postRowHTML(p){
 
   return `
   <div class="glass-card post" data-id="${p.id}">
-    ${pinTag}${questionTag}
+    ${pinTag}${questionTag}${tagBadge}
     <div class="post-head">
       ${avatarHTML}
       <div style="flex:1;">
@@ -757,7 +799,7 @@ function postRowHTML(p){
         <div class="post-username">@${p.authorUsername||""}</div>
         <div class="post-time meta-font">${timeAgo(p.createdAt)}</div>
       </div>
-      ${showMenu ? `<button class="icon-btn post-menu-btn" data-post-menu="${p.id}" data-owner="${isOwner}" data-pinned="${!!p.pinned}" data-global-pinned="${!!p.globalPinned}" data-canpin="${canPinOwn}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="19" r="1.2"/></svg></button>` : ""}
+      ${showMenu ? `<button class="icon-btn post-menu-btn" data-post-menu="${p.id}" data-owner="${isOwner}" data-pinned="${!!p.pinned}" data-global-pinned="${!!p.globalPinned}" data-canpin="${canPinOwn}" data-room="${p.room||'general'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="19" r="1.2"/></svg></button>` : ""}
     </div>
     <div class="post-text">${p.room==="code" ? codeify(p.text||"") : linkify(p.text||"")}</div>
     ${mediaBlockHTML(p)}
@@ -775,7 +817,7 @@ function postRowHTML(p){
         <svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v14"/></svg>
         <span>مشاركة</span>
       </button>
-      ${bookmarkBtn}${solveBtn}
+      ${bookmarkBtn}${solveBtn}${subscribeBtn}
     </div>
   </div>`;
 }
@@ -786,8 +828,9 @@ function postMenuOptions(btn){
   const canPin = btn.dataset.canpin==="true";
   const pinned = btn.dataset.pinned==="true";
   const globalPinned = btn.dataset.globalPinned==="true";
+  const isCodeRoom = btn.dataset.room==="code";
   const opts = [];
-  if(canPin) opts.push({ label: pinned?"إلغاء تثبيت المنشور":"تثبيت في بروفايلي", action:()=>toggleOwnPinAction(postId, pinned) });
+  if(canPin) opts.push({ label: pinned?(isCodeRoom?"إلغاء التثبيت في الغرفة":"إلغاء تثبيت المنشور"):(isCodeRoom?"تثبيت في أعلى غرفة البرمجة":"تثبيت في بروفايلي"), action:()=>toggleOwnPinAction(postId, pinned) });
   if(myProfile.isAdmin) opts.push({ label: globalPinned?"إلغاء التثبيت العام":"تثبيت في الفيد للجميع", action:()=>toggleGlobalPinAction(postId, globalPinned) });
   if(isOwner || myProfile.isAdmin) opts.push({ label:"حذف المنشور", danger:true, action:()=>deletePostAction(postId) });
   if(!isOwner) opts.push({ label:"إبلاغ عن المنشور", action:()=>openReportModal(postId) });
@@ -844,6 +887,34 @@ function openReportModal(postId){
 }
 
 function attachPostEvents(container){
+  container.querySelectorAll("[data-carousel]").forEach(track=>{
+    const wrap = track.closest(".post-carousel");
+    const dots = wrap.querySelectorAll(".post-carousel-dots span");
+    const countEl = wrap.querySelector(".post-carousel-count");
+    const total = track.children.length;
+    track.addEventListener("scroll", ()=>{
+      const idx = Math.round(track.scrollLeft / track.clientWidth);
+      dots.forEach((d,i)=> d.classList.toggle("active", i===idx));
+      countEl.textContent = `${idx+1}/${total}`;
+    });
+  });
+  container.querySelectorAll("[data-subscribe]").forEach(btn=>{
+    btn.onclick = async ()=>{
+      const postId = btn.dataset.subscribe;
+      const subscribed = btn.dataset.state==="true";
+      const unlimited = btn.dataset.unlimited==="true";
+      if(!subscribed && !unlimited){
+        const mySubs = await getDocs(query(collection(db,POSTS_COL), where("room","==","code"), where("subscribers","array-contains",myProfile.id), limit(6)));
+        if(mySubs.size >= 5){ toast("وصلت للحد الأقصى (5 أسئلة) — Pro يفتح متابعة بلا حدود"); return; }
+      }
+      try{
+        await updateDoc(doc(db,POSTS_COL,postId), { subscribers: subscribed ? arrayRemove(myProfile.id) : arrayUnion(myProfile.id) });
+        toast(subscribed ? "تم إلغاء متابعة السؤال" : "هتوصلك إشعار عند أي رد على السؤال ده");
+        btn.dataset.state = String(!subscribed);
+        btn.classList.toggle("liked", !subscribed);
+      }catch(e){ toast("تعذر تنفيذ العملية"); }
+    };
+  });
   container.querySelectorAll(".like-btn").forEach(btn=>{
     btn.onclick = async (e)=>{
       if(e.target.closest("[data-open-likers]")) return;
@@ -1027,6 +1098,11 @@ async function openCommentsModal(postId){
       const postData = postSnap.data();
       await updateDoc(doc(db, POSTS_COL, postId), { commentsCount: (postData.commentsCount||0)+1 });
       if(postData.authorId && postData.authorId!==currentUser.uid) notifyUser(postData.authorId, `${myProfile.fullName} علّق على منشورك: ${text.slice(0,60)}`);
+      if(postData.room==="code" && Array.isArray(postData.subscribers)){
+        postData.subscribers.filter(uid=> uid!==currentUser.uid && uid!==postData.authorId).forEach(uid=>{
+          notifyUser(uid, `${myProfile.fullName} رد على سؤال بتتابعه في غرفة البرمجة: ${text.slice(0,60)}`);
+        });
+      }
       input.value = ""; input.dispatchEvent(new Event("input"));
       loadComments();
     }catch(e){ toast("تعذر إرسال التعليق"); }
@@ -1072,6 +1148,10 @@ function startFeedListener(){
   }, (err)=>{ console.error("feed error:", err); toast("تعذر تحميل الفيد، حاول تاني"); });
 }
 let __lastCodeDocs = [];
+document.addEventListener("DOMContentLoaded", ()=>{
+  const list = document.getElementById("code-room-features-list");
+  if(list) list.innerHTML = CODE_ROOM_FEATURES.map(f=>`<li>${f}</li>`).join("");
+});
 function startCodeFeedListener(){
   const q = query(collection(db, POSTS_COL), where("room","==","code"), limit(80));
   unsubCodeFeed = onSnapshot(q, (snap)=>{
@@ -1082,13 +1162,25 @@ function startCodeFeedListener(){
     renderCodeFeedFiltered();
   }, (err)=>{ console.error("code feed error:", err); toast("تعذر تحميل غرفة البرمجة، حاول تاني"); });
 }
+let __codeTagFilter = "";
 function renderCodeFeedFiltered(){
   const term = ($("code-search-input")?.value||"").trim().toLowerCase();
   const list = $("code-feed-list");
-  const docs = term ? __lastCodeDocs.filter(p=> (p.text||"").toLowerCase().includes(term) || (p.authorUsername||"").toLowerCase().includes(term)) : __lastCodeDocs;
+  let docs = __lastCodeDocs;
+  if(__codeTagFilter) docs = docs.filter(p=> p.tag===__codeTagFilter);
+  if(term) docs = docs.filter(p=> (p.text||"").toLowerCase().includes(term) || (p.authorUsername||"").toLowerCase().includes(term));
+  docs = [...docs].sort((a,b)=> (b.pinned===true) - (a.pinned===true));
   list.innerHTML = docs.length ? docs.map(p=>postRowHTML(p)).join("") : `<div class="empty-state" style="color:#6E6E73;"><p>مفيش نتائج مطابقة</p></div>`;
   attachPostEvents(list);
 }
+document.querySelectorAll("#code-tag-filters [data-tag-filter]").forEach(chip=>{
+  chip.onclick = ()=>{
+    __codeTagFilter = chip.dataset.tagFilter;
+    document.querySelectorAll("#code-tag-filters [data-tag-filter]").forEach(c=>c.classList.remove("active"));
+    chip.classList.add("active");
+    renderCodeFeedFiltered();
+  };
+});
 let codeSearchDebounce;
 $("code-search-input")?.addEventListener("input", ()=>{
   clearTimeout(codeSearchDebounce);
@@ -1750,6 +1842,27 @@ async function openChatWithUser(otherUid){
   }, (err)=>{ console.error(err); msgsWrap.innerHTML = `<div class="empty-state"><p>تعذر تحميل الرسائل، حاول تاني</p></div>`; });
 
   $("btn-chat-send").onclick = ()=> sendChatMessage(otherUid, other);
+
+  /* إرسال صور في الشات — متاح لمشتركي Plus وPro والأدمن فقط */
+  const canSendImages = canSend && (myProfile.planTier==="plus" || myProfile.planTier==="pro" || myProfile.isAdmin);
+  $("btn-chat-attach-image").style.display = canSendImages ? "flex" : "none";
+  $("btn-chat-attach-image").onclick = ()=>{
+    if(!canSendImages){ toast("إرسال الصور في الشات متاح لمشتركي Plus وPro"); return; }
+    $("chat-image-file").click();
+  };
+  $("chat-image-file").onchange = async (e)=>{
+    const file = e.target.files[0]; if(!file) return;
+    e.target.value = "";
+    const attachBtn = $("btn-chat-attach-image"); attachBtn.innerHTML = '<div class="spinner spinner-dark"></div>';
+    try{
+      const fd = new FormData(); fd.append("image", file);
+      const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method:"POST", body:fd });
+      const data = await res.json();
+      if(data.success) await sendChatMessage(otherUid, other, { imageUrl: data.data.url, text:"" });
+      else toast("تعذر رفع الصورة");
+    }catch(err){ toast("تعذر رفع الصورة"); }
+    attachBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>`;
+  };
 }
 
 async function sendChatMessage(otherUid, otherProfile, opts){
@@ -1778,22 +1891,31 @@ $("chat-message-input").addEventListener("keydown", (e)=>{ if(e.key==="Enter" &&
 async function sendAdminWelcomeChat(newUserUid, newUserProfile){
   try{
     const adminSnap = await getDocs(query(collection(db, USERS_COL), where("email","==",ADMIN_WELCOME_EMAIL), limit(1)));
-    if(adminSnap.empty) return;
-    const adminUid = adminSnap.docs[0].id; const admin = adminSnap.docs[0].data();
-    const chatId = chatIdFor(newUserUid, adminUid);
-    await setDoc(doc(db,"chats",chatId), {
-      participants:[newUserUid, adminUid],
-      participantInfo:{
-        [newUserUid]: { name:newUserProfile.fullName, pic:newUserProfile.profilePic||DEFAULT_AVATAR, verifiedType:null },
-        [adminUid]: { name:admin.fullName||"فريق 404", pic:admin.profilePic||DEFAULT_AVATAR, verifiedType:admin.verifiedType||"app" }
-      },
-      lastMessage:"أهلاً بيك في 404!", lastMessageAt: serverTimestamp()
-    }, { merge:true });
-    await addDoc(collection(db,"chats",chatId,"messages"), { senderId: adminUid, text:`أهلاً بيك يا ${newUserProfile.fullName} في 404! لو احتجت أي مساعدة إحنا هنا.`, createdAt: serverTimestamp() });
-    // متابعة إجبارية لحساب الإدارة عند كل تسجيل جديد
-    await updateDoc(doc(db, USERS_COL, newUserUid), { following: arrayUnion(adminUid) });
-    await updateDoc(doc(db, USERS_COL, adminUid), { followers: arrayUnion(newUserUid) });
+    if(!adminSnap.empty){
+      const adminUid = adminSnap.docs[0].id; const admin = adminSnap.docs[0].data();
+      const chatId = chatIdFor(newUserUid, adminUid);
+      await setDoc(doc(db,"chats",chatId), {
+        participants:[newUserUid, adminUid],
+        participantInfo:{
+          [newUserUid]: { name:newUserProfile.fullName, pic:newUserProfile.profilePic||DEFAULT_AVATAR, verifiedType:null },
+          [adminUid]: { name:admin.fullName||"فريق 404", pic:admin.profilePic||DEFAULT_AVATAR, verifiedType:admin.verifiedType||"app" }
+        },
+        lastMessage:"أهلاً بيك في 404!", lastMessageAt: serverTimestamp()
+      }, { merge:true });
+      await addDoc(collection(db,"chats",chatId,"messages"), { senderId: adminUid, text:`أهلاً بيك يا ${newUserProfile.fullName} في 404! لو احتجت أي مساعدة إحنا هنا.`, createdAt: serverTimestamp() });
+    }
+    await autoFollowAllAdmins(newUserUid);
   }catch(e){ console.error("تعذر إرسال رسالة الترحيب من الإدارة:", e); }
+}
+/* أي مستخدم جديد (وأي مستخدم قديم عند الدخول) بيتابع كل حسابات الأدمن تلقائيًا */
+async function autoFollowAllAdmins(uid){
+  try{
+    const adminsSnap = await getDocs(query(collection(db, USERS_COL), where("isAdmin","==",true), limit(50)));
+    const adminIds = adminsSnap.docs.map(d=>d.id).filter(id=>id!==uid);
+    if(!adminIds.length) return;
+    await updateDoc(doc(db, USERS_COL, uid), { following: arrayUnion(...adminIds) });
+    await Promise.all(adminIds.map(aid=> updateDoc(doc(db, USERS_COL, aid), { followers: arrayUnion(uid) })));
+  }catch(e){ console.error("تعذر إتمام المتابعة التلقائية للأدمنز:", e); }
 }
 
 /* ============================================================
@@ -2136,10 +2258,11 @@ function renderPagesList(){
    الباقات والدفع (PayPal)
    ============================================================ */
 const FREE_FEATURES = ["نشر منشورات نصية بلا حدود","إعجاب وتعليق ومشاركة","غرفة البرمجة والدردشات العامة","رابط واحد فقط في البروفايل","ملف شخصي عام أو خاص","نشر ستوري تختفي تلقائيًا بعد 24 ساعة"];
+const CODE_ROOM_FEATURES = ["نسخ أي كود بزر واحد مباشرة للحافظة","بحث فوري داخل كل منشورات الغرفة","تصنيف المنشورات بوسم (سؤال / شرح / مشروع / أدوات / وظائف) وفلترة بيها","تحديد تعليق كـ«أفضل إجابة» على أي سؤال","متابعة سؤال معيّن وأخذ إشعار فوري بأي رد جديد عليه","تثبيت منشور في أعلى الغرفة (لمشتركي Pro والأدمن)"];
 const PLANS = {
-  plus: { name:"باقة Plus", features:["فتح كل مميزات التطبيق ما عدا التوثيق","رفع صور وفيديوهات وملفات بلا حدود إضافية","دعم فني بأولوية","شارة مميزة على المنشورات","حتى 3 روابط في البروفايل","اختيار مدة الستوري (24 أو 12 ساعة)","معرفة عدد مشاهدات الستوري الإجمالي"],
+  plus: { name:"باقة Plus", features:["فتح كل مميزات التطبيق ما عدا التوثيق","رفع صور وفيديوهات وملفات بلا حدود إضافية","دعم فني بأولوية","شارة مميزة على المنشورات","حتى 3 روابط في البروفايل","اختيار مدة الستوري (24 أو 12 ساعة)","معرفة عدد مشاهدات الستوري الإجمالي","إرسال الصور في الشات","متابعة حتى 5 أسئلة في غرفة البرمجة والتنبيه عند الرد عليها"],
     tiers:[{label:"أسبوعي", egp:60, usd:1, days:7},{label:"شهري", egp:150, usd:2, days:30},{label:"3 أشهر", egp:450, usd:5, days:90},{label:"سنوي", egp:1800, usd:20, days:365}] },
-  pro: { name:"باقة Pro (مبرمجين وتوثيق)", features:["كل مميزات Plus مضافًا إليها","إمكانية التقديم على شارة توثيق","حتى 8 روابط في البروفايل","دخول مبكر لمميزات غرفة البرمجة","دعم فني مباشر من الفريق","تحديد مدة مخصصة للستوري بالساعة والدقيقة","قائمة تفصيلية بمن شاهد الستوري وتفاعل معها مع إمكانية الرد عليهم","إعادة مشاركة الستوري في الشات حتى لو كانت صورة"],
+  pro: { name:"باقة Pro (مبرمجين وتوثيق)", features:["كل مميزات Plus مضافًا إليها","إمكانية التقديم على شارة توثيق","حتى 8 روابط في البروفايل","دخول مبكر لمميزات غرفة البرمجة","دعم فني مباشر من الفريق","تحديد مدة مخصصة للستوري بالساعة والدقيقة","قائمة تفصيلية بمن شاهد الستوري وتفاعل معها مع إمكانية الرد عليهم","إعادة مشاركة الستوري في الشات حتى لو كانت صورة","رفع حتى 10 صور في المنشور الواحد بعرض كاروسيل زي إنستجرام","تثبيت منشوراتك في أعلى غرفة البرمجة","إرسال أكتر من صورة في نفس محادثة الشات","متابعة عدد غير محدود من الأسئلة في غرفة البرمجة","أولوية ظهور منشوراتك في الاقتراحات والبحث"],
     tiers:[{label:"شهري", egp:250, usd:4, days:30},{label:"نصف سنوي", egp:1400, usd:20, days:182},{label:"سنة كاملة", egp:2800, usd:35, days:365}] }
 };
 function renderPlans(){
@@ -2213,6 +2336,7 @@ function renderAdminList(users){
         <button class="btn btn-sm ${u.banned?'btn-outline':'btn-danger'}" data-ban="${u.id}" data-state="${u.banned}">${u.banned?'إلغاء الحظر':'حظر'}</button>
         <button class="btn btn-sm btn-outline" data-pro="${u.id}" data-state="${u.planTier||'free'}">${u.planTier==='pro'?'إرجاع لمجاني':(u.planTier==='plus'?'ترقية لـPro':'تفعيل Plus')}</button>
         <button class="btn btn-sm btn-outline" data-admin="${u.id}" data-state="${u.isAdmin}">${u.isAdmin?'إزالة أدمن':'تعيين أدمن'}</button>
+        <button class="btn btn-sm btn-outline" data-edit-user="${u.id}">تعديل بيانات المستخدم</button>
         <select class="btn btn-sm btn-outline" data-verify="${u.id}" style="appearance:auto;">
           <option value="">بدون توثيق</option>
           <option value="pro" ${u.verifiedType==='pro'?'selected':''}>توثيق برو</option>
@@ -2247,6 +2371,44 @@ function renderAdminList(users){
     try{ await updateDoc(doc(db,USERS_COL,sel.dataset.verify), { verifiedType: sel.value || null }); }
     catch(e){ console.error(e); toast("تعذر تنفيذ العملية، حاول تاني"); }
   });
+  $("admin-users-list").querySelectorAll("[data-edit-user]").forEach(b=> b.onclick = ()=>{
+    const u = users.find(x=>x.id===b.dataset.editUser);
+    if(u) openAdminEditUserModal(u);
+  });
+}
+/* لوحة الأدمن: تعديل بيانات أي مستخدم (اسم المستخدم، الاسم الكامل، البايو) مباشرة على قاعدة البيانات */
+function openAdminEditUserModal(u){
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="modal-sheet" style="text-align:right;">
+    <div class="modal-sheet-handle"></div>
+    <h3 style="margin:0 0 12px;">تعديل بيانات @${u.username}</h3>
+    <div class="field"><label>اسم المستخدم</label><input id="admin-edit-username" value="${u.username||''}"></div>
+    <div class="field" style="margin-top:10px;"><label>الاسم الكامل</label><input id="admin-edit-fullname" value="${u.fullName||''}"></div>
+    <div class="field" style="margin-top:10px;"><label>البايو</label><textarea id="admin-edit-bio" rows="3">${u.bio||''}</textarea></div>
+    <p class="err-msg" id="admin-edit-error" style="color:var(--danger); font-size:12.5px; display:none; margin-top:6px;"></p>
+    <button class="btn btn-primary" id="btn-admin-edit-save" style="margin-top:14px;">حفظ التعديلات</button>
+  </div>`;
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+  overlay.querySelector("#btn-admin-edit-save").onclick = async ()=>{
+    const newUsername = overlay.querySelector("#admin-edit-username").value.trim().toLowerCase().replace(/[^a-z0-9_.]/g,"");
+    const newFullName = overlay.querySelector("#admin-edit-fullname").value.trim();
+    const newBio = overlay.querySelector("#admin-edit-bio").value.trim();
+    const errEl = overlay.querySelector("#admin-edit-error"); errEl.style.display="none";
+    if(!newUsername || !newFullName){ errEl.textContent="اسم المستخدم والاسم الكامل مطلوبين"; errEl.style.display="block"; return; }
+    const btn = overlay.querySelector("#btn-admin-edit-save"); btn.disabled=true; btn.textContent="جاري الحفظ...";
+    try{
+      if(newUsername !== u.username){
+        const dup = await getDocs(query(collection(db,USERS_COL), where("username","==",newUsername), limit(1)));
+        if(!dup.empty){ errEl.textContent="اسم المستخدم ده مستخدم بالفعل"; errEl.style.display="block"; btn.disabled=false; btn.textContent="حفظ التعديلات"; return; }
+      }
+      await updateDoc(doc(db,USERS_COL,u.id), { username:newUsername, fullName:newFullName, bio:newBio });
+      toast("تم تعديل بيانات المستخدم");
+      overlay.remove();
+      renderAdmin();
+    }catch(e){ console.error(e); errEl.textContent="تعذر الحفظ، حاول تاني"; errEl.style.display="block"; btn.disabled=false; btn.textContent="حفظ التعديلات"; }
+  };
 }
 $("admin-search").addEventListener("input", async ()=>{
   try{

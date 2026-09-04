@@ -192,18 +192,38 @@
         <h1>غرفة البرمجة</h1>
         <div style="width:38px;"></div>
       </div>
+      <details style="margin:14px; color:#ccc; font-size:12.5px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:10px 14px;">
+        <summary style="cursor:pointer; font-weight:700; color:#fff;">مميزات غرفة البرمجة</summary>
+        <ul id="code-room-features-list" style="margin:8px 0 0; padding-inline-start:18px; line-height:1.9;"></ul>
+      </details>
       <div class="composer">
         <textarea id="code-composer-text" placeholder="شارك كود (حطه بين ```)، فكرة، أو سؤال برمجي..." rows="3"></textarea>
         <label style="display:flex; align-items:center; gap:8px; margin-top:8px; color:#ccc; font-size:12.5px; cursor:pointer;">
           <input type="checkbox" id="code-mark-question" style="width:16px; height:16px;">
           اعتبر المنشور ده سؤال برمجي
         </label>
+        <select id="code-tag-select" style="margin-top:8px; width:100%; padding:9px 12px; border-radius:12px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14); color:#ddd; font-size:12.5px;">
+          <option value="">بدون تصنيف</option>
+          <option value="سؤال">سؤال</option>
+          <option value="شرح">شرح</option>
+          <option value="مشروع">مشروع</option>
+          <option value="أدوات">أدوات ومكتبات</option>
+          <option value="وظائف">فرص عمل</option>
+        </select>
         <div class="composer-actions">
           <span class="chip" style="background:rgba(255,255,255,.08); color:#aaa; border-color:rgba(255,255,255,.1);" id="code-composer-counter">0 / 800</span>
           <button class="btn btn-accent btn-sm" id="btn-code-post-submit">نشر</button>
         </div>
       </div>
       <div class="code-search-wrap"><input id="code-search-input" placeholder="ابحث في غرفة البرمجة..."></div>
+      <div class="code-search-wrap" id="code-tag-filters" style="display:flex; gap:6px; flex-wrap:wrap; padding-top:0;">
+        <div class="chip active" data-tag-filter="">الكل</div>
+        <div class="chip" data-tag-filter="سؤال">سؤال</div>
+        <div class="chip" data-tag-filter="شرح">شرح</div>
+        <div class="chip" data-tag-filter="مشروع">مشروع</div>
+        <div class="chip" data-tag-filter="أدوات">أدوات</div>
+        <div class="chip" data-tag-filter="وظائف">وظائف</div>
+      </div>
       <div id="code-feed-list"></div>
       <div id="code-feed-empty" class="empty-state hidden" style="color:#6E6E73;">
         <p>الغرفة هادية دلوقتي، افتح نقاش برمجي!</p>
@@ -461,6 +481,8 @@
     </div>
     <div id="chat-messages-wrap"></div>
     <div class="glass-card" id="chat-input-bar">
+      <input type="file" id="chat-image-file" accept="image/*" style="display:none;">
+      <button class="icon-btn" id="btn-chat-attach-image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></button>
       <input id="chat-message-input" placeholder="اكتب رسالة...">
       <button class="icon-btn" id="btn-chat-send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg></button>
     </div>

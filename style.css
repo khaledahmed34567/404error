@@ -81,6 +81,16 @@ img{ user-select:none; -webkit-user-drag:none; }
 /* ---------- وسائط المنشورات ---------- */
 .post-image-wrap{ margin-top:10px; border-radius:var(--radius-md); overflow:hidden; border:1px solid var(--line); position:relative; }
 .post-image-wrap img{ width:100%; height:auto; display:block; }
+.post-carousel{ margin-top:10px; border-radius:var(--radius-md); overflow:hidden; border:1px solid var(--line); position:relative; }
+.post-carousel-track{ display:flex; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+.post-carousel-track::-webkit-scrollbar{ display:none; }
+.post-carousel-track img{ width:100%; flex:0 0 100%; scroll-snap-align:center; display:block; height:auto; }
+.post-carousel-dots{ display:flex; justify-content:center; gap:5px; padding:8px 0 2px; }
+.post-carousel-dots span{ width:6px; height:6px; border-radius:50%; background:var(--line-strong); display:inline-block; }
+.post-carousel-dots span.active{ background:var(--ink); }
+.post-carousel-count{ position:absolute; top:8px; left:8px; background:rgba(0,0,0,.55); color:#fff; font-size:11px; padding:3px 8px; border-radius:20px; z-index:2; }
+.composer-media-grid{ display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+.composer-media-grid .composer-media-preview{ margin-top:0; max-width:96px; }
 .post-media-card{ margin-top:10px; padding:12px; border-radius:var(--radius-md); background:var(--bg-sunk); border:1px solid var(--line); display:flex; align-items:center; gap:12px; }
 .post-media-card svg{ width:26px; height:26px; stroke:var(--ink); flex-shrink:0; }
 .post-media-card .media-info{ flex:1; min-width:0; }
@@ -311,6 +321,9 @@ input,textarea,select{ font-family:"F404-Body",sans-serif; }
 .badge-app{ background:var(--ink); }
 
 .chip{ display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; background:var(--bg-sunk); font-size:11.5px; color:var(--ink-soft); border:1px solid var(--line); }
+.chip.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
+.code-room .chip{ background:rgba(255,255,255,.06); color:#ccc; border-color:rgba(255,255,255,.14); cursor:pointer; }
+.code-room .chip.active{ background:#fff; color:#111; border-color:#fff; }
 
 /* ---------- بروفايل ---------- */
 .profile-cover{ height:120px; background:linear-gradient(135deg,#EAF3FF,#FFF3F0); }
