@@ -158,6 +158,13 @@
         <textarea id="composer-text" placeholder="بماذا تفكر؟ اكتب منشورك هنا..." rows="2"></textarea>
         <div id="composer-media-preview"></div>
         <input type="file" id="composer-image-file" accept="image/*" style="display:none;">
+        <div id="composer-schedule-wrap" style="display:none; margin-top:8px;">
+          <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--muted); cursor:pointer;">
+            <input type="checkbox" id="composer-schedule-toggle" style="width:16px; height:16px;">
+            جدولة النشر لوقت لاحق
+          </label>
+          <input type="datetime-local" id="composer-schedule-time" style="display:none; margin-top:6px; width:100%; padding:9px 12px; border-radius:12px; border:1px solid var(--line-strong); font-size:12.5px;">
+        </div>
         <div class="composer-actions">
           <div class="composer-tools">
             <div class="composer-tool-btn" id="btn-composer-image" title="إضافة صورة">
@@ -216,13 +223,19 @@
         </div>
       </div>
       <div class="code-search-wrap"><input id="code-search-input" placeholder="ابحث في غرفة البرمجة..."></div>
-      <div class="code-search-wrap" id="code-tag-filters" style="display:flex; gap:6px; flex-wrap:wrap; padding-top:0;">
+      <div class="code-search-wrap" id="code-stats-bar" style="display:flex; gap:14px; padding-top:0; color:#9a9a9f; font-size:11.5px;"></div>
+      <div class="code-search-wrap" id="code-tag-filters" style="display:flex; gap:6px; flex-wrap:wrap; padding-top:0; align-items:center;">
         <div class="chip active" data-tag-filter="">الكل</div>
         <div class="chip" data-tag-filter="سؤال">سؤال</div>
         <div class="chip" data-tag-filter="شرح">شرح</div>
         <div class="chip" data-tag-filter="مشروع">مشروع</div>
         <div class="chip" data-tag-filter="أدوات">أدوات</div>
         <div class="chip" data-tag-filter="وظائف">وظائف</div>
+        <div class="chip" id="btn-follow-current-tag" style="margin-inline-start:auto; display:none;">تابع الوسم</div>
+      </div>
+      <div class="code-search-wrap" id="code-sort-bar" style="display:flex; gap:6px; padding-top:0;">
+        <div class="chip active" data-sort="new">الأحدث</div>
+        <div class="chip" data-sort="top">الأكثر تفاعلاً</div>
       </div>
       <div id="code-feed-list"></div>
       <div id="code-feed-empty" class="empty-state hidden" style="color:#6E6E73;">
@@ -411,7 +424,15 @@
         </div>
       </div>
 
+      <div class="glass-card section-pad" style="padding:0;">
+        <div class="page-list-item" id="btn-export-data">
+          <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></div>
+          <span>تصدير نسخة من بياناتك</span>
+        </div>
+      </div>
+
       <button class="btn btn-outline" id="btn-logout">تسجيل خروج</button>
+      <button class="btn btn-outline" id="btn-delete-account" style="margin-top:10px; color:var(--danger); border-color:rgba(255,59,48,.35);">حذف الحساب نهائيًا</button>
     </div>
   </section>
 
@@ -543,6 +564,7 @@
       <h1>لوحة الإدارة</h1><div style="width:38px;"></div>
     </div>
     <div class="section-pad">
+      <div id="admin-student-requests"></div>
       <div class="field"><input id="admin-search" placeholder="ابحث عن مستخدم بالاسم أو اليوزر..."></div>
       <div id="admin-users-list"></div>
     </div>

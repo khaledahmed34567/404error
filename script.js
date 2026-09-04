@@ -5,7 +5,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
-  signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut,
+  signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, deleteUser,
   sendPasswordResetEmail, confirmPasswordReset, verifyPasswordResetCode
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
@@ -87,10 +87,14 @@ function badgeHTML(type){
     pro: {cls:"badge-pro", title:"حساب موثّق برو"},
     investigator: {cls:"badge-investigator", title:"شخصية موثّقة ومحقق منها"},
     developer: {cls:"badge-developer", title:"مبرمج موثّق"},
-    app: {cls:"badge-app", title:"حساب رسمي للتطبيق"}
+    app: {cls:"badge-app", title:"حساب رسمي للتطبيق"},
+    student: {cls:"badge-student", title:"طالب موثّق"}
   };
   const c = map[type]; if(!c) return "";
-  return `<span class="badge ${c.cls}" title="${c.title}"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span>`;
+  const icon = type==="student"
+    ? `<path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/>`
+    : `<path d="M20 6L9 17l-5-5"/>`;
+  return `<span class="badge ${c.cls}" title="${c.title}"><svg viewBox="0 0 24 24">${icon}</svg></span>`;
 }
 /* ---------------- حساب الدعم الرسمي: إشعارات كلها عبر شات هذا الحساب بدل الإيميل، وإيميله مخفي دائمًا عن المستخدمين ---------------- */
 function chatIdFor(uidA, uidB){ return [uidA, uidB].sort().join("_"); }
@@ -463,6 +467,56 @@ async function doLogout(){
 $("btn-pinlock-logout").onclick = doLogout;
 $("btn-logout").onclick = doLogout;
 
+/* تصدير نسخة من بيانات المستخدم (بروفايله ومنشوراته) بصيغة JSON — متاحة للجميع */
+$("btn-export-data").onclick = async ()=>{
+  const btn = $("btn-export-data"); const originalHTML = btn.innerHTML;
+  btn.innerHTML = '<div class="spinner spinner-dark"></div><span>جاري التجهيز...</span>';
+  try{
+    const postsSnap = await getDocs(query(collection(db, POSTS_COL), where("authorId","==",currentUser.uid), limit(500)));
+    const posts = postsSnap.docs.map(d=>({ id:d.id, ...d.data(), createdAt: d.data().createdAt?.toDate?.().toISOString() || null }));
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      profile: { ...myProfile, id: undefined },
+      posts
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type:"application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `404-data-${myProfile.username}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    toast("تم تنزيل بياناتك");
+  }catch(e){ console.error(e); toast("تعذر تجهيز البيانات، حاول تاني"); }
+  btn.innerHTML = originalHTML;
+};
+
+/* حذف الحساب نهائيًا — يمسح مستند المستخدم من قاعدة البيانات ثم حساب المصادقة */
+$("btn-delete-account").onclick = ()=>{
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="modal-sheet" style="text-align:center;">
+    <div class="modal-sheet-handle"></div>
+    <h3 style="margin:0 0 8px; color:var(--danger);">حذف الحساب نهائيًا؟</h3>
+    <p style="font-size:13px; color:var(--muted); line-height:1.8;">هيتحذف حسابك وكل بياناتك بشكل نهائي ومينفعش ترجعه تاني. متأكد إنك عايز تكمل؟</p>
+    <button class="btn btn-primary" id="btn-confirm-delete-account" style="background:var(--danger); margin-top:14px;">تأكيد الحذف النهائي</button>
+    <button class="btn btn-outline" id="btn-cancel-delete-account" style="margin-top:10px;">إلغاء</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector("#btn-cancel-delete-account").onclick = ()=> overlay.remove();
+  overlay.querySelector("#btn-confirm-delete-account").onclick = async ()=>{
+    const btn = overlay.querySelector("#btn-confirm-delete-account"); btn.innerHTML='<div class="spinner"></div>'; btn.disabled=true;
+    try{
+      await deleteDoc(doc(db, USERS_COL, currentUser.uid));
+      await deleteUser(currentUser);
+      overlay.remove();
+    }catch(e){
+      console.error(e);
+      toast("محتاج تسجل دخول تاني قبل الحذف لأسباب أمان — سجل خروج وادخل تاني وجرب من جديد");
+      overlay.remove();
+    }
+  };
+};
+
 /* ============================================================
    دورة حياة المصادقة
    ============================================================ */
@@ -503,6 +557,20 @@ async function proceedAfterAuth(user, profile){
 
   sendLoginWelcome(user, myProfile);
   if(!myProfile.isAdmin) autoFollowAllAdmins(user.uid);
+  checkStudentFreeProUpgrade();
+}
+/* بعد شهر من توثيق الطالب، تفعيل باقة Pro مجانًا تلقائيًا (مكافأة الطلاب) */
+async function checkStudentFreeProUpgrade(){
+  if(!myProfile.isStudentVerified || myProfile.studentAutoProGranted || !myProfile.studentVerifiedAt) return;
+  const verifiedMs = myProfile.studentVerifiedAt?.toMillis ? myProfile.studentVerifiedAt.toMillis() : new Date(myProfile.studentVerifiedAt).getTime();
+  const THIRTY_DAYS = 30*24*3600*1000;
+  if(Date.now() - verifiedMs < THIRTY_DAYS) return;
+  try{
+    await updateDoc(doc(db, USERS_COL, currentUser.uid), { planTier:"pro", studentAutoProGranted:true, planFreeForStudent:true });
+    myProfile.planTier = "pro"; myProfile.studentAutoProGranted = true;
+    notifyUser(currentUser.uid, "مبروك! اتفعّلت باقة Pro مجانًا كمكافأة لأنك طالب موثّق معانا من شهر");
+    toast("مبروك! باقة Pro اتفعّلت مجانًا كمكافأة توثيق الطالب");
+  }catch(e){ console.error(e); }
 }
 
 let resettingPassword = false;
@@ -566,6 +634,7 @@ function enterApp(){
   $("mini-avatar").src = myProfile.profilePic || DEFAULT_AVATAR;
   $("composer-admin-tools").style.display = myProfile.isAdmin ? "flex" : "none";
   $("composer-counter").textContent = `${$("composer-text").value.length} / ${postCharLimit()}`;
+  $("composer-schedule-wrap").style.display = (myProfile.planTier==="pro" || myProfile.isAdmin) ? "block" : "none";
   document.querySelector('.tab-item[data-target="screen-feed"]').click();
   startFeedListener();
   startCodeFeedListener();
@@ -581,12 +650,17 @@ $("composer-text").addEventListener("input", ()=>{ $("composer-counter").textCon
 $("code-composer-text").addEventListener("input", ()=>{ $("code-composer-counter").textContent = `${$("code-composer-text").value.length} / 800`; });
 
 $("btn-post-submit").onclick = ()=> submitPost($("composer-text"), postCharLimit(), false);
+$("composer-schedule-toggle")?.addEventListener("change", (e)=>{
+  $("composer-schedule-time").style.display = e.target.checked ? "block" : "none";
+});
 $("btn-code-post-submit").onclick = ()=> submitPost($("code-composer-text"), 800, true);
 
 /* ---------- إرفاق صور في المنشور: مجاني صورة واحدة، Plus حتى 3، Pro حتى 10 بتصميم كاروسيل ---------- */
 let pendingComposerImages = [];
+function isPlusOrAbove(){ return myProfile.planTier==="plus" || myProfile.planTier==="pro" || myProfile.isAdmin || myProfile.isStudentVerified; }
 function maxPostImages(){
   if(myProfile.isAdmin || myProfile.planTier==="pro") return 10;
+  if(myProfile.isStudentVerified) return 5;
   if(myProfile.planTier==="plus") return 3;
   return 1;
 }
@@ -676,6 +750,14 @@ async function submitPost(textarea, maxLen, isCode){
   const finalMedia = myProfile.isAdmin ? (pendingAdminMedia || detectedMedia) : null;
   const hashtags = extractHashtags(text);
   const images = !isCode ? pendingComposerImages.slice(0, maxPostImages()) : [];
+  let scheduledAt = null;
+  if(!isCode && (myProfile.planTier==="pro"||myProfile.isAdmin) && $("composer-schedule-toggle")?.checked){
+    const val = $("composer-schedule-time").value;
+    if(!val){ toast("اختار وقت الجدولة الأول"); return; }
+    const d = new Date(val);
+    if(d.getTime() <= Date.now()){ toast("وقت الجدولة لازم يكون في المستقبل"); return; }
+    scheduledAt = d;
+  }
 
   try{
     const postData = {
@@ -698,25 +780,36 @@ async function submitPost(textarea, maxLen, isCode){
       subscribers: isCode ? [currentUser.uid] : [],
       isQuestion: isCode ? !!$("code-mark-question")?.checked : false,
       solved: false,
+      scheduledAt,
       likes:[], commentsCount:0, createdAt: serverTimestamp()
     };
     await addDoc(collection(db, POSTS_COL), postData);
+    if(isCode){
+      const tagVal = postData.tag;
+      if(tagVal){
+        const subs = await getDocs(query(collection(db, USERS_COL), where("subscribedTags","array-contains",tagVal), limit(200)));
+        subs.docs.filter(d=>d.id!==currentUser.uid).forEach(d=> notifyUser(d.id, `منشور جديد بوسم «${tagVal}»: ${text.slice(0,60)}`));
+      }
+    }
     textarea.value=""; textarea.dispatchEvent(new Event("input"));
     if(isCode && $("code-mark-question")) $("code-mark-question").checked = false;
+    if($("composer-schedule-toggle")){ $("composer-schedule-toggle").checked=false; $("composer-schedule-time").style.display="none"; $("composer-schedule-time").value=""; }
     pendingComposerImages = []; $("composer-media-preview") && ($("composer-media-preview").innerHTML="");
     pendingAdminMedia = null; renderAdminMediaPreview();
-    toast("تم النشر");
+    toast(scheduledAt ? "تم جدولة المنشور" : "تم النشر");
   }catch(e){ toast("تعذر النشر، حاول مرة أخرى"); }
 }
 
 function mediaBlockHTML(p){
   let html = "";
   const images = (p.images && p.images.length) ? p.images : (p.imageUrl ? [p.imageUrl] : []);
+  const canDownloadOwn = images.length && myProfile && p.authorId===myProfile.id && (myProfile.planTier==="pro"||myProfile.isAdmin);
+  const downloadBtn = canDownloadOwn ? `<div class="icon-btn download-own-media-btn" data-download-images='${JSON.stringify(images)}' title="تحميل نسخة أصلية" style="position:absolute; top:8px; left:8px; z-index:2; background:rgba(0,0,0,.5); color:#fff; width:32px; height:32px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></div>` : "";
   if(images.length===1){
-    html += `<div class="post-image-wrap protected-media"><img src="${images[0]}" oncontextmenu="return false" draggable="false" loading="lazy"></div>`;
+    html += `<div class="post-image-wrap protected-media">${downloadBtn}<img src="${images[0]}" oncontextmenu="return false" draggable="false" loading="lazy"></div>`;
   }else if(images.length>1){
     const cid = "carousel-"+Math.random().toString(36).slice(2,9);
-    html += `<div class="post-carousel protected-media">
+    html += `<div class="post-carousel protected-media">${downloadBtn}
       <div class="post-carousel-count">1/${images.length}</div>
       <div class="post-carousel-track" id="${cid}" data-carousel>${images.map(url=>`<img src="${url}" oncontextmenu="return false" draggable="false" loading="lazy">`).join("")}</div>
       <div class="post-carousel-dots">${images.map((_,i)=>`<span class="${i===0?'active':''}"></span>`).join("")}</div>
@@ -763,6 +856,7 @@ function postRowHTML(p){
     ? `<span class="avatar-pro-ring"><img class="avatar" style="width:38px;height:38px;" src="${p.authorPic||DEFAULT_AVATAR}"></span>`
     : `<img class="avatar" src="${p.authorPic||DEFAULT_AVATAR}">`;
   const pinTag = (p.pinned||p.globalPinned) ? `<div class="pinned-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l1.5 5.5L19 9l-4 3.5L16 18l-4-3-4 3 1-5.5L5 9l5.5-1.5L12 2z"/></svg>${p.globalPinned?'مثبّت من الإدارة':'منشور مثبّت'}</div>` : "";
+  const scheduledTag = (p.scheduledAt && p.authorId===myProfile?.id) ? `<div class="pinned-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>مجدول — هيظهر للكل قريبًا</div>` : "";
   const isOwner = myProfile && myProfile.id===p.authorId;
   const canPinOwn = isOwner && (myProfile.planTier==="pro" || myProfile.isAdmin);
   const isAdmin = myProfile && myProfile.isAdmin;
@@ -791,7 +885,7 @@ function postRowHTML(p){
 
   return `
   <div class="glass-card post" data-id="${p.id}">
-    ${pinTag}${questionTag}${tagBadge}
+    ${pinTag}${scheduledTag}${questionTag}${tagBadge}
     <div class="post-head">
       ${avatarHTML}
       <div style="flex:1;">
@@ -887,6 +981,25 @@ function openReportModal(postId){
 }
 
 function attachPostEvents(container){
+  container.querySelectorAll("[data-download-images]").forEach(btn=>{
+    btn.onclick = async (e)=>{
+      e.stopPropagation();
+      let urls = [];
+      try{ urls = JSON.parse(btn.dataset.downloadImages); }catch(_){}
+      for(let i=0;i<urls.length;i++){
+        try{
+          const res = await fetch(urls[i]);
+          const blob = await res.blob();
+          const objUrl = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = objUrl; a.download = `404-post-image-${i+1}.jpg`;
+          document.body.appendChild(a); a.click(); a.remove();
+          URL.revokeObjectURL(objUrl);
+        }catch(err){ window.open(urls[i], "_blank"); }
+      }
+      toast(urls.length>1 ? "جاري تنزيل الصور" : "جاري تنزيل الصورة");
+    };
+  });
   container.querySelectorAll("[data-carousel]").forEach(track=>{
     const wrap = track.closest(".post-carousel");
     const dots = wrap.querySelectorAll(".post-carousel-dots span");
@@ -903,9 +1016,10 @@ function attachPostEvents(container){
       const postId = btn.dataset.subscribe;
       const subscribed = btn.dataset.state==="true";
       const unlimited = btn.dataset.unlimited==="true";
+      const cap = myProfile.isStudentVerified ? 10 : 5;
       if(!subscribed && !unlimited){
-        const mySubs = await getDocs(query(collection(db,POSTS_COL), where("room","==","code"), where("subscribers","array-contains",myProfile.id), limit(6)));
-        if(mySubs.size >= 5){ toast("وصلت للحد الأقصى (5 أسئلة) — Pro يفتح متابعة بلا حدود"); return; }
+        const mySubs = await getDocs(query(collection(db,POSTS_COL), where("room","==","code"), where("subscribers","array-contains",myProfile.id), limit(cap+1)));
+        if(mySubs.size >= cap){ toast(`وصلت للحد الأقصى (${cap} أسئلة) — Pro يفتح متابعة بلا حدود`); return; }
       }
       try{
         await updateDoc(doc(db,POSTS_COL,postId), { subscribers: subscribed ? arrayRemove(myProfile.id) : arrayUnion(myProfile.id) });
@@ -1047,23 +1161,32 @@ async function openCommentsModal(postId){
   const postSnapForModal = await getDoc(doc(db, POSTS_COL, postId));
   const postForModal = postSnapForModal.exists() ? postSnapForModal.data() : {};
   const isOwnerOfQuestion = myProfile && postForModal.authorId===myProfile.id && postForModal.room==="code" && postForModal.isQuestion;
+  const canPinComment = myProfile && postForModal.authorId===myProfile.id && isPlusOrAbove();
 
   async function loadComments(){
     const snap = await getDocs(query(collection(db, POSTS_COL, postId, "comments"), limit(100)));
     let comments = sortByCreatedAtDesc(snap.docs.map(d=>({id:d.id,...d.data()})));
     comments.sort((a,b)=> (b.isBest===true) - (a.isBest===true));
+    comments.sort((a,b)=> (b.pinned===true) - (a.pinned===true));
     const listEl = overlay.querySelector("#comments-list-inner");
     if(!comments.length){ listEl.innerHTML = `<div class="empty-state"><p>لسه مفيش تعليقات، اكتب الأول</p></div>`; return; }
-    listEl.innerHTML = comments.map(c=>`
+    listEl.innerHTML = comments.map(c=>{
+      const nameStyle = c.authorNameColor ? `style="color:${c.authorNameColor}"` : "";
+      return `
       <div class="likers-row" style="align-items:flex-start;">
         <img class="avatar avatar-sm" src="${c.authorPic||DEFAULT_AVATAR}">
         <div style="flex:1;">
-          <div style="font-weight:600; font-size:13px; display:flex; align-items:center; gap:5px;" data-open-user="${c.authorUsername||''}">${c.authorName||"مستخدم"} ${badgeHTML(c.authorVerified)}</div>
+          ${c.pinned ? `<div class="pinned-tag" style="margin-bottom:3px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l1.5 5.5L19 9l-4 3.5L16 18l-4-3-4 3 1-5.5L5 9l5.5-1.5L12 2z"/></svg>تعليق مثبّت</div>` : ""}
+          <div style="font-weight:600; font-size:13px; display:flex; align-items:center; gap:5px;" data-open-user="${c.authorUsername||''}"><span ${nameStyle}>${c.authorName||"مستخدم"}</span> ${badgeHTML(c.authorVerified)}</div>
           <div class="post-text" style="font-size:13.5px; margin-top:2px;">${linkify(c.text||"")}</div>
           <div class="post-time meta-font" style="margin-top:3px;">${timeAgo(c.createdAt)}</div>
-          ${c.isBest ? `<div class="best-answer-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> أفضل إجابة</div>` : (isOwnerOfQuestion ? `<span class="mark-best-btn" data-mark-best="${c.id}">تحديد كأفضل إجابة</span>` : "")}
+          <div style="display:flex; gap:12px; align-items:center; margin-top:4px;">
+            ${c.isBest ? `<div class="best-answer-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> أفضل إجابة</div>` : (isOwnerOfQuestion ? `<span class="mark-best-btn" data-mark-best="${c.id}">تحديد كأفضل إجابة</span>` : "")}
+            ${canPinComment ? `<span class="mark-best-btn" data-toggle-pin-comment="${c.id}" data-pinned="${!!c.pinned}">${c.pinned?'إلغاء التثبيت':'تثبيت التعليق'}</span>` : ""}
+          </div>
         </div>
-      </div>`).join("");
+      </div>`;
+    }).join("");
     listEl.querySelectorAll("[data-open-user]").forEach(el=>{
       if(!el.dataset.openUser) return;
       el.style.cursor="pointer";
@@ -1072,10 +1195,26 @@ async function openCommentsModal(postId){
     listEl.querySelectorAll("[data-mark-best]").forEach(el=>{
       el.onclick = async ()=>{
         try{
+          const commentDoc = comments.find(c=>c.id===el.dataset.markBest);
           const prevBest = await getDocs(query(collection(db, POSTS_COL, postId, "comments"), where("isBest","==",true), limit(5)));
           await Promise.all(prevBest.docs.map(d=> updateDoc(doc(db, POSTS_COL, postId, "comments", d.id), { isBest:false })));
           await updateDoc(doc(db, POSTS_COL, postId, "comments", el.dataset.markBest), { isBest:true });
+          if(commentDoc?.authorId) updateDoc(doc(db, USERS_COL, commentDoc.authorId), { bestAnswersCount: increment(1) }).catch(()=>{});
           toast("تم تحديد أفضل إجابة");
+          loadComments();
+        }catch(e){ toast("تعذر تنفيذ العملية"); }
+      };
+    });
+    listEl.querySelectorAll("[data-toggle-pin-comment]").forEach(el=>{
+      el.onclick = async ()=>{
+        const wasPinned = el.dataset.pinned==="true";
+        try{
+          if(!wasPinned){
+            const prevPinned = await getDocs(query(collection(db, POSTS_COL, postId, "comments"), where("pinned","==",true), limit(5)));
+            await Promise.all(prevPinned.docs.map(d=> updateDoc(doc(db, POSTS_COL, postId, "comments", d.id), { pinned:false })));
+          }
+          await updateDoc(doc(db, POSTS_COL, postId, "comments", el.dataset.togglePinComment), { pinned: !wasPinned });
+          toast(wasPinned ? "تم إلغاء تثبيت التعليق" : "تم تثبيت التعليق");
           loadComments();
         }catch(e){ toast("تعذر تنفيذ العملية"); }
       };
@@ -1092,6 +1231,8 @@ async function openCommentsModal(postId){
       await addDoc(collection(db, POSTS_COL, postId, "comments"), {
         authorId: currentUser.uid, authorName: myProfile.fullName, authorUsername: myProfile.username,
         authorPic: myProfile.profilePic || DEFAULT_AVATAR, authorVerified: myProfile.verifiedType || null,
+        authorNameColor: isPlusOrAbove() ? (myProfile.nameColor||null) : null,
+        pinned:false, isBest:false,
         text, createdAt: serverTimestamp()
       });
       const postSnap = await getDoc(doc(db, POSTS_COL, postId));
@@ -1135,13 +1276,21 @@ async function openLikersModal(postId){
   inner.innerHTML = html || `<p class="subtitle">محدش عمل لايك لسه</p>`;
 }
 
+function isScheduledHidden(p){
+  if(!p.scheduledAt) return false;
+  if(p.authorId===currentUser?.uid) return false;
+  const t = p.scheduledAt?.toMillis ? p.scheduledAt.toMillis() : new Date(p.scheduledAt).getTime();
+  return t > Date.now();
+}
 function startFeedListener(){
   const q = query(collection(db, POSTS_COL), where("room","==","general"), limit(80));
   unsubFeed = onSnapshot(q, (snap)=>{
     const list = $("feed-list");
     if(snap.empty){ list.innerHTML=""; $("feed-empty").classList.remove("hidden"); return; }
+    let docs = sortByCreatedAtDesc(snap.docs.map(d=>({id:d.id, ...d.data()})));
+    docs = docs.filter(p=> !isScheduledHidden(p));
+    if(!docs.length){ list.innerHTML=""; $("feed-empty").classList.remove("hidden"); return; }
     $("feed-empty").classList.add("hidden");
-    const docs = sortByCreatedAtDesc(snap.docs.map(d=>({id:d.id, ...d.data()})));
     docs.sort((a,b)=> (b.globalPinned===true) - (a.globalPinned===true));
     list.innerHTML = docs.map(p=>postRowHTML(p)).join("");
     attachPostEvents(list);
@@ -1163,15 +1312,35 @@ function startCodeFeedListener(){
   }, (err)=>{ console.error("code feed error:", err); toast("تعذر تحميل غرفة البرمجة، حاول تاني"); });
 }
 let __codeTagFilter = "";
+let __codeSort = "new";
+function renderCodeStatsBar(){
+  const bar = $("code-stats-bar"); if(!bar) return;
+  const questions = __lastCodeDocs.filter(p=>p.isQuestion);
+  const solved = questions.filter(p=>p.solved).length;
+  bar.innerHTML = `<span>${__lastCodeDocs.length} منشور</span><span>${questions.length} سؤال</span><span>${solved} تم حله</span><span>${questions.length-solved} مفتوح</span>`;
+}
+function updateFollowTagButton(){
+  const btn = $("btn-follow-current-tag");
+  if(!btn) return;
+  if(!__codeTagFilter || !myProfile){ btn.style.display="none"; return; }
+  const subscribed = (myProfile.subscribedTags||[]).includes(__codeTagFilter);
+  btn.style.display = "inline-flex";
+  btn.classList.toggle("active", subscribed);
+  btn.textContent = subscribed ? `إلغاء متابعة «${__codeTagFilter}»` : `تابع وسم «${__codeTagFilter}»`;
+}
 function renderCodeFeedFiltered(){
   const term = ($("code-search-input")?.value||"").trim().toLowerCase();
   const list = $("code-feed-list");
   let docs = __lastCodeDocs;
   if(__codeTagFilter) docs = docs.filter(p=> p.tag===__codeTagFilter);
   if(term) docs = docs.filter(p=> (p.text||"").toLowerCase().includes(term) || (p.authorUsername||"").toLowerCase().includes(term));
-  docs = [...docs].sort((a,b)=> (b.pinned===true) - (a.pinned===true));
+  docs = [...docs];
+  if(__codeSort==="top") docs.sort((a,b)=> ((b.likes||[]).length+(b.commentsCount||0)) - ((a.likes||[]).length+(a.commentsCount||0)));
+  docs.sort((a,b)=> (b.pinned===true) - (a.pinned===true));
   list.innerHTML = docs.length ? docs.map(p=>postRowHTML(p)).join("") : `<div class="empty-state" style="color:#6E6E73;"><p>مفيش نتائج مطابقة</p></div>`;
   attachPostEvents(list);
+  renderCodeStatsBar();
+  updateFollowTagButton();
 }
 document.querySelectorAll("#code-tag-filters [data-tag-filter]").forEach(chip=>{
   chip.onclick = ()=>{
@@ -1180,6 +1349,24 @@ document.querySelectorAll("#code-tag-filters [data-tag-filter]").forEach(chip=>{
     chip.classList.add("active");
     renderCodeFeedFiltered();
   };
+});
+document.querySelectorAll("#code-sort-bar [data-sort]").forEach(chip=>{
+  chip.onclick = ()=>{
+    __codeSort = chip.dataset.sort;
+    document.querySelectorAll("#code-sort-bar [data-sort]").forEach(c=>c.classList.remove("active"));
+    chip.classList.add("active");
+    renderCodeFeedFiltered();
+  };
+});
+$("btn-follow-current-tag")?.addEventListener("click", async ()=>{
+  if(!__codeTagFilter) return;
+  const subscribed = (myProfile.subscribedTags||[]).includes(__codeTagFilter);
+  try{
+    await updateDoc(doc(db, USERS_COL, currentUser.uid), { subscribedTags: subscribed ? arrayRemove(__codeTagFilter) : arrayUnion(__codeTagFilter) });
+    myProfile.subscribedTags = subscribed ? (myProfile.subscribedTags||[]).filter(t=>t!==__codeTagFilter) : [...(myProfile.subscribedTags||[]), __codeTagFilter];
+    toast(subscribed ? "تم إلغاء متابعة الوسم" : "هتوصلك إشعار بأي منشور جديد بالوسم ده");
+    updateFollowTagButton();
+  }catch(e){ toast("تعذر تنفيذ العملية"); }
 });
 let codeSearchDebounce;
 $("code-search-input")?.addEventListener("input", ()=>{
@@ -1249,6 +1436,13 @@ async function runSearch(){
 /* ============================================================
    البروفايل الشخصي
    ============================================================ */
+function openHighlightLightbox(url){
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="protected-media" style="max-width:92vw; max-height:85vh; border-radius:16px; overflow:hidden;"><img src="${url}" oncontextmenu="return false" draggable="false" style="width:100%; display:block;"></div>`;
+  overlay.onclick = ()=> overlay.remove();
+  document.body.appendChild(overlay);
+}
 async function renderMyProfile(){
   const snap = await getDoc(doc(db, USERS_COL, currentUser.uid));
   myProfile = { id:currentUser.uid, ...snap.data() };
@@ -1265,14 +1459,19 @@ async function renderMyProfile(){
       <div class="profile-stats">
         <div><b>${(p.followers||[]).length}</b> <span>متابِع</span></div>
         <div><b>${(p.following||[]).length}</b> <span>متابَع</span></div>
+        ${p.bestAnswersCount ? `<div><b>${p.bestAnswersCount}</b> <span>إجابة مميزة</span></div>` : ""}
       </div>
       ${expiry?`<div class="locked-note" style="margin-top:14px;">${expiry}</div>`:""}
       ${(!p.planTier || p.planTier==="free")?`<button class="btn btn-accent" style="margin-top:14px;" id="btn-goto-plans">الترقية إلى Plus أو Pro</button>`:""}
+      ${(p.highlights && p.highlights.length) ? `<div class="highlights-row">${p.highlights.map((h,i)=>`<div class="highlight-circle" data-highlight="${i}"><img src="${h.url}"></div>`).join("")}</div>` : ""}
     </div>
     <div class="divider"></div>
     <div class="feed" id="my-posts-feed"></div>
   `;
   $("btn-goto-plans") && ($("btn-goto-plans").onclick = ()=>{ renderPlans(); show("screen-plans"); });
+  $("profile-content").querySelectorAll("[data-highlight]").forEach(el=>{
+    el.onclick = ()=> openHighlightLightbox(myProfile.highlights[Number(el.dataset.highlight)].url);
+  });
 
   const q = query(collection(db, POSTS_COL), where("authorId","==",currentUser.uid), limit(60));
   const psnap = await getDocs(q);
@@ -1322,14 +1521,18 @@ async function openOtherProfile(username){
       <div class="post-username">@${u.username} ${u.isPrivate?lockChip():''}</div>
       ${u.bio?`<div class="profile-bio">${linkify(u.bio)}</div>`:""}
       ${(u.links&&u.links.length)?`<div class="profile-links">${u.links.map(l=>socialLinkChip(l)).join("")}</div>`:""}
-      <div class="profile-stats"><div><b>${(u.followers||[]).length}</b> <span>متابِع</span></div><div><b>${(u.following||[]).length}</b> <span>متابَع</span></div></div>
+      <div class="profile-stats"><div><b>${(u.followers||[]).length}</b> <span>متابِع</span></div><div><b>${(u.following||[]).length}</b> <span>متابَع</span></div>${u.bestAnswersCount ? `<div><b>${u.bestAnswersCount}</b> <span>إجابة مميزة</span></div>` : ""}</div>
       <div style="margin-top:14px; display:flex; gap:10px;">${followBtn}<button class="btn btn-outline" id="btn-message-user" style="flex:0; padding:12px 16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></button></div>
+      ${(u.highlights && u.highlights.length) ? `<div class="highlights-row">${u.highlights.map((h,i)=>`<div class="highlight-circle" data-other-highlight="${i}"><img src="${h.url}"></div>`).join("")}</div>` : ""}
     </div>
     <div class="divider"></div>
     <div class="feed" id="other-posts-feed">
       ${isLockedForMe ? `<div class="locked-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> الحساب خاص، تابِعه عشان تشوف منشوراته</div>` : `<div class="empty-state"><div class="spinner spinner-dark" style="margin:0 auto;"></div></div>`}
     </div>
   `;
+  $("other-profile-content").querySelectorAll("[data-other-highlight]").forEach(el=>{
+    el.onclick = ()=> openHighlightLightbox(u.highlights[Number(el.dataset.otherHighlight)].url);
+  });
 
   const followBtnEl = $("btn-follow-toggle");
   if(followBtnEl) followBtnEl.onclick = ()=> toggleFollow(uid, u, iAmFollowing, requested);
@@ -1844,7 +2047,7 @@ async function openChatWithUser(otherUid){
   $("btn-chat-send").onclick = ()=> sendChatMessage(otherUid, other);
 
   /* إرسال صور في الشات — متاح لمشتركي Plus وPro والأدمن فقط */
-  const canSendImages = canSend && (myProfile.planTier==="plus" || myProfile.planTier==="pro" || myProfile.isAdmin);
+  const canSendImages = canSend && isPlusOrAbove();
   $("btn-chat-attach-image").style.display = canSendImages ? "flex" : "none";
   $("btn-chat-attach-image").onclick = ()=>{
     if(!canSendImages){ toast("إرسال الصور في الشات متاح لمشتركي Plus وPro"); return; }
@@ -1925,7 +2128,7 @@ async function autoFollowAllAdmins(uid){
 function storyTierOptions(){
   const p = myProfile;
   if(p.isAdmin || p.planTier==="pro") return "pro";
-  if(p.planTier==="plus") return "plus";
+  if(p.planTier==="plus" || p.isStudentVerified) return "plus";
   return "free";
 }
 let pendingStoryImageUrl = null;
@@ -2087,6 +2290,9 @@ function renderStorySlide(){
     <div class="icon-btn story-close" id="btn-story-close" style="background:rgba(255,255,255,.14); color:#fff;">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><path d="M18 6L6 18M6 6l12 12"/></svg>
     </div>
+    ${(isMine && (myProfile.planTier==="pro"||myProfile.isAdmin)) ? `<div class="icon-btn story-save-highlight" id="btn-story-save-highlight" style="background:rgba(255,255,255,.14); color:#fff;" title="حفظ كلحظة دائمة">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
+    </div>` : ""}
     <div class="story-slide-media protected-media"><img src="${s.mediaUrl}" oncontextmenu="return false" draggable="false"></div>
     <div class="story-tap-zone" id="story-tap-prev" style="right:0;"></div>
     <div class="story-tap-zone" id="story-tap-next" style="left:0;"></div>
@@ -2102,6 +2308,12 @@ function renderStorySlide(){
   if(!isMine) trackStoryView(s);
 
   $("btn-story-close").onclick = closeStoryViewer;
+  $("btn-story-save-highlight")?.addEventListener("click", async ()=>{
+    try{
+      await updateDoc(doc(db, USERS_COL, currentUser.uid), { highlights: arrayUnion({ url:s.mediaUrl, savedAt: Date.now() }) });
+      toast("اتحفظت كلحظة دائمة على بروفايلك");
+    }catch(e){ toast("تعذر الحفظ، حاول تاني"); }
+  });
   $("story-tap-prev").onclick = ()=> stepStory(-1);
   $("story-tap-next").onclick = ()=> stepStory(1);
   if(isMine){
@@ -2216,6 +2428,63 @@ async function openStoryViewersModal(story){
   });
 }
 
+/* ============================================================
+   توثيق الطلاب — اشتراك مجاني بشارة خاصة مقابل رفع هوية طالب
+   ============================================================ */
+let pendingStudentIdUrl = null;
+function openStudentVerifyModal(){
+  if(myProfile.studentStatus==="pending"){ toast("طلبك قيد المراجعة، هيوصلك إشعار أول ما يتم الرد"); return; }
+  if(myProfile.isStudentVerified){ toast("حسابك موثّق كطالب بالفعل"); return; }
+  pendingStudentIdUrl = null;
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="modal-sheet" style="text-align:right;">
+    <div class="modal-sheet-handle"></div>
+    <h3 style="margin:0 0 6px;">توثيق الطلاب — مجانًا بالكامل</h3>
+    <p style="font-size:12.5px; color:var(--muted); line-height:1.8; margin:0 0 12px;">ارفع صورة هويتك الجامعية أو المدرسية عشان تفتح شارة الطالب و9 مميزات فخمة من غير أي مقابل.</p>
+    <div class="field"><label>اسم الجامعة أو المدرسة</label><input id="student-school-name" placeholder="اكتب اسم الجامعة أو المدرسة"></div>
+    <input type="file" id="student-id-file" accept="image/*" style="display:none;">
+    <button class="btn btn-ghost" id="btn-student-pick-id" style="width:100%; margin-top:10px;">رفع صورة الهوية الجامعية/المدرسية</button>
+    <div id="student-id-preview" style="margin-top:10px;"></div>
+    <p class="err-msg" id="student-verify-error" style="color:var(--danger); font-size:12.5px; display:none; margin-top:6px;"></p>
+    <button class="btn btn-primary" id="btn-student-submit" style="margin-top:14px;">إرسال طلب التوثيق</button>
+  </div>`;
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+
+  overlay.querySelector("#btn-student-pick-id").onclick = ()=> overlay.querySelector("#student-id-file").click();
+  overlay.querySelector("#student-id-file").addEventListener("change", async (e)=>{
+    const file = e.target.files[0]; if(!file) return;
+    const btn = overlay.querySelector("#btn-student-pick-id"); btn.innerHTML = '<div class="spinner spinner-dark"></div>';
+    try{
+      const fd = new FormData(); fd.append("image", file);
+      const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method:"POST", body:fd });
+      const data = await res.json();
+      if(data.success){
+        pendingStudentIdUrl = data.data.url;
+        overlay.querySelector("#student-id-preview").innerHTML = `<div class="protected-media" style="border-radius:14px; overflow:hidden; max-height:220px;"><img src="${pendingStudentIdUrl}" oncontextmenu="return false" draggable="false" style="width:100%; display:block;"></div>`;
+      }else{ toast("تعذر رفع الصورة"); }
+    }catch(err){ toast("تعذر رفع الصورة"); }
+    btn.textContent = "رفع صورة الهوية الجامعية/المدرسية";
+  });
+
+  overlay.querySelector("#btn-student-submit").onclick = async ()=>{
+    const school = overlay.querySelector("#student-school-name").value.trim();
+    const errEl = overlay.querySelector("#student-verify-error"); errEl.style.display="none";
+    if(!school){ errEl.textContent="اكتب اسم الجامعة أو المدرسة"; errEl.style.display="block"; return; }
+    if(!pendingStudentIdUrl){ errEl.textContent="لازم ترفع صورة الهوية"; errEl.style.display="block"; return; }
+    const btn = overlay.querySelector("#btn-student-submit"); btn.innerHTML='<div class="spinner"></div>'; btn.disabled=true;
+    try{
+      await updateDoc(doc(db, USERS_COL, currentUser.uid), {
+        studentStatus:"pending", studentIdUrl: pendingStudentIdUrl, studentSchool: school, studentRequestedAt: serverTimestamp()
+      });
+      myProfile.studentStatus = "pending";
+      toast("تم إرسال طلبك، هيوصلك إشعار بعد المراجعة");
+      overlay.remove();
+    }catch(e){ console.error(e); errEl.textContent="تعذر إرسال الطلب، حاول تاني"; errEl.style.display="block"; btn.disabled=false; btn.textContent="إرسال طلب التوثيق"; }
+  };
+}
+
 $("btn-open-pages-list").onclick = ()=>{ renderPagesList(); show("screen-pages-list"); };
 $("btn-home-pages-list").onclick = ()=>{ renderPagesList(); show("screen-pages-list"); };
 $("btn-pages-list-back").onclick = ()=> document.querySelector('.tab-item[data-target="screen-feed"]').click();
@@ -2228,6 +2497,7 @@ function renderPagesList(){
     { icon:`<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/>`, label:"حسابي", target:"screen-profile", tab:true },
     { icon:`<path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>`, label:"المحفوظات", target:"screen-bookmarks", action: ()=>renderBookmarks() },
     { icon:`<circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>`, label:"إضافة ستوري", action: ()=>openStoryComposerModal() },
+    { icon:`<path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/>`, label:"توثيق الطلاب (مجانًا)", action: ()=>openStudentVerifyModal() },
     { icon:`<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/>`, label:"زوار بروفايلك", target:"screen-visitors", action: ()=>renderVisitorsScreen() },
     { icon:`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09A1.65 1.65 0 0015 4.6a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.36.4.66.74.85`, label:"الإعدادات", target:"screen-settings" },
     { icon:`<path d="M12 2l1.5 5.5L19 9l-4 3.5L16 18l-4-3-4 3 1-5.5L5 9l5.5-1.5L12 2z"/>`, label:"باقات Plus وPro", target:"screen-plans", action: ()=>renderPlans() },
@@ -2257,17 +2527,29 @@ function renderPagesList(){
 /* ============================================================
    الباقات والدفع (PayPal)
    ============================================================ */
-const FREE_FEATURES = ["نشر منشورات نصية بلا حدود","إعجاب وتعليق ومشاركة","غرفة البرمجة والدردشات العامة","رابط واحد فقط في البروفايل","ملف شخصي عام أو خاص","نشر ستوري تختفي تلقائيًا بعد 24 ساعة"];
-const CODE_ROOM_FEATURES = ["نسخ أي كود بزر واحد مباشرة للحافظة","بحث فوري داخل كل منشورات الغرفة","تصنيف المنشورات بوسم (سؤال / شرح / مشروع / أدوات / وظائف) وفلترة بيها","تحديد تعليق كـ«أفضل إجابة» على أي سؤال","متابعة سؤال معيّن وأخذ إشعار فوري بأي رد جديد عليه","تثبيت منشور في أعلى الغرفة (لمشتركي Pro والأدمن)"];
+const FREE_FEATURES = ["نشر منشورات نصية بلا حدود","إعجاب وتعليق ومشاركة","غرفة البرمجة والدردشات العامة","رابط واحد فقط في البروفايل","ملف شخصي عام أو خاص","نشر ستوري تختفي تلقائيًا بعد 24 ساعة","الوضع الليلي التلقائي حسب إعدادات جهازك","تصدير نسخة من بياناتك في أي وقت","حذف حسابك نهائيًا من الإعدادات وقتما تحب"];
+const CODE_ROOM_FEATURES = ["نسخ أي كود بزر واحد مباشرة للحافظة","بحث فوري داخل كل منشورات الغرفة","تصنيف المنشورات بوسم (سؤال / شرح / مشروع / أدوات / وظائف) وفلترة بيها","تحديد تعليق كـ«أفضل إجابة» على أي سؤال","متابعة سؤال معيّن وأخذ إشعار فوري بأي رد جديد عليه","تثبيت منشور في أعلى الغرفة (لمشتركي Pro والأدمن)","فرز المنشورات حسب الأحدث أو الأكثر تفاعلاً","متابعة وسم كامل وأخذ إشعار بأي منشور جديد بيه","شريط إحصائيات فوري: عدد الأسئلة المفتوحة والمحلولة","شارة «إجابات مميزة» على بروفايلك تتزايد تلقائيًا"];
 const PLANS = {
-  plus: { name:"باقة Plus", features:["فتح كل مميزات التطبيق ما عدا التوثيق","رفع صور وفيديوهات وملفات بلا حدود إضافية","دعم فني بأولوية","شارة مميزة على المنشورات","حتى 3 روابط في البروفايل","اختيار مدة الستوري (24 أو 12 ساعة)","معرفة عدد مشاهدات الستوري الإجمالي","إرسال الصور في الشات","متابعة حتى 5 أسئلة في غرفة البرمجة والتنبيه عند الرد عليها"],
+  plus: { name:"باقة Plus", features:["فتح كل مميزات التطبيق ما عدا التوثيق","رفع صور وفيديوهات وملفات بلا حدود إضافية","دعم فني بأولوية","شارة مميزة على المنشورات","حتى 3 روابط في البروفايل","اختيار مدة الستوري (24 أو 12 ساعة)","معرفة عدد مشاهدات الستوري الإجمالي","إرسال الصور في الشات","متابعة حتى 5 أسئلة في غرفة البرمجة والتنبيه عند الرد عليها","شارة اسمك المميزة تظهر في التعليقات أيضًا","تثبيت تعليق واحد في أعلى تعليقات منشورك"],
     tiers:[{label:"أسبوعي", egp:60, usd:1, days:7},{label:"شهري", egp:150, usd:2, days:30},{label:"3 أشهر", egp:450, usd:5, days:90},{label:"سنوي", egp:1800, usd:20, days:365}] },
-  pro: { name:"باقة Pro (مبرمجين وتوثيق)", features:["كل مميزات Plus مضافًا إليها","إمكانية التقديم على شارة توثيق","حتى 8 روابط في البروفايل","دخول مبكر لمميزات غرفة البرمجة","دعم فني مباشر من الفريق","تحديد مدة مخصصة للستوري بالساعة والدقيقة","قائمة تفصيلية بمن شاهد الستوري وتفاعل معها مع إمكانية الرد عليهم","إعادة مشاركة الستوري في الشات حتى لو كانت صورة","رفع حتى 10 صور في المنشور الواحد بعرض كاروسيل زي إنستجرام","تثبيت منشوراتك في أعلى غرفة البرمجة","إرسال أكتر من صورة في نفس محادثة الشات","متابعة عدد غير محدود من الأسئلة في غرفة البرمجة","أولوية ظهور منشوراتك في الاقتراحات والبحث"],
+  pro: { name:"باقة Pro (مبرمجين وتوثيق)", features:["كل مميزات Plus مضافًا إليها","إمكانية التقديم على شارة توثيق","حتى 8 روابط في البروفايل","دخول مبكر لمميزات غرفة البرمجة","دعم فني مباشر من الفريق","تحديد مدة مخصصة للستوري بالساعة والدقيقة","قائمة تفصيلية بمن شاهد الستوري وتفاعل معها مع إمكانية الرد عليهم","إعادة مشاركة الستوري في الشات حتى لو كانت صورة","رفع حتى 10 صور في المنشور الواحد بعرض كاروسيل زي إنستجرام","تثبيت منشوراتك في أعلى غرفة البرمجة","إرسال أكتر من صورة في نفس محادثة الشات","متابعة عدد غير محدود من الأسئلة في غرفة البرمجة","أولوية ظهور منشوراتك في الاقتراحات والبحث","جدولة نشر منشوراتك لوقت لاحق تختاره","حفظ الاستوريز كـ«لحظات» دائمة على بروفايلك","تحميل نسخة أصلية من صور منشوراتك الخاصة"],
     tiers:[{label:"شهري", egp:250, usd:4, days:30},{label:"نصف سنوي", egp:1400, usd:20, days:182},{label:"سنة كاملة", egp:2800, usd:35, days:365}] }
 };
+const STUDENT_FEATURES = ["شارة توثيق طالب خاصة بتصميم ولون مختلف (أخضر مميز)","فتح كل مميزات باقة Plus مجانًا طول فترة التوثيق","رفع حتى 5 صور في المنشور الواحد بعرض كاروسيل","اختيار مدة الستوري (24 أو 12 ساعة)","إرسال الصور في الشات مباشرة","متابعة حتى 10 أسئلة في غرفة البرمجة مع التنبيه بالرد","تثبيت تعليق وشارة اسمك المميزة في كل تعليقاتك","دعم فني بأولوية خاصة بالطلاب","ترقية تلقائية لباقة Pro مجانًا بعد شهر واحد من التوثيق"];
 function renderPlans(){
   const wrap = $("plans-content");
-  wrap.innerHTML = `
+  const studentCardHTML = myProfile.isStudentVerified
+    ? `<div class="glass-card plan-card" style="margin-bottom:16px; border:1.5px solid #0FA968;">
+        <h3 style="margin:0; color:#0FA968;">حسابك موثّق كطالب ✓</h3>
+        <ul class="plan-list">${STUDENT_FEATURES.map(f=>`<li><svg viewBox="0 0 24 24" style="stroke:#0FA968;"><path d="M20 6L9 17l-5-5"/></svg>${f}</li>`).join("")}</ul>
+      </div>`
+    : `<div class="glass-card plan-card" style="margin-bottom:16px; border:1.5px solid #0FA968;">
+        <h3 style="margin:0; color:#0FA968;">توثيق الطلاب — مجانًا بالكامل</h3>
+        <p class="subtitle" style="margin:6px 0 10px;">ارفع هويتك الجامعية أو المدرسية وافتح 9 مميزات فخمة بلا أي مقابل مادي.</p>
+        <ul class="plan-list">${STUDENT_FEATURES.map(f=>`<li><svg viewBox="0 0 24 24" style="stroke:#0FA968;"><path d="M20 6L9 17l-5-5"/></svg>${f}</li>`).join("")}</ul>
+        <button class="btn" style="background:#0FA968; color:#fff; margin-top:10px;" id="btn-plans-student-verify">${myProfile.studentStatus==="pending"?"طلبك قيد المراجعة":"ابدأ توثيق الطالب"}</button>
+      </div>`;
+  wrap.innerHTML = studentCardHTML + `
     <div class="glass-card plan-card" style="margin-bottom:16px;">
       <h3 style="margin:0;">الباقة المجانية</h3>
       <ul class="plan-list">${FREE_FEATURES.map(f=>`<li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>${f}</li>`).join("")}</ul>
@@ -2284,6 +2566,7 @@ function renderPlans(){
           </div>`).join("")}
       </div>
     </div>`).join("");
+  $("btn-plans-student-verify")?.addEventListener("click", openStudentVerifyModal);
   loadPayPalSDK().then(()=>{
     document.querySelectorAll(".paypal-slot").forEach(slot=>{
       paypal.Buttons({
@@ -2323,6 +2606,50 @@ async function renderAdmin(){
     console.error(e);
     $("admin-users-list").innerHTML = `<div class="empty-state"><p>تعذر تحميل قائمة المستخدمين، حاول تاني</p></div>`;
   }
+  renderStudentRequests();
+}
+async function renderStudentRequests(){
+  const wrap = $("admin-student-requests");
+  try{
+    const snap = await getDocs(query(collection(db, USERS_COL), where("studentStatus","==","pending"), limit(50)));
+    if(snap.empty){ wrap.innerHTML=""; return; }
+    wrap.innerHTML = `<h3 style="margin:0 0 8px;">طلبات توثيق الطلاب (${snap.size})</h3>` + snap.docs.map(d=>{
+      const u = d.data();
+      return `<div class="glass-card section-pad" style="margin-bottom:10px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <img class="avatar avatar-sm" src="${u.profilePic||DEFAULT_AVATAR}">
+          <div style="flex:1;"><div style="font-weight:700;">${u.fullName}</div><div class="post-username">@${u.username} — ${u.studentSchool||''}</div></div>
+        </div>
+        <div class="protected-media" style="margin-top:10px; border-radius:12px; overflow:hidden; max-height:200px;"><img src="${u.studentIdUrl}" oncontextmenu="return false" draggable="false" style="width:100%; display:block;"></div>
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <button class="btn btn-primary btn-sm" data-approve-student="${d.id}" style="flex:1;">قبول</button>
+          <button class="btn btn-outline btn-sm" data-reject-student="${d.id}" style="flex:1; color:var(--danger);">رفض</button>
+        </div>
+      </div>`;
+    }).join("") + `<div class="page-rule"></div>`;
+    wrap.querySelectorAll("[data-approve-student]").forEach(btn=>{
+      btn.onclick = async ()=>{
+        const uid = btn.dataset.approveStudent;
+        try{
+          await updateDoc(doc(db, USERS_COL, uid), { isStudentVerified:true, verifiedType:"student", studentStatus:"approved", studentVerifiedAt: serverTimestamp(), studentAutoProGranted:false });
+          notifyUser(uid, "تهانينا! اتقبل طلب توثيقك كطالب — استمتع بـ9 مميزات فخمة مجانًا");
+          toast("تم قبول الطالب");
+          renderStudentRequests();
+        }catch(e){ toast("تعذر تنفيذ العملية"); }
+      };
+    });
+    wrap.querySelectorAll("[data-reject-student]").forEach(btn=>{
+      btn.onclick = async ()=>{
+        const uid = btn.dataset.rejectStudent;
+        try{
+          await updateDoc(doc(db, USERS_COL, uid), { studentStatus:"rejected" });
+          notifyUser(uid, "للأسف طلب توثيق الطالب اتّرفض، تأكد إن صورة الهوية واضحة وحاول تاني");
+          toast("تم رفض الطلب");
+          renderStudentRequests();
+        }catch(e){ toast("تعذر تنفيذ العملية"); }
+      };
+    });
+  }catch(e){ console.error(e); }
 }
 function renderAdminList(users){
   $("admin-users-list").innerHTML = users.map(u=>`
