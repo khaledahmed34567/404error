@@ -1,22 +1,7 @@
 /* ===================================================================
    404 — نمط بصري أبيض، زجاجي، مستوحى من Apple
+   الخط الرسمي: IBM Plex Sans Arabic بكل أوزانه
    =================================================================== */
-
-@font-face {
-  font-family: "F404-Title";
-  src: url("https://files.catbox.moe/jou1h3.ttf") format("truetype");
-  font-display: swap;
-}
-@font-face {
-  font-family: "F404-Body";
-  src: url("https://files.catbox.moe/7uq04t.ttf") format("truetype");
-  font-display: swap;
-}
-@font-face {
-  font-family: "F404-Meta";
-  src: url("https://files.catbox.moe/v9m6dt.ttf") format("truetype");
-  font-display: swap;
-}
 
 :root{
   --ink:#0B0B0C;
@@ -51,7 +36,7 @@ body{
     radial-gradient(1000px 500px at 110% 10%, #FFF3F0 0%, transparent 50%),
     var(--bg);
   color:var(--ink);
-  font-family:"F404-Body",sans-serif;
+  font-family:"IBM Plex Sans Arabic",sans-serif; font-weight:400;
   direction:rtl;
   overflow-x:hidden;
   -webkit-font-smoothing:antialiased;
@@ -59,9 +44,9 @@ body{
 /* الفونتات الثلاثة تتطبق على كل عنصر في الموقع بلا استثناء (أزرار، إنبوتات، قوائم، شيبس...) */
 h1,h2,h3,h4,.title-font,
 button,.btn,.tab-item,.chip,.badge,.page-list-item,.dropdown-menu button,
-.plan-card h3,.composer-tool-btn,.icon-btn,select,option,label{ font-family:"F404-Title",sans-serif; letter-spacing:.2px; }
-time,.meta-font,.time-font,.post-time,.post-username,.subtitle{ font-family:"F404-Meta",sans-serif; }
-body,input,textarea,p,a,span,div,li{ font-family:"F404-Body",sans-serif; }
+.plan-card h3,.composer-tool-btn,.icon-btn,select,option,label{ font-family:"IBM Plex Sans Arabic",sans-serif; font-weight:700; letter-spacing:.2px; }
+time,.meta-font,.time-font,.post-time,.post-username,.subtitle{ font-family:"IBM Plex Sans Arabic",sans-serif; font-weight:500; }
+body,input,textarea,p,a,span,div,li{ font-family:"IBM Plex Sans Arabic",sans-serif; font-weight:400; }
 input,textarea,select,button{ font-family:inherit; }
 
 /* ---------------- حماية شاملة: منع نسخ/حفظ أي نص أو صورة في الموقع كله ---------------- */
@@ -189,7 +174,7 @@ img{ user-select:none; -webkit-user-drag:none; }
 .feature-lock-note{ display:flex; align-items:center; gap:8px; padding:11px 13px; background:var(--bg-sunk); border-radius:12px; font-size:12.5px; color:var(--muted); margin-top:8px; }
 a{ color:inherit; text-decoration:none; }
 button{ font-family:inherit; }
-input,textarea,select{ font-family:"F404-Body",sans-serif; }
+input,textarea,select{ font-family:"IBM Plex Sans Arabic",sans-serif; font-weight:400; }
 
 ::selection{ background:rgba(10,132,255,.18); }
 
@@ -322,7 +307,7 @@ input,textarea,select{ font-family:"F404-Body",sans-serif; }
 .badge svg{ width:11px; height:11px; stroke:#fff; stroke-width:3; fill:none; }
 .badge-pro{ background:var(--gold); }
 .badge-investigator{ background:var(--violet); }
-.badge-app{ background:var(--ink); }
+.badge-app{ background:linear-gradient(135deg,#0B0B0C,#2C2C2E); box-shadow:0 0 0 2px rgba(201,164,92,.35), 0 2px 8px rgba(0,0,0,.45); }
 .badge-student{ background:linear-gradient(135deg,#0FA968,#0C7A4E); }
 .badge-developer{ background:linear-gradient(135deg,#0A84FF,#5E5CE6,#7C3AED); box-shadow:0 0 0 2px rgba(94,92,230,.18), 0 2px 6px rgba(94,92,230,.35); }
 .badge-engineer{ background:linear-gradient(135deg,#F5A623,#D9720A); box-shadow:0 0 0 2px rgba(245,166,35,.18), 0 2px 6px rgba(217,114,10,.35); }
@@ -335,6 +320,12 @@ input,textarea,select{ font-family:"F404-Body",sans-serif; }
 .verify-feature-list li{ display:flex; align-items:flex-start; gap:6px; font-size:12px; color:var(--ink-soft); line-height:1.7; margin-bottom:6px; }
 .verify-feature-list li svg{ width:13px; height:13px; stroke:var(--green); fill:none; stroke-width:2.5; flex-shrink:0; margin-top:2px; }
 .admin-stats-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px; }
+.repost-banner{ display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--muted); margin-bottom:8px; }
+.repost-banner svg{ width:13px; height:13px; stroke:var(--muted); fill:none; }
+.quoted-post-card{ border:1px solid var(--line-strong); border-radius:14px; padding:10px; margin-top:8px; cursor:pointer; }
+.share-sheet-item{ display:flex; align-items:center; gap:10px; padding:12px 4px; font-size:14px; cursor:pointer; border-bottom:1px solid var(--line); }
+.share-sheet-item:last-child{ border-bottom:none; }
+.share-sheet-item svg{ width:18px; height:18px; stroke:var(--ink); fill:none; stroke-width:2; flex-shrink:0; }
 .admin-stat-card{ background:var(--bg-sunk); border:1px solid var(--line); border-radius:14px; padding:12px; text-align:center; }
 .admin-stat-card b{ display:block; font-size:20px; }
 .admin-stat-card span{ font-size:10.5px; color:var(--muted); }
@@ -367,7 +358,7 @@ input,textarea,select{ font-family:"F404-Body",sans-serif; }
 .code-room .topbar{ background:rgba(255,255,255,.05); border-color:rgba(255,255,255,.08); }
 .code-room .topbar h1{ color:var(--code-ink); }
 .code-room .post{ background:rgba(255,255,255,.04); border-radius:var(--radius-md); margin:10px 14px; border:1px solid rgba(255,255,255,.08); }
-.code-room .post-text{ font-family:"F404-Body",sans-serif; color:#E8E8ED; }
+.code-room .post-text{ font-family:"IBM Plex Sans Arabic",sans-serif; font-weight:400; color:#E8E8ED; }
 .code-block{ background:#111114; color:#E8E8ED; border:1px solid rgba(255,255,255,.1); border-radius:12px; padding:12px 14px; font-family:monospace; font-size:12.5px; overflow-x:auto; white-space:pre; margin:8px 0; direction:ltr; text-align:left; }
 .question-tag{ display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; margin-bottom:6px; margin-left:6px; }
 .question-tag.q-open{ background:rgba(10,132,255,.14); color:var(--accent); }
@@ -429,7 +420,7 @@ input,textarea,select{ font-family:"F404-Body",sans-serif; }
 }
 .notfound-badge svg{ width:28px; height:28px; stroke:var(--ink); }
 .notfound-num{
-  position:relative; display:flex; gap:6px; font-family:"F404-Title",sans-serif;
+  position:relative; display:flex; gap:6px; font-family:"IBM Plex Sans Arabic",sans-serif; font-weight:700;
   font-size:104px; line-height:1; font-weight:800; direction:ltr; overflow:hidden;
   background:linear-gradient(135deg, var(--ink) 30%, var(--accent) 65%, var(--violet) 100%);
   -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;

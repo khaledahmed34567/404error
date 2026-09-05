@@ -9,6 +9,9 @@
 <meta name="apple-mobile-web-app-title" content="404">
 <meta name="mobile-web-app-capable" content="yes">
 <title>404</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="https://i.ibb.co/rKD2MxX7/icon.jpg">
 <link rel="icon" href="https://i.ibb.co/rKD2MxX7/icon.jpg">
@@ -80,6 +83,9 @@
       <!-- الخطوة 1: البيانات الشخصية -->
       <div class="reg-step" id="reg-step-1" style="width:100%; max-width:340px; text-align:right;">
         <div class="field"><label>الاسم كامل</label><input id="r-fullname" placeholder="الاسم الكامل"></div>
+        <div class="field"><label>اسم المستخدم (إنجليزي وحروف صغيرة فقط)</label><input id="r-username" placeholder="username" autocapitalize="off" autocorrect="off" dir="ltr" style="text-align:left;">
+          <p class="err-msg" id="r-username-error" style="color:var(--danger); font-size:11.5px; display:none; margin-top:4px;"></p>
+        </div>
         <div class="field"><label>تاريخ الميلاد</label><input type="date" id="r-dob"></div>
         <div class="field"><label>العمر</label><input type="number" id="r-age" placeholder="العمر" readonly></div>
         <div class="field"><label>الجنسية</label><select id="r-nationality"></select></div>
@@ -572,7 +578,9 @@
     </div>
     <div class="section-pad">
       <div id="admin-stats-bar"></div>
-      <button class="btn btn-outline" id="btn-admin-broadcast" style="margin-bottom:14px;">إرسال إشعار جماعي لكل المستخدمين</button>
+      <button class="btn btn-outline" id="btn-admin-broadcast" style="margin-bottom:10px;">إرسال إشعار جماعي لكل المستخدمين</button>
+      <button class="btn btn-outline" id="btn-admin-print-report" style="margin-bottom:10px;">طباعة تقرير عام (PDF)</button>
+      <button class="btn btn-outline" id="btn-admin-chats-monitor" style="margin-bottom:14px;">مراقبة المحادثات</button>
       <div id="admin-paywall-requests"></div>
       <div id="admin-student-requests"></div>
       <div class="field"><input id="admin-search" placeholder="ابحث عن مستخدم بالاسم أو اليوزر..."></div>

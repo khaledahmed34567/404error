@@ -87,6 +87,7 @@ function badgeIcon(type){
   if(type==="engineer") return `<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>`;
   if(type==="company") return `<path d="M3 21h18M6 21V8l6-4 6 4v13M9 21v-5h6v5M9 12h.01M9 15h.01M15 12h.01M15 15h.01"/>`;
   if(type==="general") return `<circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/>`;
+  if(type==="app") return `<path d="M12 2l7 3v6c0 5-3 8.5-7 11-4-2.5-7-6-7-11V5l7-3z"/><path d="M9.5 12l1.8 1.8L15 10"/>`;
   return `<path d="M20 6L9 17l-5-5"/>`;
 }
 function badgeHTML(type, username){
@@ -160,6 +161,35 @@ document.addEventListener("click", (e)=>{
 });
 /* ---------------- حساب الدعم الرسمي: إشعارات كلها عبر شات هذا الحساب بدل الإيميل، وإيميله مخفي دائمًا عن المستخدمين ---------------- */
 function chatIdFor(uidA, uidB){ return [uidA, uidB].sort().join("_"); }
+/* ---------------- تشفير رسائل الشات: مفتاح AES-GCM مشتق من معرّف المحادثة نفسه، فمحدش يقدر يقرا النص من قاعدة البيانات مباشرة ---------------- */
+const __chatKeyCache = {};
+async function deriveChatKey(chatId){
+  if(__chatKeyCache[chatId]) return __chatKeyCache[chatId];
+  const enc = new TextEncoder().encode("404-chat-"+chatId);
+  const hash = await crypto.subtle.digest("SHA-256", enc);
+  const key = await crypto.subtle.importKey("raw", hash, {name:"AES-GCM"}, false, ["encrypt","decrypt"]);
+  __chatKeyCache[chatId] = key;
+  return key;
+}
+function bufToB64(buf){ return btoa(String.fromCharCode(...new Uint8Array(buf))); }
+function b64ToBuf(b64){ return Uint8Array.from(atob(b64), c=>c.charCodeAt(0)); }
+async function encryptChatText(chatId, text){
+  if(!text) return { encText:null, iv:null };
+  try{
+    const key = await deriveChatKey(chatId);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const cipher = await crypto.subtle.encrypt({name:"AES-GCM", iv}, key, new TextEncoder().encode(text));
+    return { encText: bufToB64(cipher), iv: bufToB64(iv) };
+  }catch(e){ console.error("تعذر تشفير الرسالة:", e); return { encText:null, iv:null }; }
+}
+async function decryptChatText(chatId, encText, iv){
+  if(!encText || !iv) return "";
+  try{
+    const key = await deriveChatKey(chatId);
+    const plain = await crypto.subtle.decrypt({name:"AES-GCM", iv:b64ToBuf(iv)}, key, b64ToBuf(encText));
+    return new TextDecoder().decode(plain);
+  }catch(e){ return "[تعذر فك تشفير الرسالة]"; }
+}
 let supportAccountCache = null;
 async function getSupportAccount(){
   if(supportAccountCache) return supportAccountCache;
@@ -178,15 +208,16 @@ async function sendSupportChatMessage(uid, text, extra){
     const targetSnap = await getDoc(doc(db, USERS_COL, uid));
     const target = targetSnap.exists() ? targetSnap.data() : {};
     const chatId = chatIdFor(uid, admin.id);
+    const { encText, iv } = await encryptChatText(chatId, text);
     await setDoc(doc(db,"chats",chatId), {
       participants:[uid, admin.id],
       participantInfo:{
-        [uid]: { name: target.fullName||"مستخدم", pic: target.profilePic||DEFAULT_AVATAR, verifiedType: target.verifiedType||null },
-        [admin.id]: { name: admin.fullName||"فريق 404", pic: admin.profilePic||DEFAULT_AVATAR, verifiedType: admin.verifiedType||"app" }
+        [uid]: { name: target.fullName||"مستخدم", pic: target.profilePic||DEFAULT_AVATAR, verifiedType: target.verifiedType||null, username: target.username||null },
+        [admin.id]: { name: admin.fullName||"فريق 404", pic: admin.profilePic||DEFAULT_AVATAR, verifiedType: admin.verifiedType||"app", username: admin.username||null }
       },
-      lastMessage:text, lastMessageAt: serverTimestamp()
+      lastMessageEnc: encText, lastMessageIv: iv, lastMessageAt: serverTimestamp()
     }, { merge:true });
-    await addDoc(collection(db,"chats",chatId,"messages"), { senderId: admin.id, text, createdAt: serverTimestamp(), ...(extra||{}) });
+    await addDoc(collection(db,"chats",chatId,"messages"), { senderId: admin.id, encText, iv, createdAt: serverTimestamp(), ...(extra||{}) });
   }catch(e){ console.error("تعذر إرسال رسالة الدعم:", e); }
 }
 /* بديل موحّد لأي إشعار: يتسجل في قائمة الإشعارات وبالتوازي يوصل كرسالة من حساب الدعم في الشات، بدل أي إيميل */
@@ -397,8 +428,26 @@ $("r-dob").addEventListener("change", ()=>{
   const age = Math.floor((Date.now()-d.getTime())/(365.25*24*3600*1000));
   $("r-age").value = age >= 0 ? age : "";
 });
-$("btn-step1-next").onclick = ()=>{
+$("r-username").addEventListener("input", (e)=>{
+  const cleaned = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g,"");
+  if(cleaned !== e.target.value) e.target.value = cleaned;
+});
+$("btn-step1-next").onclick = async ()=>{
+  const uErr = $("r-username-error"); uErr.style.display="none";
+  const username = $("r-username").value.trim();
   if(!$("r-fullname").value.trim() || !$("r-dob").value || !$("r-nationality").value){ toast("من فضلك أكمل كل الحقول"); return; }
+  if(!username){ uErr.textContent="اكتب اسم مستخدم"; uErr.style.display="block"; return; }
+  if(!/^[a-z][a-z0-9_]{2,15}$/.test(username)){
+    uErr.textContent="اسم المستخدم لازم يبدأ بحرف إنجليزي صغير، وميحتويش إلا على حروف إنجليزية صغيرة وأرقام و_ (من 3 لـ16 حرف)";
+    uErr.style.display="block";
+    return;
+  }
+  const btn = $("btn-step1-next"); btn.innerHTML='<div class="spinner"></div>'; btn.disabled=true;
+  try{
+    const dup = await getDocs(query(collection(db, USERS_COL), where("username","==",username), limit(1)));
+    if(!dup.empty){ uErr.textContent="اسم المستخدم ده مستخدم بالفعل"; uErr.style.display="block"; btn.innerHTML="التالي"; btn.disabled=false; return; }
+  }catch(e){ /* لو فشل الفحص، هيتفحص تاني وقت إنشاء الحساب */ }
+  btn.innerHTML="التالي"; btn.disabled=false;
   goRegStep(2);
 };
 $("btn-step2-back").onclick = ()=> goRegStep(1);
@@ -480,7 +529,7 @@ $("btn-finish-register").onclick = async ()=>{
       currentUser = cred.user;
     }
     const pinHash = await sha256(pin);
-    const username = await generateUniqueUsername($("r-fullname").value);
+    const username = $("r-username").value.trim() || await generateUniqueUsername($("r-fullname").value);
     const profileData = {
       fullName: $("r-fullname").value.trim(),
       dob: $("r-dob").value,
@@ -1001,9 +1050,12 @@ function postRowHTML(p){
       <svg viewBox="0 0 24 24" fill="${isBookmarked?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
     </button>` : "";
 
+  const isRepost = !!p.repostOf;
+  const repostBanner = isRepost ? `<div class="repost-banner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>أعاد ${p.authorName||"مستخدم"} النشر</div>` : "";
+
   return `
   <div class="glass-card post" data-id="${p.id}">
-    ${pinTag}${scheduledTag}${questionTag}${tagBadge}
+    ${pinTag}${scheduledTag}${questionTag}${tagBadge}${repostBanner}
     <div class="post-head">
       ${avatarHTML}
       <div style="flex:1;">
@@ -1013,8 +1065,19 @@ function postRowHTML(p){
       </div>
       ${showMenu ? `<button class="icon-btn post-menu-btn" data-post-menu="${p.id}" data-owner="${isOwner}" data-pinned="${!!p.pinned}" data-global-pinned="${!!p.globalPinned}" data-canpin="${canPinOwn}" data-room="${p.room||'general'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="19" r="1.2"/></svg></button>` : ""}
     </div>
-    <div class="post-text">${p.room==="code" ? codeify(p.text||"") : linkify(p.text||"")}</div>
-    ${mediaBlockHTML(p)}
+    ${p.text ? `<div class="post-text">${p.room==="code" ? codeify(p.text||"") : linkify(p.text||"")}</div>` : ""}
+    ${isRepost ? `
+      <div class="quoted-post-card" data-open-post="${p.repostOf}">
+        <div class="post-head" style="margin-bottom:6px;">
+          <img class="avatar" style="width:30px; height:30px;" src="${p.originalAuthorPic||DEFAULT_AVATAR}">
+          <div style="flex:1;">
+            <div class="post-author" style="font-size:13px;">${p.originalAuthorName||"مستخدم"} ${badgeHTML(p.originalAuthorVerified, p.originalAuthorUsername)}</div>
+            <div class="post-username">@${p.originalAuthorUsername||""}</div>
+          </div>
+        </div>
+        ${p.originalText ? `<div class="post-text" style="font-size:13.5px;">${linkify(p.originalText)}</div>` : ""}
+        ${mediaBlockHTML({images:p.originalImages||[], imageUrl:p.originalImageUrl||null})}
+      </div>` : mediaBlockHTML(p)}
     ${signatureHTML}
     <div class="post-actions">
       <button class="post-action like-btn ${liked?"liked":""}" data-id="${p.id}" data-liked="${liked}" data-author="${p.authorId}">
@@ -1027,14 +1090,145 @@ function postRowHTML(p){
       </button>
       <button class="post-action share-btn" data-id="${p.id}">
         <svg viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v14"/></svg>
-        <span>مشاركة</span>
+        <span>${p.repostsCount ? p.repostsCount : "مشاركة"}</span>
       </button>
       ${bookmarkBtn}${solveBtn}${subscribeBtn}
     </div>
   </div>`;
 }
 
-function postMenuOptions(btn){
+/* شيت مشاركة المنشور: نسخ رابط / إعادة نشر داخل التطبيق / مشاركة كصورة */
+function openShareActionSheet(postId){
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="modal-sheet">
+    <div class="modal-sheet-handle"></div>
+    <div class="share-sheet-item" id="share-copy-link"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.07 0l2.83-2.83a5 5 0 00-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 00-7.07 0L4.1 13.83a5 5 0 007.07 7.07l1.5-1.5"/></svg>نسخ رابط المنشور</div>
+    <div class="share-sheet-item" id="share-repost"><svg viewBox="0 0 24 24"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>إعادة النشر في فيدك</div>
+    <div class="share-sheet-item" id="share-as-image"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>مشاركة كصورة</div>
+  </div>`;
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+  overlay.querySelector("#share-copy-link").onclick = ()=>{
+    const url = `${location.origin}${location.pathname}?post=${postId}`;
+    navigator.clipboard?.writeText(url);
+    toast("تم نسخ رابط المنشور");
+    overlay.remove();
+  };
+  overlay.querySelector("#share-repost").onclick = ()=>{ overlay.remove(); repostPost(postId); };
+  overlay.querySelector("#share-as-image").onclick = ()=>{ overlay.remove(); sharePostAsImage(postId); };
+}
+
+async function repostPost(postId){
+  try{
+    const snap = await getDoc(doc(db, POSTS_COL, postId));
+    if(!snap.exists()){ toast("المنشور ده مش موجود"); return; }
+    const orig = snap.data();
+    if(orig.repostOf){ toast("مينفعش تعيد نشر منشور معاد نشره بالفعل"); return; }
+    if(orig.authorId===currentUser.uid){ toast("مينفعش تعيد نشر منشورك"); return; }
+    await addDoc(collection(db, POSTS_COL), {
+      authorId: currentUser.uid, authorUsername: myProfile.username, authorName: myProfile.fullName,
+      authorNameColor: myProfile.nameColor||null, authorPic: myProfile.profilePic||DEFAULT_AVATAR,
+      authorVerified: myProfile.verifiedType||null, authorPlan: myProfile.isAdmin?"admin":(myProfile.planTier||"free"),
+      text:"", room: orig.room||"general", images:[], imageUrl:null, hashtags:[], pinned:false, globalPinned:false,
+      likes:[], commentsCount:0,
+      repostOf: postId,
+      originalAuthorName: orig.authorName, originalAuthorUsername: orig.authorUsername, originalAuthorPic: orig.authorPic||DEFAULT_AVATAR,
+      originalAuthorVerified: orig.authorVerified||null, originalText: orig.text||"", originalImages: orig.images||[], originalImageUrl: orig.imageUrl||null,
+      createdAt: serverTimestamp()
+    });
+    await updateDoc(doc(db, POSTS_COL, postId), { repostsCount: increment(1) });
+    if(orig.authorId) notifyUser(orig.authorId, `${myProfile.fullName} أعاد نشر منشورك`);
+    toast("تم إعادة النشر في فيدك");
+  }catch(e){ console.error(e); toast("تعذر إعادة النشر، حاول تاني"); }
+}
+
+/* مشاركة المنشور كصورة واحدة — بتضم صورة البروفايل والاسم ونص المنشور وصورته لو موجودة */
+async function sharePostAsImage(postId){
+  toast("جاري تجهيز الصورة...");
+  try{
+    const snap = await getDoc(doc(db, POSTS_COL, postId));
+    if(!snap.exists()){ toast("المنشور ده مش موجود"); return; }
+    const p = snap.data();
+    const images = (p.images&&p.images.length) ? p.images : (p.imageUrl?[p.imageUrl]:[]);
+    const W = 1080;
+    const hasImage = images.length>0;
+    const canvas = document.createElement("canvas");
+    canvas.width = W;
+    const ctx = canvas.getContext("2d");
+
+    function loadImg(src){
+      return new Promise((resolve,reject)=>{
+        const img = new Image(); img.crossOrigin = "anonymous";
+        img.onload = ()=>resolve(img); img.onerror = reject;
+        img.src = src;
+      });
+    }
+    function wrapText(text, x, y, maxWidth, lineHeight, maxLines){
+      const words = text.split(" ");
+      let line = ""; let lines = [];
+      for(const w of words){
+        const test = line ? line+" "+w : w;
+        if(ctx.measureText(test).width > maxWidth && line){ lines.push(line); line = w; }
+        else line = test;
+        if(lines.length >= maxLines) break;
+      }
+      if(line && lines.length < maxLines) lines.push(line);
+      lines.forEach((l,i)=> ctx.fillText(l, x, y + i*lineHeight, maxWidth));
+      return lines.length*lineHeight;
+    }
+
+    const avatar = await loadImg(p.authorPic||DEFAULT_AVATAR).catch(()=>null);
+    let postImg = null;
+    if(hasImage) postImg = await loadImg(images[0]).catch(()=>null);
+
+    const headerH = 130;
+    const footerH = 90;
+    const imgAreaH = (hasImage && postImg) ? Math.round(W * (postImg.height/postImg.width)) : 0;
+    const textAreaH = p.text ? 220 : 40;
+    canvas.height = headerH + imgAreaH + textAreaH + footerH;
+
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.direction = "rtl"; ctx.textAlign = "right";
+
+    if(avatar){
+      ctx.save();
+      ctx.beginPath(); ctx.arc(W-90, 65, 42, 0, Math.PI*2); ctx.clip();
+      ctx.drawImage(avatar, W-132, 23, 84, 84);
+      ctx.restore();
+    }
+    ctx.fillStyle = "#0B0B0C"; ctx.font = "700 34px 'IBM Plex Sans Arabic', sans-serif";
+    ctx.fillText(p.authorName||"مستخدم", W-150, 55, 480);
+    ctx.fillStyle = "#86868B"; ctx.font = "500 24px 'IBM Plex Sans Arabic', sans-serif";
+    ctx.fillText("@"+(p.authorUsername||""), W-150, 90, 480);
+
+    if(hasImage && postImg){
+      ctx.drawImage(postImg, 0, headerH, W, imgAreaH);
+    }
+
+    if(p.text){
+      ctx.fillStyle = "#0B0B0C"; ctx.font = "400 30px 'IBM Plex Sans Arabic', sans-serif";
+      wrapText(p.text, W-40, headerH+imgAreaH+50, W-80, 42, 4);
+    }
+
+    ctx.fillStyle = "#86868B"; ctx.font = "600 26px 'IBM Plex Sans Arabic', sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("404", W/2, canvas.height-35);
+
+    canvas.toBlob(async (blob)=>{
+      if(!blob){ toast("تعذر إنشاء الصورة"); return; }
+      const file = new File([blob], `404-post-${postId}.png`, { type:"image/png" });
+      if(navigator.canShare && navigator.canShare({ files:[file] })){
+        try{ await navigator.share({ files:[file], title:"404" }); return; }catch(e){ /* المستخدم لغى المشاركة أو مش مدعومة، هنزل الصورة بدلاً من كده */ }
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url; a.download = `404-post-${postId}.png`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      toast("تم تنزيل صورة المنشور");
+    }, "image/png");
+  }catch(e){ console.error(e); toast("تعذر إنشاء صورة المنشور، حاول تاني"); }
+}
   const postId = btn.dataset.postMenu;
   const isOwner = btn.dataset.owner==="true";
   const canPin = btn.dataset.canpin==="true";
@@ -1170,11 +1364,10 @@ function attachPostEvents(container){
     btn.onclick = ()=> openCommentsModal(btn.dataset.id);
   });
   container.querySelectorAll(".share-btn").forEach(btn=>{
-    btn.onclick = ()=>{
-      const url = `${location.origin}${location.pathname}?post=${btn.dataset.id}`;
-      navigator.clipboard?.writeText(url);
-      toast("تم نسخ رابط المنشور");
-    };
+    btn.onclick = ()=> openShareActionSheet(btn.dataset.id);
+  });
+  container.querySelectorAll("[data-open-post]").forEach(el=>{
+    el.onclick = (e)=>{ e.stopPropagation(); openPostDirect(el.dataset.openPost); };
   });
   container.querySelectorAll("[data-bookmark]").forEach(btn=>{
     btn.onclick = async ()=>{
@@ -2198,12 +2391,17 @@ async function renderChatsList(){
         <img class="avatar" src="${info.pic||DEFAULT_AVATAR}">
         <div class="chat-meta">
           <div style="font-weight:700; font-size:14px; display:flex; align-items:center; gap:5px;">${info.name||"مستخدم"} ${badgeHTML(info.verifiedType, info.username)}</div>
-          <div class="chat-last">${(c.lastMessage||"").slice(0,50)}</div>
+          <div class="chat-last" id="chat-last-${c.id}">${c.lastMessageEnc ? "..." : (c.lastMessage||"")}</div>
         </div>
         <div class="post-time meta-font">${timeAgo(c.lastMessageAt)}</div>
       </div>`;
     }).join("");
     wrap.querySelectorAll("[data-open-chat]").forEach(el=> el.onclick = ()=> openChatWithUser(el.dataset.openChat));
+    chats.filter(c=>c.lastMessageEnc).forEach(async c=>{
+      const plain = await decryptChatText(c.id, c.lastMessageEnc, c.lastMessageIv);
+      const el = document.getElementById(`chat-last-${c.id}`);
+      if(el) el.textContent = plain.slice(0,50);
+    });
   }catch(e){ console.error(e); wrap.innerHTML = `<div class="empty-state"><p>تعذر تحميل المحادثات</p></div>`; }
 }
 
@@ -2244,9 +2442,18 @@ async function openChatWithUser(otherUid){
       const mine = m.senderId===currentUser.uid;
       const imgHTML = m.imageUrl ? `<div class="protected-media"><img src="${m.imageUrl}" oncontextmenu="return false" draggable="false"></div>` : "";
       const storyTagHTML = m.sharedStory ? `<div class="chip" style="margin-bottom:4px;">إعادة مشاركة ستوري</div>` : "";
-      return `<div class="msg-bubble ${mine?'msg-mine':'msg-theirs'} ${m.imageUrl?'msg-story-share':''}">${storyTagHTML}${imgHTML}${m.text?linkify(m.text):""}<div class="msg-time">${timeAgo(m.createdAt)}</div></div>`;
+      return `<div class="msg-bubble ${mine?'msg-mine':'msg-theirs'} ${m.imageUrl?'msg-story-share':''}" id="msg-${d.id}">${storyTagHTML}${imgHTML}<span class="msg-text-slot"></span><div class="msg-time">${timeAgo(m.createdAt)}</div></div>`;
     }).join("");
     msgsWrap.scrollTop = msgsWrap.scrollHeight;
+    /* فك تشفير كل رسالة نصية بشكل غير متزامن بعد الرسم */
+    snap.docs.forEach(async d=>{
+      const m = d.data();
+      if(!m.encText) return;
+      const plain = await decryptChatText(chatId, m.encText, m.iv);
+      const bubble = document.getElementById(`msg-${d.id}`);
+      const slot = bubble?.querySelector(".msg-text-slot");
+      if(slot) slot.innerHTML = linkify(plain);
+    });
   }, (err)=>{ console.error(err); msgsWrap.innerHTML = `<div class="empty-state"><p>تعذر تحميل الرسائل، حاول تاني</p></div>`; });
 
   $("btn-chat-send").onclick = ()=> sendChatMessage(otherUid, other);
@@ -2281,15 +2488,18 @@ async function sendChatMessage(otherUid, otherProfile, opts){
   if(!text && !imageUrl) return;
   const chatId = chatIdFor(currentUser.uid, otherUid);
   try{
+    const previewText = imageUrl ? (sharedStory?"📷 إعادة مشاركة ستوري":"📷 صورة") : text;
+    const { encText: lastMessageEnc, iv: lastMessageIv } = await encryptChatText(chatId, previewText);
     await setDoc(doc(db,"chats",chatId), {
       participants:[currentUser.uid, otherUid],
       participantInfo:{
-        [currentUser.uid]: { name: myProfile.fullName, pic: myProfile.profilePic||DEFAULT_AVATAR, verifiedType: myProfile.verifiedType||null },
-        [otherUid]: { name: otherProfile.fullName, pic: otherProfile.profilePic||DEFAULT_AVATAR, verifiedType: otherProfile.verifiedType||null }
+        [currentUser.uid]: { name: myProfile.fullName, pic: myProfile.profilePic||DEFAULT_AVATAR, verifiedType: myProfile.verifiedType||null, username: myProfile.username||null },
+        [otherUid]: { name: otherProfile.fullName, pic: otherProfile.profilePic||DEFAULT_AVATAR, verifiedType: otherProfile.verifiedType||null, username: otherProfile.username||null }
       },
-      lastMessage: imageUrl ? (sharedStory?"📷 إعادة مشاركة ستوري":"📷 صورة") : text, lastMessageAt: serverTimestamp()
+      lastMessageEnc, lastMessageIv, lastMessageAt: serverTimestamp()
     }, { merge:true });
-    await addDoc(collection(db,"chats",chatId,"messages"), { senderId: currentUser.uid, text: text||"", imageUrl, sharedStory, createdAt: serverTimestamp() });
+    const { encText, iv } = await encryptChatText(chatId, text||"");
+    await addDoc(collection(db,"chats",chatId,"messages"), { senderId: currentUser.uid, encText, iv, imageUrl, sharedStory, createdAt: serverTimestamp() });
     if(!opts) input.value = "";
   }catch(e){ console.error(e); toast("تعذر إرسال الرسالة، حاول تاني"); }
 }
@@ -2302,15 +2512,18 @@ async function sendAdminWelcomeChat(newUserUid, newUserProfile){
     if(!adminSnap.empty){
       const adminUid = adminSnap.docs[0].id; const admin = adminSnap.docs[0].data();
       const chatId = chatIdFor(newUserUid, adminUid);
+      const welcomeText = `أهلاً بيك يا ${newUserProfile.fullName} في 404! لو احتجت أي مساعدة إحنا هنا.`;
+      const { encText: lastMessageEnc, iv: lastMessageIv } = await encryptChatText(chatId, "أهلاً بيك في 404!");
       await setDoc(doc(db,"chats",chatId), {
         participants:[newUserUid, adminUid],
         participantInfo:{
-          [newUserUid]: { name:newUserProfile.fullName, pic:newUserProfile.profilePic||DEFAULT_AVATAR, verifiedType:null },
-          [adminUid]: { name:admin.fullName||"فريق 404", pic:admin.profilePic||DEFAULT_AVATAR, verifiedType:admin.verifiedType||"app" }
+          [newUserUid]: { name:newUserProfile.fullName, pic:newUserProfile.profilePic||DEFAULT_AVATAR, verifiedType:null, username:newUserProfile.username||null },
+          [adminUid]: { name:admin.fullName||"فريق 404", pic:admin.profilePic||DEFAULT_AVATAR, verifiedType:admin.verifiedType||"app", username:admin.username||null }
         },
-        lastMessage:"أهلاً بيك في 404!", lastMessageAt: serverTimestamp()
+        lastMessageEnc, lastMessageIv, lastMessageAt: serverTimestamp()
       }, { merge:true });
-      await addDoc(collection(db,"chats",chatId,"messages"), { senderId: adminUid, text:`أهلاً بيك يا ${newUserProfile.fullName} في 404! لو احتجت أي مساعدة إحنا هنا.`, createdAt: serverTimestamp() });
+      const { encText, iv } = await encryptChatText(chatId, welcomeText);
+      await addDoc(collection(db,"chats",chatId,"messages"), { senderId: adminUid, encText, iv, createdAt: serverTimestamp() });
     }
     await autoFollowAllAdmins(newUserUid);
   }catch(e){ console.error("تعذر إرسال رسالة الترحيب من الإدارة:", e); }
@@ -2638,6 +2851,102 @@ async function openStoryViewersModal(story){
    ============================================================ */
 let pendingStudentIdUrl = null;
 /* لوحة أفضل المبرمجين — ترتيب حسب عدد الإجابات المميزة، مربوطة مباشرة بقاعدة البيانات */
+/* لوحة التحقق العامة — أي حد يقدر يبحث بيوزر ويشوف حالة توثيقه الحقيقية وسببها ومميزاته */
+function openVerificationCenter(){
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="modal-sheet" style="max-height:80vh; overflow-y:auto;">
+    <div class="modal-sheet-handle"></div>
+    <h3 style="margin:0 0 6px;">لوحة التحقق</h3>
+    <p class="subtitle" style="margin:0 0 12px;">اكتب اسم المستخدم عشان تتأكد من حالة توثيق أي حساب</p>
+    <div class="identity-row" style="display:flex; gap:8px;">
+      <input id="vc-username-input" placeholder="username" dir="ltr" style="flex:1; text-align:left; padding:12px 14px; border-radius:14px; border:1px solid var(--line-strong);">
+      <button class="btn btn-primary btn-sm" id="vc-search-btn">بحث</button>
+    </div>
+    <div id="vc-result" style="margin-top:14px;"></div>
+  </div>`;
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+  const doSearch = async ()=>{
+    const uname = overlay.querySelector("#vc-username-input").value.trim().toLowerCase().replace(/^@/,"");
+    const resultEl = overlay.querySelector("#vc-result");
+    if(!uname) return;
+    resultEl.innerHTML = `<div class="empty-state"><div class="spinner spinner-dark" style="margin:0 auto;"></div></div>`;
+    try{
+      const snap = await getDocs(query(collection(db, USERS_COL), where("username","==",uname), limit(1)));
+      if(snap.empty){ resultEl.innerHTML = `<div class="empty-state"><p>مفيش حساب بالاسم ده</p></div>`; return; }
+      const u = snap.docs[0].data();
+      if(!u.verifiedType){
+        resultEl.innerHTML = `<div class="glass-card section-pad" style="text-align:center;">
+          <img class="avatar" style="width:50px; height:50px; margin:0 auto 8px;" src="${u.profilePic||DEFAULT_AVATAR}">
+          <div style="font-weight:700;">${u.fullName}</div><div class="post-username">@${u.username}</div>
+          <p class="feature-lock-note" style="justify-content:center; margin-top:10px;">الحساب ده مش موثّق</p>
+        </div>`;
+        return;
+      }
+      const typeLabels = { pro:"برو", investigator:"محقق منه", developer:"مبرمج", engineer:"مهندس", app:"حساب رسمي", student:"طالب", company:"شركة", general:"توثيق عام" };
+      const features = u.verifiedType==="developer" ? [...VERIFICATION_FEATURES.developer, ...VERIFICATION_FEATURES.pro] : (VERIFICATION_FEATURES[u.verifiedType]||[]);
+      resultEl.innerHTML = `<div class="glass-card section-pad">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <img class="avatar" style="width:50px; height:50px;" src="${u.profilePic||DEFAULT_AVATAR}">
+          <div style="flex:1;"><div style="font-weight:700; display:flex; align-items:center; gap:5px;">${u.fullName} ${badgeHTML(u.verifiedType)}</div><div class="post-username">@${u.username}</div></div>
+        </div>
+        <p style="font-size:12.5px; color:var(--ink-soft); line-height:1.8; margin-top:10px;">${u.verificationReason || VERIFICATION_REASON_DEFAULTS[u.verifiedType] || ""}</p>
+        <p style="font-size:11px; color:var(--muted); margin:10px 0 4px;">نوع التوثيق: ${typeLabels[u.verifiedType]||u.verifiedType}</p>
+        <ul class="verify-feature-list">${features.map(f=>`<li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>${f}</li>`).join("")}</ul>
+      </div>`;
+    }catch(e){ console.error(e); resultEl.innerHTML = `<div class="empty-state"><p>تعذر البحث، حاول تاني</p></div>`; }
+  };
+  overlay.querySelector("#vc-search-btn").onclick = doSearch;
+  overlay.querySelector("#vc-username-input").addEventListener("keydown", (e)=>{ if(e.key==="Enter") doSearch(); });
+}
+
+/* صفحات الخصوصية والشروط — محتوى ثابت */
+const LEGAL_CONTENT = {
+  privacy: {
+    title: "سياسة الخصوصية",
+    html: `
+      <h3>البيانات اللي بنجمعها</h3>
+      <p>بنجمع بياناتك الأساسية وقت التسجيل (الاسم، البريد، رقم الهاتف)، بالإضافة للمحتوى اللي بتنشره أو ترفعه بنفسك.</p>
+      <h3>استخدام البيانات</h3>
+      <p>بنستخدم بياناتك عشان نشغّل حسابك، نحسّن تجربتك، ونتواصل معاك بخصوص أي تحديثات أو مشاكل في حسابك.</p>
+      <h3>مشاركة البيانات</h3>
+      <p>مبنبيعش أو مبنشاركش بياناتك مع أي طرف تالت لأغراض تجارية. بياناتك بتتخزن بشكل آمن على خوادم Firebase.</p>
+      <h3>الرسائل والمحادثات</h3>
+      <p>نصوص الرسائل بين المستخدمين مشفّرة قبل التخزين، وميقدرش يوصلها إلا الأطراف المشتركة في المحادثة أو فريق الإدارة لأغراض الإشراف والأمان.</p>
+      <h3>حقك في حذف بياناتك</h3>
+      <p>تقدر تصدّر نسخة من بياناتك أو تحذف حسابك نهائيًا في أي وقت من صفحة الإعدادات.</p>
+    `
+  },
+  terms: {
+    title: "الشروط والأحكام",
+    html: `
+      <h3>استخدام التطبيق</h3>
+      <p>باستخدامك لتطبيق 404 إنت موافق على الالتزام بهذه الشروط. لازم تكون بياناتك المسجلة صحيحة ومحدّثة.</p>
+      <h3>المحتوى المسموح</h3>
+      <p>ممنوع نشر محتوى مسيء، يحض على الكراهية، ينتهك حقوق ملكية فكرية، أو يخالف القانون. الإدارة لها الحق تحذف أي محتوى مخالف أو توقف أي حساب يخالف الشروط.</p>
+      <h3>الباقات والدفع</h3>
+      <p>الاشتراك في أي باقة مدفوعة (Plus أو Pro) أو توثيق مدفوع بيتجدد حسب المدة المختارة، وأي تجربة مجانية بتتحول لدفع إجباري بعد انتهائها ما لم يتم الإلغاء.</p>
+      <h3>التوثيق</h3>
+      <p>شارات التوثيق بتتمنح حسب تقدير فريق 404، وممكن تتسحب في أي وقت لو ثبت مخالفة أو معلومات غير صحيحة.</p>
+      <h3>تعديل الشروط</h3>
+      <p>ممكن نعدّل هذه الشروط من وقت للتاني، واستمرارك في استخدام التطبيق بعد التعديل يعتبر موافقة عليه.</p>
+    `
+  }
+};
+function openLegalPage(key){
+  const data = LEGAL_CONTENT[key];
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="modal-sheet" style="max-height:82vh; overflow-y:auto; text-align:right;">
+    <div class="modal-sheet-handle"></div>
+    <h3 style="margin:0 0 12px;">${data.title}</h3>
+    <div style="font-size:12.5px; color:var(--ink-soft); line-height:1.85;">${data.html}</div>
+  </div>`;
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+}
+
 async function openDeveloperLeaderboard(){
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
@@ -2732,6 +3041,9 @@ function renderPagesList(){
     { icon:`<circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>`, label:"إضافة ستوري", action: ()=>openStoryComposerModal() },
     { icon:`<path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/>`, label:"توثيق الطلاب (مجانًا)", action: ()=>openStudentVerifyModal() },
     { icon:`<path d="M8 21l4-13 4 13M9 15h6"/><path d="M12 3v2"/>`, label:"أفضل المبرمجين", action: ()=>openDeveloperLeaderboard() },
+    { icon:`<circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/>`, label:"لوحة التحقق", action: ()=>openVerificationCenter() },
+    { icon:`<rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>`, label:"سياسة الخصوصية", action: ()=>openLegalPage("privacy") },
+    { icon:`<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/>`, label:"الشروط والأحكام", action: ()=>openLegalPage("terms") },
     { icon:`<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/>`, label:"زوار بروفايلك", target:"screen-visitors", action: ()=>renderVisitorsScreen() },
     { icon:`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09A1.65 1.65 0 0015 4.6a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.36.4.66.74.85`, label:"الإعدادات", target:"screen-settings" },
     { icon:`<path d="M12 2l1.5 5.5L19 9l-4 3.5L16 18l-4-3-4 3 1-5.5L5 9l5.5-1.5L12 2z"/>`, label:"باقات Plus وPro", target:"screen-plans", action: ()=>renderPlans() },
@@ -2888,6 +3200,112 @@ $("btn-admin-broadcast").onclick = ()=>{
     }catch(e){ console.error(e); toast("تعذر إرسال الإشعار الجماعي"); btn.disabled=false; btn.textContent="إرسال للجميع"; }
   };
 };
+
+/* ---------------- تقارير قابلة للطباعة بشعار التطبيق ---------------- */
+const REPORT_LOGO = "https://i.ibb.co/WN3DTcGc/logo.jpg";
+function openPrintableDocument(title, bodyHTML){
+  const win = window.open("", "_blank");
+  if(!win){ toast("المتصفح منع فتح نافذة جديدة، اسمح بالنوافذ المنبثقة وحاول تاني"); return; }
+  win.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="UTF-8">
+    <title>${title}</title>
+    <style>
+      body{ font-family:"IBM Plex Sans Arabic",Arial,sans-serif; padding:30px; color:#0B0B0C; }
+      .rep-head{ display:flex; align-items:center; gap:12px; border-bottom:2px solid #0B0B0C; padding-bottom:14px; margin-bottom:20px; }
+      .rep-head img{ width:44px; height:44px; border-radius:12px; }
+      .rep-head h1{ font-size:20px; margin:0; }
+      .rep-head span{ font-size:12px; color:#86868B; }
+      table{ width:100%; border-collapse:collapse; margin-top:10px; font-size:13px; }
+      th,td{ border:1px solid #ddd; padding:8px 10px; text-align:right; }
+      th{ background:#f5f5f7; }
+      h2{ font-size:15px; margin-top:22px; }
+      @media print{ button{ display:none; } }
+    </style></head><body>
+    <div class="rep-head"><img src="${REPORT_LOGO}"><div><h1>404</h1><span>تقرير رسمي — ${new Date().toLocaleDateString("ar-EG")}</span></div></div>
+    ${bodyHTML}
+    <button onclick="window.print()" style="margin-top:20px; padding:10px 22px; border-radius:10px; background:#0B0B0C; color:#fff; border:none; cursor:pointer;">طباعة / حفظ PDF</button>
+    </body></html>`);
+  win.document.close();
+}
+$("btn-admin-print-report").onclick = async ()=>{
+  toast("جاري تجهيز التقرير...");
+  try{
+    const snap = await getDocs(query(collection(db, USERS_COL), limit(1000)));
+    const users = snap.docs.map(d=>d.data());
+    const byPlan = { free:0, plus:0, pro:0 };
+    users.forEach(u=> byPlan[u.planTier||"free"] = (byPlan[u.planTier||"free"]||0)+1);
+    const byVerify = {};
+    users.forEach(u=>{ if(u.verifiedType) byVerify[u.verifiedType] = (byVerify[u.verifiedType]||0)+1; });
+    const postsSnap = await getDocs(query(collection(db, POSTS_COL), limit(2000)));
+    const body = `
+      <h2>ملخص عام</h2>
+      <table><tr><th>البند</th><th>العدد</th></tr>
+        <tr><td>إجمالي المستخدمين</td><td>${users.length}</td></tr>
+        <tr><td>إجمالي المنشورات</td><td>${postsSnap.size}</td></tr>
+        <tr><td>مشتركي Plus</td><td>${byPlan.plus||0}</td></tr>
+        <tr><td>مشتركي Pro</td><td>${byPlan.pro||0}</td></tr>
+        <tr><td>حسابات مجانية</td><td>${byPlan.free||0}</td></tr>
+      </table>
+      <h2>التوثيق حسب النوع</h2>
+      <table><tr><th>النوع</th><th>العدد</th></tr>
+        ${Object.entries(byVerify).map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join("") || `<tr><td colspan="2">لا يوجد</td></tr>`}
+      </table>`;
+    openPrintableDocument("تقرير عام — 404", body);
+  }catch(e){ console.error(e); toast("تعذر تجهيز التقرير"); }
+};
+function printUserReport(u){
+  const body = `
+    <h2>بيانات المستخدم</h2>
+    <table>
+      <tr><td>الاسم الكامل</td><td>${u.fullName||""}</td></tr>
+      <tr><td>اسم المستخدم</td><td>@${u.username||""}</td></tr>
+      <tr><td>البريد الإلكتروني</td><td>${u.email||""}</td></tr>
+      <tr><td>رقم الهاتف</td><td>${u.phone||""}</td></tr>
+      <tr><td>الباقة</td><td>${u.planTier||"مجاني"}</td></tr>
+      <tr><td>نوع التوثيق</td><td>${u.verifiedType||"بدون توثيق"}</td></tr>
+      <tr><td>عدد المتابعين</td><td>${(u.followers||[]).length}</td></tr>
+      <tr><td>عدد المتابَعين</td><td>${(u.following||[]).length}</td></tr>
+      <tr><td>عدد الإجابات المميزة</td><td>${u.bestAnswersCount||0}</td></tr>
+      <tr><td>حالة الحساب</td><td>${u.banned?"محظور":"نشط"}</td></tr>
+    </table>`;
+  openPrintableDocument(`تقرير المستخدم — @${u.username}`, body);
+}
+
+/* ---------------- مراقبة المحادثات (للأدمن فقط) — عرض وفك تشفير أي محادثة لأغراض الإشراف ---------------- */
+$("btn-admin-chats-monitor").onclick = async ()=>{
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="modal-sheet" style="max-height:80vh; overflow-y:auto;">
+    <div class="modal-sheet-handle"></div>
+    <h3 style="margin:0 0 10px;">مراقبة المحادثات</h3>
+    <div id="admin-chats-inner"><div class="empty-state"><div class="spinner spinner-dark" style="margin:0 auto;"></div></div></div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  const inner = overlay.querySelector("#admin-chats-inner");
+  try{
+    const snap = await getDocs(query(collection(db,"chats"), limit(100)));
+    if(snap.empty){ inner.innerHTML = `<div class="empty-state"><p>مفيش محادثات لسه</p></div>`; return; }
+    const chats = snap.docs.map(d=>({id:d.id,...d.data()}));
+    inner.innerHTML = chats.map(c=>{
+      const names = c.participants.map(uid=> c.participantInfo?.[uid]?.name || "مستخدم").join(" ↔ ");
+      return `<div class="leaderboard-row" data-open-monitor-chat="${c.id}"><div style="flex:1;">${names}</div><span class="post-time meta-font">${timeAgo(c.lastMessageAt)}</span></div>`;
+    }).join("");
+    inner.querySelectorAll("[data-open-monitor-chat]").forEach(row=>{
+      row.onclick = async ()=>{
+        const chatId = row.dataset.openMonitorChat;
+        inner.innerHTML = `<div class="empty-state"><div class="spinner spinner-dark" style="margin:0 auto;"></div></div>`;
+        const msnap = await getDocs(query(collection(db,"chats",chatId,"messages"), orderBy("createdAt","asc"), limit(300)));
+        const rows = await Promise.all(msnap.docs.map(async d=>{
+          const m = d.data();
+          const plain = m.encText ? await decryptChatText(chatId, m.encText, m.iv) : (m.imageUrl ? "[صورة]" : "");
+          return `<div class="likers-row"><b>${m.senderId.slice(0,6)}</b>: ${plain}</div>`;
+        }));
+        inner.innerHTML = `<button class="btn btn-outline btn-sm" id="btn-back-chats-list" style="margin-bottom:10px;">رجوع للقائمة</button>` + (rows.join("") || `<div class="empty-state"><p>مفيش رسائل</p></div>`);
+        inner.querySelector("#btn-back-chats-list").onclick = ()=> $("btn-admin-chats-monitor").click();
+      };
+    });
+  }catch(e){ console.error(e); inner.innerHTML = `<div class="empty-state"><p>تعذر تحميل المحادثات</p></div>`; }
+};
 async function renderPaywallRequests(){
   const wrap = $("admin-paywall-requests");
   try{
@@ -2970,6 +3388,7 @@ function renderAdminList(users){
         <button class="btn btn-sm btn-outline" data-pro="${u.id}" data-state="${u.planTier||'free'}">${u.planTier==='pro'?'إرجاع لمجاني':(u.planTier==='plus'?'ترقية لـPro':'تفعيل Plus')}</button>
         <button class="btn btn-sm btn-outline" data-admin="${u.id}" data-state="${u.isAdmin}">${u.isAdmin?'إزالة أدمن':'تعيين أدمن'}</button>
         <button class="btn btn-sm btn-outline" data-edit-user="${u.id}">تعديل بيانات المستخدم</button>
+        <button class="btn btn-sm btn-outline" data-print-user="${u.id}">طباعة تقرير المستخدم</button>
         <select class="btn btn-sm btn-outline" data-verify="${u.id}" style="appearance:auto;">
           <option value="">بدون توثيق</option>
           <option value="pro" ${u.verifiedType==='pro'?'selected':''}>توثيق برو</option>
@@ -3040,6 +3459,10 @@ function renderAdminList(users){
   $("admin-users-list").querySelectorAll("[data-edit-user]").forEach(b=> b.onclick = ()=>{
     const u = users.find(x=>x.id===b.dataset.editUser);
     if(u) openAdminEditUserModal(u);
+  });
+  $("admin-users-list").querySelectorAll("[data-print-user]").forEach(b=> b.onclick = ()=>{
+    const u = users.find(x=>x.id===b.dataset.printUser);
+    if(u) printUserReport(u);
   });
 }
 /* لوحة الأدمن: تعديل بيانات أي مستخدم (اسم المستخدم، الاسم الكامل، البايو) مباشرة على قاعدة البيانات */
