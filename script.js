@@ -81,21 +81,73 @@ function timeAgo(ts){
   if(s<2592000) return Math.floor(s/86400)+" يوم";
   return d.toLocaleDateString("ar-EG");
 }
-function badgeHTML(type){
+function badgeIcon(type){
+  if(type==="student") return `<path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/>`;
+  if(type==="developer") return `<path d="M8 6L2 12l6 6M16 6l6 6-6 6"/>`;
+  if(type==="engineer") return `<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>`;
+  return `<path d="M20 6L9 17l-5-5"/>`;
+}
+function badgeHTML(type, username){
   if(!type) return "";
   const map = {
     pro: {cls:"badge-pro", title:"حساب موثّق برو"},
     investigator: {cls:"badge-investigator", title:"شخصية موثّقة ومحقق منها"},
     developer: {cls:"badge-developer", title:"مبرمج موثّق"},
     app: {cls:"badge-app", title:"حساب رسمي للتطبيق"},
-    student: {cls:"badge-student", title:"طالب موثّق"}
+    student: {cls:"badge-student", title:"طالب موثّق"},
+    engineer: {cls:"badge-engineer", title:"مهندس موثّق"}
   };
   const c = map[type]; if(!c) return "";
-  const icon = type==="student"
-    ? `<path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/>`
-    : `<path d="M20 6L9 17l-5-5"/>`;
-  return `<span class="badge ${c.cls}" title="${c.title}"><svg viewBox="0 0 24 24">${icon}</svg></span>`;
+  const clickAttr = username ? `data-badge-user="${username}" data-badge-type="${type}"` : "";
+  return `<span class="badge ${c.cls}" title="${c.title}" ${clickAttr}><svg viewBox="0 0 24 24">${badgeIcon(type)}</svg></span>`;
 }
+const VERIFICATION_REASON_DEFAULTS = {
+  pro: "حساب مشترك في باقة Pro — تم تفعيل التوثيق كجزء من مميزات الباقة.",
+  investigator: "شخصية عامة تم التحقق من هويتها وتوثيقها رسميًا من فريق 404.",
+  developer: "مبرمج تم توثيقه من فريق 404 لمساهماته وخبرته التقنية في غرفة البرمجة.",
+  app: "هذا الحساب الرسمي لفريق تطبيق 404.",
+  student: "طالب تم التحقق من هويته الجامعية أو المدرسية وتوثيقه من فريق 404.",
+  engineer: "مهندس تم التحقق من صفته المهنية وتوثيقه رسميًا من فريق 404."
+};
+const VERIFICATION_FEATURES = {
+  pro: ["شارة ذهبية مميزة بجانب اسمك في كل مكان بالتطبيق","أولوية الظهور في نتائج البحث والاقتراحات","علامة حساب موثوق تزيد ثقة متابعينك في محتواك","دعوة لتجربة أي ميزة جديدة قبل الجميع","تثبيت شارتك في أي منشور معاد مشاركته"],
+  investigator: ["شارة بنفسجية توضح إنك شخصية تم التحقق من هويتها","حماية إضافية من حسابات انتحال الشخصية","أولوية الرد من فريق الدعم في أي بلاغ","ظهور مميز لاسمك في نتائج البحث","علامة موثوقية على كل تعليق ومنشور تكتبه"],
+  developer: ["شارة زرقاء-بنفسجية بتصميم </> يوضح خبرتك التقنية","دخول مبكر لأي ميزة جديدة في غرفة البرمجة","تثبيت منشور دائم في أعلى غرفة البرمجة","أولوية الرد على أسئلتك من فريق الدعم التقني","عرض خبير موثّق بجانب أي إجابة تكتبها"],
+  app: ["شارة سوداء تدل إنه حساب رسمي تابع لفريق 404","ظهور تلقائي في أعلى نتائج البحث دائمًا","الحساب الوحيد المسموح له يبعت إشعارات نظامية","حماية كاملة من الحظر أو التقييد","أولوية قصوى في كل تفاعل داخل التطبيق"],
+  engineer: ["شارة برتقالية مميزة توضح إنك مهندس موثّق باحترافيتك","إمكانية إضافة تخصصك الهندسي في بروفايلك","أولوية الظهور في نتائج البحث ضمن فئة المهندسين","شارة موثوقية على كل منشور تقني تنشره","دعم فني بأولوية عند أي استفسار"]
+};
+async function showVerificationReason(username, type){
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay verify-reason-overlay";
+  const colorMap = { pro:"var(--gold)", investigator:"var(--violet)", developer:"linear-gradient(135deg,#0A84FF,#5E5CE6)", app:"var(--ink)", student:"linear-gradient(135deg,#0FA968,#0C7A4E)", engineer:"linear-gradient(135deg,#F5A623,#D9720A)" };
+  const features = VERIFICATION_FEATURES[type] || [];
+  overlay.innerHTML = `<div class="modal-sheet" style="text-align:center;">
+    <div class="modal-sheet-handle"></div>
+    <div class="verify-reason-icon" style="background:${colorMap[type]||'var(--ink)'};">
+      <svg viewBox="0 0 24 24">${badgeIcon(type)}</svg>
+    </div>
+    <h3 style="margin:0 0 8px;">سبب التوثيق</h3>
+    <p id="verify-reason-text" style="font-size:13px; color:var(--ink-soft); line-height:1.8;">جاري التحميل...</p>
+    ${features.length ? `<h3 style="margin:14px 0 0; font-size:14px;">مميزات هذا التوثيق</h3><ul class="verify-feature-list">${features.map(f=>`<li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>${f}</li>`).join("")}</ul>` : ""}
+  </div>`;
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+  let reason = VERIFICATION_REASON_DEFAULTS[type] || "حساب موثّق من فريق 404.";
+  try{
+    if(username){
+      const snap = await getDocs(query(collection(db, USERS_COL), where("username","==",username), limit(1)));
+      if(!snap.empty && snap.docs[0].data().verificationReason) reason = snap.docs[0].data().verificationReason;
+    }
+  }catch(e){ /* استخدم النص الافتراضي عند أي خطأ */ }
+  const textEl = overlay.querySelector("#verify-reason-text");
+  if(textEl) textEl.textContent = reason;
+}
+document.addEventListener("click", (e)=>{
+  const b = e.target.closest && e.target.closest(".badge[data-badge-user]");
+  if(!b) return;
+  e.stopPropagation();
+  showVerificationReason(b.dataset.badgeUser, b.dataset.badgeType);
+});
 /* ---------------- حساب الدعم الرسمي: إشعارات كلها عبر شات هذا الحساب بدل الإيميل، وإيميله مخفي دائمًا عن المستخدمين ---------------- */
 function chatIdFor(uidA, uidB){ return [uidA, uidB].sort().join("_"); }
 let supportAccountCache = null;
@@ -902,7 +954,7 @@ function postRowHTML(p){
     <div class="post-head">
       ${avatarHTML}
       <div style="flex:1;">
-        <div class="post-author" data-open-user="${p.authorUsername}" ${nameStyle}>${p.authorName||"مستخدم"} ${badgeHTML(p.authorVerified)}</div>
+        <div class="post-author" data-open-user="${p.authorUsername}" ${nameStyle}>${p.authorName||"مستخدم"} ${badgeHTML(p.authorVerified, p.authorUsername)}</div>
         <div class="post-username">@${p.authorUsername||""}</div>
         <div class="post-time meta-font">${timeAgo(p.createdAt)}</div>
       </div>
@@ -1190,7 +1242,7 @@ async function openCommentsModal(postId){
         <img class="avatar avatar-sm" src="${c.authorPic||DEFAULT_AVATAR}">
         <div style="flex:1;">
           ${c.pinned ? `<div class="pinned-tag" style="margin-bottom:3px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l1.5 5.5L19 9l-4 3.5L16 18l-4-3-4 3 1-5.5L5 9l5.5-1.5L12 2z"/></svg>تعليق مثبّت</div>` : ""}
-          <div style="font-weight:600; font-size:13px; display:flex; align-items:center; gap:5px;" data-open-user="${c.authorUsername||''}"><span ${nameStyle}>${c.authorName||"مستخدم"}</span> ${badgeHTML(c.authorVerified)}</div>
+          <div style="font-weight:600; font-size:13px; display:flex; align-items:center; gap:5px;" data-open-user="${c.authorUsername||''}"><span ${nameStyle}>${c.authorName||"مستخدم"}</span> ${badgeHTML(c.authorVerified, c.authorUsername)}</div>
           <div class="post-text" style="font-size:13.5px; margin-top:2px;">${linkify(c.text||"")}</div>
           <div class="post-time meta-font" style="margin-top:3px;">${timeAgo(c.createdAt)}</div>
           <div style="display:flex; gap:12px; align-items:center; margin-top:4px;">
@@ -1283,7 +1335,7 @@ async function openLikersModal(postId){
     const snap = await getDocs(q);
     snap.docs.forEach(d=>{
       const u = d.data();
-      html += `<div class="likers-row"><img class="avatar avatar-sm" src="${u.profilePic||DEFAULT_AVATAR}"><div style="font-weight:600; font-size:13.5px;">${u.fullName} ${badgeHTML(u.verifiedType)}</div></div>`;
+      html += `<div class="likers-row"><img class="avatar avatar-sm" src="${u.profilePic||DEFAULT_AVATAR}"><div style="font-weight:600; font-size:13.5px;">${u.fullName} ${badgeHTML(u.verifiedType, u.username)}</div></div>`;
     });
   }
   inner.innerHTML = html || `<p class="subtitle">محدش عمل لايك لسه</p>`;
@@ -1440,7 +1492,7 @@ async function runSearch(){
     const u = d.data();
     return `<div class="glass-card section-pad" style="display:flex; align-items:center; gap:12px; margin-bottom:10px; cursor:pointer;" data-open-user="${u.username}">
       <img class="avatar" src="${u.profilePic||DEFAULT_AVATAR}">
-      <div><div style="font-weight:700; display:flex; align-items:center; gap:5px;">${u.fullName} ${badgeHTML(u.verifiedType)}</div><div class="post-username">@${u.username}</div></div>
+      <div><div style="font-weight:700; display:flex; align-items:center; gap:5px;">${u.fullName} ${badgeHTML(u.verifiedType, u.username)}</div><div class="post-username">@${u.username}</div></div>
     </div>`;
   }).join("");
   wrap.querySelectorAll("[data-open-user]").forEach(el=> el.onclick = ()=> openOtherProfile(el.dataset.openUser));
@@ -1465,9 +1517,10 @@ async function renderMyProfile(){
     <div class="profile-cover" style="${p.coverPhoto?`background-image:url('${p.coverPhoto}'); background-size:cover; background-position:center;`:''}"></div>
     <div class="profile-head">
       <img class="profile-avatar" src="${p.profilePic||DEFAULT_AVATAR}">
-      <div class="profile-name">${p.fullName} ${badgeHTML(p.verifiedType)} ${planChip(p)}</div>
+      <div class="profile-name">${p.fullName} ${badgeHTML(p.verifiedType, p.username)} ${planChip(p)}</div>
       <div class="post-username">@${p.username} ${p.isPrivate?lockChip():''}</div>
       ${p.bio?`<div class="profile-bio">${linkify(p.bio)}</div>`:""}
+      ${(p.verifiedType==="engineer" && p.engineeringField)?`<div class="chip" style="margin-top:6px;">${p.engineeringField}</div>`:""}
       ${(p.links&&p.links.length)?`<div class="profile-links">${p.links.map(l=>socialLinkChip(l)).join("")}</div>`:""}
       <div class="profile-stats">
         <div><b>${(p.followers||[]).length}</b> <span>متابِع</span></div>
@@ -1523,7 +1576,7 @@ async function openOtherProfile(username){
   const isOnlineNow = lastActiveMs && (Date.now()-lastActiveMs < 5*60*1000);
   const showOnlineDot = isOnlineNow && (u.planTier==="pro" || u.isAdmin);
   const showLastSeen = !showOnlineDot && lastActiveMs && isPlusOrAbove(u);
-  const hideCounts = u.hideFollowCounts && isPlusOrAbove(u);
+  const hideCounts = u.planTier==="pro" || u.verifiedType==="developer" || u.isAdmin;
 
   let followBtn = "";
   if(!u.isPrivate || u.autoAcceptFollow){
@@ -1539,10 +1592,11 @@ async function openOtherProfile(username){
         <img class="profile-avatar" src="${u.profilePic||DEFAULT_AVATAR}">
         ${showOnlineDot ? `<span style="position:absolute; bottom:4px; left:4px; width:14px; height:14px; border-radius:50%; background:var(--green); border:2px solid #fff;" title="متصل الآن"></span>` : ""}
       </div>
-      <div class="profile-name">${u.fullName} ${badgeHTML(u.verifiedType)}</div>
+      <div class="profile-name">${u.fullName} ${badgeHTML(u.verifiedType, u.username)}</div>
       <div class="post-username">@${u.username} ${u.isPrivate?lockChip():''}</div>
       ${showLastSeen ? `<div class="post-time meta-font" style="margin-top:2px;">آخر ظهور ${timeAgo(u.lastActiveAt)}</div>` : ""}
       ${u.bio?`<div class="profile-bio">${linkify(u.bio)}</div>`:""}
+      ${(u.verifiedType==="engineer" && u.engineeringField)?`<div class="chip" style="margin-top:6px;">${u.engineeringField}</div>`:""}
       ${(u.links&&u.links.length)?`<div class="profile-links">${u.links.map(l=>socialLinkChip(l)).join("")}</div>`:""}
       ${hideCounts ? "" : `<div class="profile-stats"><div><b>${(u.followers||[]).length}</b> <span>متابِع</span></div><div><b>${(u.following||[]).length}</b> <span>متابَع</span></div>${u.bestAnswersCount ? `<div><b>${u.bestAnswersCount}</b> <span>إجابة مميزة</span></div>` : ""}</div>`}
       <div style="margin-top:14px; display:flex; gap:10px;">${followBtn}<button class="btn btn-outline" id="btn-message-user" style="flex:0; padding:12px 16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></button></div>
@@ -1708,16 +1762,13 @@ function renderSettings(){
   renderVerifyBox(p);
   renderMyPerks(p);
   renderSignatureBox(p);
-  $("hide-counts-wrap").style.display = isPlusOrAbove(p) ? "block" : "none";
-  $("hide-counts-label").textContent = p.hideFollowCounts ? "إظهار عدد المتابعين والمتابَعين للزوار" : "إخفاء عدد المتابعين والمتابَعين عن الزوار";
-  $("btn-toggle-hide-counts").onclick = async ()=>{
-    try{
-      await updateDoc(doc(db, USERS_COL, currentUser.uid), { hideFollowCounts: !p.hideFollowCounts });
-      myProfile.hideFollowCounts = !p.hideFollowCounts;
-      toast(myProfile.hideFollowCounts ? "اتخفى عدد المتابعين عن الزوار" : "بقى ظاهر للزوار تاني");
-      renderSettings();
-    }catch(e){ toast("تعذر تنفيذ العملية"); }
-  };
+  const hideNote = (p.planTier==="pro" || p.verifiedType==="developer" || p.isAdmin);
+  $("hide-counts-wrap").style.display = "block";
+  $("hide-counts-label").textContent = hideNote
+    ? "عدد المتابعين والمتابَعين مخفي تلقائيًا عن الزوار (حسابات Pro والمبرمجين والأدمن)"
+    : "عدد متابعينك ومتابَعينك ظاهر للزوار";
+  $("btn-toggle-hide-counts").onclick = ()=>{};
+  $("btn-toggle-hide-counts").style.cursor = "default";
   renderAccountStats(p);
   renderNameColorPicker(p);
 
@@ -1874,8 +1925,21 @@ $("btn-add-link").onclick = ()=>{
 let pendingVerifyIdUrl = null;
 function renderVerifyBox(p){
   const box = $("verify-status-box"); const form = $("verify-form");
+  const typeLabels = { pro:"برو", investigator:"محقق منه", developer:"مبرمج", engineer:"مهندس", app:"حساب رسمي", student:"طالب" };
   if(p.verifiedType){
-    box.innerHTML = `<div class="locked-note">حسابك موثّق بالفعل (${p.verifiedType==='pro'?'برو':p.verifiedType==='investigator'?'محقق منه':'مبرمج'})</div>`;
+    box.innerHTML = `<div class="locked-note">حسابك موثّق بالفعل (${typeLabels[p.verifiedType]||p.verifiedType})</div>`;
+    if(p.verifiedType==="engineer"){
+      box.innerHTML += `<div class="field" style="margin-top:10px;"><label>تخصصك الهندسي</label><input id="engineering-field-input" value="${p.engineeringField||''}" placeholder="مثال: هندسة مدنية"></div>
+        <button class="btn btn-outline btn-sm" id="btn-save-engineering-field" style="margin-top:8px;">حفظ التخصص</button>`;
+      $("btn-save-engineering-field")?.addEventListener("click", async ()=>{
+        try{
+          const val = $("engineering-field-input").value.trim();
+          await updateDoc(doc(db, USERS_COL, currentUser.uid), { engineeringField: val });
+          myProfile.engineeringField = val;
+          toast("تم حفظ التخصص");
+        }catch(e){ toast("تعذر الحفظ"); }
+      });
+    }
     form.classList.add("hidden");
   }else if(p.verificationStatus==="pending"){
     box.innerHTML = `<div class="locked-note">طلب التوثيق قيد المراجعة من الفريق</div>`;
@@ -2025,7 +2089,7 @@ async function renderChatsList(){
       return `<div class="chat-list-item" data-open-chat="${otherUid}">
         <img class="avatar" src="${info.pic||DEFAULT_AVATAR}">
         <div class="chat-meta">
-          <div style="font-weight:700; font-size:14px; display:flex; align-items:center; gap:5px;">${info.name||"مستخدم"} ${badgeHTML(info.verifiedType)}</div>
+          <div style="font-weight:700; font-size:14px; display:flex; align-items:center; gap:5px;">${info.name||"مستخدم"} ${badgeHTML(info.verifiedType, info.username)}</div>
           <div class="chat-last">${(c.lastMessage||"").slice(0,50)}</div>
         </div>
         <div class="post-time meta-font">${timeAgo(c.lastMessageAt)}</div>
@@ -2655,7 +2719,7 @@ async function renderStudentRequests(){
         </div>
         <div class="protected-media" style="margin-top:10px; border-radius:12px; overflow:hidden; max-height:200px;"><img src="${u.studentIdUrl}" oncontextmenu="return false" draggable="false" style="width:100%; display:block;"></div>
         <div style="display:flex; gap:8px; margin-top:10px;">
-          <button class="btn btn-primary btn-sm" data-approve-student="${d.id}" style="flex:1;">قبول</button>
+          <button class="btn btn-primary btn-sm" data-approve-student="${d.id}" data-school="${(u.studentSchool||'').replace(/"/g,'&quot;')}" style="flex:1;">قبول</button>
           <button class="btn btn-outline btn-sm" data-reject-student="${d.id}" style="flex:1; color:var(--danger);">رفض</button>
         </div>
       </div>`;
@@ -2664,7 +2728,7 @@ async function renderStudentRequests(){
       btn.onclick = async ()=>{
         const uid = btn.dataset.approveStudent;
         try{
-          await updateDoc(doc(db, USERS_COL, uid), { isStudentVerified:true, verifiedType:"student", studentStatus:"approved", studentVerifiedAt: serverTimestamp(), studentAutoProGranted:false });
+          await updateDoc(doc(db, USERS_COL, uid), { isStudentVerified:true, verifiedType:"student", studentStatus:"approved", studentVerifiedAt: serverTimestamp(), studentAutoProGranted:false, verificationReason: `طالب موثّق في ${btn.dataset.school||'جهة تعليمية'}` });
           notifyUser(uid, "تهانينا! اتقبل طلب توثيقك كطالب — استمتع بـ9 مميزات فخمة مجانًا");
           toast("تم قبول الطالب");
           renderStudentRequests();
@@ -2689,7 +2753,7 @@ function renderAdminList(users){
     <div class="glass-card section-pad" style="margin-bottom:10px;">
       <div style="display:flex; align-items:center; gap:10px;">
         <img class="avatar avatar-sm" src="${u.profilePic||DEFAULT_AVATAR}">
-        <div style="flex:1;"><div style="font-weight:700; display:flex; align-items:center; gap:5px;">${u.fullName} ${badgeHTML(u.verifiedType)}</div><div class="post-username">@${u.username}</div></div>
+        <div style="flex:1;"><div style="font-weight:700; display:flex; align-items:center; gap:5px;">${u.fullName} ${badgeHTML(u.verifiedType, u.username)}</div><div class="post-username">@${u.username}</div></div>
         ${u.banned?'<span class="chip" style="color:var(--danger);">محظور</span>':''}
       </div>
       <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;">
@@ -2702,10 +2766,33 @@ function renderAdminList(users){
           <option value="pro" ${u.verifiedType==='pro'?'selected':''}>توثيق برو</option>
           <option value="investigator" ${u.verifiedType==='investigator'?'selected':''}>محقق منه</option>
           <option value="developer" ${u.verifiedType==='developer'?'selected':''}>مبرمجين</option>
+          <option value="engineer" ${u.verifiedType==='engineer'?'selected':''}>مهندسين</option>
           <option value="app" ${u.verifiedType==='app'?'selected':''}>حساب التطبيق</option>
         </select>
+        <button class="btn btn-sm btn-outline" data-edit-reason="${u.id}" data-reason="${(u.verificationReason||'').replace(/"/g,'&quot;')}">سبب التوثيق</button>
       </div>
     </div>`).join("");
+
+  $("admin-users-list").querySelectorAll("[data-edit-reason]").forEach(b=> b.onclick = ()=>{
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `<div class="modal-sheet" style="text-align:right;">
+      <div class="modal-sheet-handle"></div>
+      <h3 style="margin:0 0 10px;">سبب التوثيق</h3>
+      <textarea id="admin-reason-input" rows="3" placeholder="اكتب سبب التوثيق اللي هيظهر للمستخدمين">${b.dataset.reason}</textarea>
+      <button class="btn btn-primary" id="btn-save-reason" style="margin-top:12px;">حفظ</button>
+    </div>`;
+    document.body.appendChild(overlay);
+    overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+    overlay.querySelector("#btn-save-reason").onclick = async ()=>{
+      try{
+        await updateDoc(doc(db,USERS_COL,b.dataset.editReason), { verificationReason: overlay.querySelector("#admin-reason-input").value.trim() });
+        toast("تم حفظ سبب التوثيق");
+        overlay.remove();
+        renderAdmin();
+      }catch(e){ toast("تعذر الحفظ"); }
+    };
+  });
 
   $("admin-users-list").querySelectorAll("[data-ban]").forEach(b=> b.onclick = async ()=>{
     try{
