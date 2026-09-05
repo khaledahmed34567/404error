@@ -85,6 +85,8 @@ function badgeIcon(type){
   if(type==="student") return `<path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/>`;
   if(type==="developer") return `<path d="M8 6L2 12l6 6M16 6l6 6-6 6"/>`;
   if(type==="engineer") return `<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>`;
+  if(type==="company") return `<path d="M3 21h18M6 21V8l6-4 6 4v13M9 21v-5h6v5M9 12h.01M9 15h.01M15 12h.01M15 15h.01"/>`;
+  if(type==="general") return `<circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/>`;
   return `<path d="M20 6L9 17l-5-5"/>`;
 }
 function badgeHTML(type, username){
@@ -95,7 +97,9 @@ function badgeHTML(type, username){
     developer: {cls:"badge-developer", title:"مبرمج موثّق"},
     app: {cls:"badge-app", title:"حساب رسمي للتطبيق"},
     student: {cls:"badge-student", title:"طالب موثّق"},
-    engineer: {cls:"badge-engineer", title:"مهندس موثّق"}
+    engineer: {cls:"badge-engineer", title:"مهندس موثّق"},
+    company: {cls:"badge-company", title:"شركة موثّقة"},
+    general: {cls:"badge-general", title:"حساب موثّق"}
   };
   const c = map[type]; if(!c) return "";
   const clickAttr = username ? `data-badge-user="${username}" data-badge-type="${type}"` : "";
@@ -107,7 +111,9 @@ const VERIFICATION_REASON_DEFAULTS = {
   developer: "مبرمج تم توثيقه من فريق 404 لمساهماته وخبرته التقنية في غرفة البرمجة.",
   app: "هذا الحساب الرسمي لفريق تطبيق 404.",
   student: "طالب تم التحقق من هويته الجامعية أو المدرسية وتوثيقه من فريق 404.",
-  engineer: "مهندس تم التحقق من صفته المهنية وتوثيقه رسميًا من فريق 404."
+  engineer: "مهندس تم التحقق من صفته المهنية وتوثيقه رسميًا من فريق 404.",
+  company: "حساب شركة أو علامة تجارية تم التحقق من صحته وتوثيقه رسميًا من فريق 404.",
+  general: "حساب موثّق ضمن التوثيق العام المتاح لمشتركي Plus."
 };
 const VERIFICATION_FEATURES = {
   pro: ["شارة ذهبية مميزة بجانب اسمك في كل مكان بالتطبيق","أولوية الظهور في نتائج البحث والاقتراحات","علامة حساب موثوق تزيد ثقة متابعينك في محتواك","دعوة لتجربة أي ميزة جديدة قبل الجميع","تثبيت شارتك في أي منشور معاد مشاركته"],
@@ -115,12 +121,14 @@ const VERIFICATION_FEATURES = {
   developer: ["شارة زرقاء-بنفسجية بتصميم </> يوضح خبرتك التقنية","دخول مبكر لأي ميزة جديدة في غرفة البرمجة","تثبيت منشور دائم في أعلى غرفة البرمجة","أولوية الرد على أسئلتك من فريق الدعم التقني","عرض خبير موثّق بجانب أي إجابة تكتبها"],
   app: ["شارة سوداء تدل إنه حساب رسمي تابع لفريق 404","ظهور تلقائي في أعلى نتائج البحث دائمًا","الحساب الوحيد المسموح له يبعت إشعارات نظامية","حماية كاملة من الحظر أو التقييد","أولوية قصوى في كل تفاعل داخل التطبيق","صلاحية الوصول لكل التقارير والبلاغات في لوحة الإدارة","القدرة على تعديل بيانات أي مستخدم مباشرة","القدرة على تفعيل أو إلغاء أي نوع توثيق لأي حساب","استقبال كل طلبات توثيق الطلاب والموافقة عليها","حساب لا يظهر بريده الإلكتروني في أي إشعار أو رسالة"],
   engineer: ["شارة برتقالية مميزة توضح إنك مهندس موثّق باحترافيتك","إمكانية إضافة تخصصك الهندسي في بروفايلك","أولوية الظهور في نتائج البحث ضمن فئة المهندسين","شارة موثوقية على كل منشور تقني تنشره","دعم فني بأولوية عند أي استفسار"],
-  student: ["شارة توثيق طالب خاصة بتصميم ولون مختلف (أخضر مميز)","فتح كل مميزات باقة Plus مجانًا طول فترة التوثيق","رفع حتى 5 صور في المنشور الواحد بعرض كاروسيل","متابعة حتى 10 أسئلة في غرفة البرمجة مع التنبيه بالرد","ترقية تلقائية لباقة Pro مجانًا بعد شهر واحد من التوثيق"]
+  student: ["شارة توثيق طالب خاصة بتصميم ولون مختلف (أخضر مميز)","فتح كل مميزات باقة Plus مجانًا طول فترة التوثيق","رفع حتى 5 صور في المنشور الواحد بعرض كاروسيل","متابعة حتى 10 أسئلة في غرفة البرمجة مع التنبيه بالرد","ترقية تلقائية لباقة Pro مجانًا بعد شهر واحد من التوثيق"],
+  company: ["شارة زرقاء مميزة لأي حساب شركة أو علامة تجارية موثّقة","ظهور الشركة ضمن تصنيف خاص بالحسابات التجارية","إمكانية إضافة رابط الموقع الرسمي في أعلى البروفايل","دعم فني مخصص لحسابات الشركات","أولوية الرد على استفسارات العملاء عبر الشات"],
+  general: ["شارة توثيق عامة تناسب مشتركي باقة Plus","زيادة ثقة متابعينك بحسابك الموثّق","أولوية أعلى قليلاً في نتائج البحث","إمكانية تقديم بلاغات بأولوية أعلى","علامة موثوقية تظهر في كل تعليقاتك"]
 };
 async function showVerificationReason(username, type){
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay verify-reason-overlay";
-  const colorMap = { pro:"var(--gold)", investigator:"var(--violet)", developer:"linear-gradient(135deg,#0A84FF,#5E5CE6)", app:"var(--ink)", student:"linear-gradient(135deg,#0FA968,#0C7A4E)", engineer:"linear-gradient(135deg,#F5A623,#D9720A)" };
+  const colorMap = { pro:"var(--gold)", investigator:"var(--violet)", developer:"linear-gradient(135deg,#0A84FF,#5E5CE6)", app:"var(--ink)", student:"linear-gradient(135deg,#0FA968,#0C7A4E)", engineer:"linear-gradient(135deg,#F5A623,#D9720A)", company:"linear-gradient(135deg,#17A2B8,#0D6E7D)", general:"var(--accent)" };
   /* المبرمجين بياخدوا الـ5 مميزات الخاصة بيهم + الـ5 مميزات بتاعة Pro مضافة عليهم = 10 */
   const features = type==="developer" ? [...VERIFICATION_FEATURES.developer, ...VERIFICATION_FEATURES.pro] : (VERIFICATION_FEATURES[type] || []);
   overlay.innerHTML = `<div class="modal-sheet" style="text-align:center;">
@@ -622,6 +630,7 @@ async function proceedAfterAuth(user, profile){
   sendLoginWelcome(user, myProfile);
   if(!myProfile.isAdmin) autoFollowAllAdmins(user.uid);
   checkStudentFreeProUpgrade();
+  checkVerificationTrialExpiry();
 }
 /* بعد شهر من توثيق الطالب، تفعيل باقة Pro مجانًا تلقائيًا (مكافأة الطلاب) */
 async function checkStudentFreeProUpgrade(){
@@ -635,6 +644,47 @@ async function checkStudentFreeProUpgrade(){
     notifyUser(currentUser.uid, "مبروك! اتفعّلت باقة Pro مجانًا كمكافأة لأنك طالب موثّق معانا من شهر");
     toast("مبروك! باقة Pro اتفعّلت مجانًا كمكافأة توثيق الطالب");
   }catch(e){ console.error(e); }
+}
+/* تجربة التوثيق (شركات/عام) مجانية 3 أيام، وبعدها لازم دفع أو التواصل مع الفريق — شاشة الدفع تفضل ظاهرة لحد ما يتحل الموضوع */
+const VERIFICATION_TRIAL_DAYS = 3;
+async function checkVerificationTrialExpiry(){
+  if(!myProfile.trialActive || !myProfile.trialStartedAt) return;
+  const startMs = myProfile.trialStartedAt?.toMillis ? myProfile.trialStartedAt.toMillis() : new Date(myProfile.trialStartedAt).getTime();
+  const trialMs = VERIFICATION_TRIAL_DAYS*24*3600*1000;
+  if(Date.now() - startMs < trialMs) return;
+  try{
+    await updateDoc(doc(db, USERS_COL, currentUser.uid), { trialActive:false, paywallLocked:true });
+    myProfile.trialActive = false; myProfile.paywallLocked = true;
+    notifyUser(currentUser.uid, "انتهت فترة تجربة التوثيق المجانية — ادفع للاستمرار أو تواصل مع الفريق من صفحة الباقات");
+  }catch(e){ console.error(e); }
+}
+/* شاشة دفع دائمة تظهر كل ما يفتح التطبيق لحد ما يدفع أو الفريق يرفع القفل بعد التواصل */
+function showPaywallOverlayIfLocked(){
+  if(!myProfile.paywallLocked) return;
+  if(document.getElementById("paywall-lock-overlay")) return;
+  const overlay = document.createElement("div");
+  overlay.id = "paywall-lock-overlay";
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="modal-sheet" style="text-align:center;">
+    <div class="modal-sheet-handle"></div>
+    <h3 style="margin:0 0 8px;">انتهت فترة التجربة المجانية</h3>
+    <p style="font-size:13px; color:var(--muted); line-height:1.8;">تجربة التوثيق المجانية (3 أيام) خلصت. ادفع الآن للاستمرار في التوثيق، أو تواصل مع الفريق وهيراجعوا حالتك.</p>
+    <button class="btn btn-primary" id="btn-paywall-pay" style="margin-top:14px;">الدفع الآن</button>
+    <button class="btn btn-outline" id="btn-paywall-contact" style="margin-top:10px;">${myProfile.paywallContactRequested ? "تم إرسال طلبك، في انتظار الرد" : "تواصل مع الفريق"}</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector("#btn-paywall-pay").onclick = ()=>{ overlay.remove(); renderPlans(); show("screen-plans"); };
+  const contactBtn = overlay.querySelector("#btn-paywall-contact");
+  if(myProfile.paywallContactRequested) contactBtn.disabled = true;
+  contactBtn.onclick = async ()=>{
+    try{
+      await updateDoc(doc(db, USERS_COL, currentUser.uid), { paywallContactRequested:true });
+      myProfile.paywallContactRequested = true;
+      toast("تم إرسال طلبك للفريق، هيتراجع في أقرب وقت");
+      contactBtn.textContent = "تم إرسال طلبك، في انتظار الرد";
+      contactBtn.disabled = true;
+    }catch(e){ toast("تعذر إرسال الطلب"); }
+  };
 }
 
 let resettingPassword = false;
@@ -704,6 +754,7 @@ function enterApp(){
   startCodeFeedListener();
   startNotifsListener();
   renderStoriesBar();
+  showPaywallOverlayIfLocked();
 }
 
 /* ============================================================
@@ -1532,6 +1583,8 @@ async function renderMyProfile(){
       ${expiry?`<div class="locked-note" style="margin-top:14px;">${expiry}</div>`:""}
       ${(!p.planTier || p.planTier==="free")?`<button class="btn btn-accent" style="margin-top:14px;" id="btn-goto-plans">الترقية إلى Plus أو Pro</button>`:""}
       ${(p.highlights && p.highlights.length) ? `<div class="highlights-row">${p.highlights.map((h,i)=>`<div class="highlight-circle" data-highlight="${i}"><img src="${h.url}"></div>`).join("")}</div>` : ""}
+      ${(p.verifiedType==="developer" && p.pinnedSnippet) ? `<div class="dev-snippet-box">${p.pinnedSnippet.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>` : ""}
+      ${(p.verifiedType==="engineer" && p.engineeringProjects && p.engineeringProjects.length) ? p.engineeringProjects.map(pr=>`<div class="engineering-project-card"><h4>${pr.title}</h4><p>${pr.desc}</p></div>`).join("") : ""}
     </div>
     <div class="divider"></div>
     <div class="feed" id="my-posts-feed"></div>
@@ -1601,8 +1654,11 @@ async function openOtherProfile(username){
       ${(u.verifiedType==="engineer" && u.engineeringField)?`<div class="chip" style="margin-top:6px;">${u.engineeringField}</div>`:""}
       ${(u.links&&u.links.length)?`<div class="profile-links">${u.links.map(l=>socialLinkChip(l)).join("")}</div>`:""}
       ${hideCounts ? "" : `<div class="profile-stats"><div><b>${(u.followers||[]).length}</b> <span>متابِع</span></div><div><b>${(u.following||[]).length}</b> <span>متابَع</span></div>${u.bestAnswersCount ? `<div><b>${u.bestAnswersCount}</b> <span>إجابة مميزة</span></div>` : ""}</div>`}
-      <div style="margin-top:14px; display:flex; gap:10px;">${followBtn}<button class="btn btn-outline" id="btn-message-user" style="flex:0; padding:12px 16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></button></div>
+      <div style="margin-top:14px; display:flex; gap:10px;">${followBtn}<button class="btn btn-outline" id="btn-message-user" style="flex:0; padding:12px 16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></button>
+      ${(u.verifiedType==="engineer" && u.id!==myProfile.id) ? `<button class="btn btn-outline endorse-btn" id="btn-endorse-engineer" data-endorsed="${(u.endorsedBy||[]).includes(myProfile.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/></svg>${(u.endorsedBy||[]).includes(myProfile.id)?'تراجع عن التوصية':'أوصي بيه'} (${(u.endorsedBy||[]).length})</button>` : ""}</div>
       ${(u.highlights && u.highlights.length) ? `<div class="highlights-row">${u.highlights.map((h,i)=>`<div class="highlight-circle" data-other-highlight="${i}"><img src="${h.url}"></div>`).join("")}</div>` : ""}
+      ${(u.verifiedType==="developer" && u.pinnedSnippet) ? `<div class="dev-snippet-box">${u.pinnedSnippet.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>` : ""}
+      ${(u.verifiedType==="engineer" && u.engineeringProjects && u.engineeringProjects.length) ? u.engineeringProjects.map(pr=>`<div class="engineering-project-card"><h4>${pr.title}</h4><p>${pr.desc}</p></div>`).join("") : ""}
     </div>
     <div class="divider"></div>
     <div class="feed" id="other-posts-feed">
@@ -1616,6 +1672,15 @@ async function openOtherProfile(username){
   const followBtnEl = $("btn-follow-toggle");
   if(followBtnEl) followBtnEl.onclick = ()=> toggleFollow(uid, u, iAmFollowing, requested);
   $("btn-message-user").onclick = ()=> openChatWithUser(uid);
+  $("btn-endorse-engineer")?.addEventListener("click", async ()=>{
+    const endorsed = (u.endorsedBy||[]).includes(myProfile.id);
+    try{
+      await updateDoc(doc(db, USERS_COL, uid), { endorsedBy: endorsed ? arrayRemove(myProfile.id) : arrayUnion(myProfile.id) });
+      if(!endorsed) notifyUser(uid, `${myProfile.fullName} أوصى بيك كمهندس محترف`);
+      toast(endorsed ? "تم التراجع عن التوصية" : "تم إرسال توصيتك");
+      openOtherProfile(u.username);
+    }catch(e){ toast("تعذر تنفيذ العملية"); }
+  });
 
   if(!isLockedForMe){
     const pq = query(collection(db, POSTS_COL), where("authorId","==",uid), where("room","==","general"), limit(60));
@@ -1931,8 +1996,15 @@ function renderVerifyBox(p){
   if(p.verifiedType){
     box.innerHTML = `<div class="locked-note">حسابك موثّق بالفعل (${typeLabels[p.verifiedType]||p.verifiedType})</div>`;
     if(p.verifiedType==="engineer"){
+      const projects = p.engineeringProjects||[];
       box.innerHTML += `<div class="field" style="margin-top:10px;"><label>تخصصك الهندسي</label><input id="engineering-field-input" value="${p.engineeringField||''}" placeholder="مثال: هندسة مدنية"></div>
-        <button class="btn btn-outline btn-sm" id="btn-save-engineering-field" style="margin-top:8px;">حفظ التخصص</button>`;
+        <button class="btn btn-outline btn-sm" id="btn-save-engineering-field" style="margin-top:8px;">حفظ التخصص</button>
+        <div class="page-rule"></div>
+        <label style="font-size:13px; color:var(--ink-soft);">مشاريعك الهندسية</label>
+        <div id="engineering-projects-list">${projects.map((pr,i)=>`<div class="engineering-project-card"><h4>${pr.title}</h4><p>${pr.desc}</p><span class="mark-best-btn" data-rm-project="${i}">حذف</span></div>`).join("")}</div>
+        <div class="field" style="margin-top:10px;"><label>اسم مشروع جديد</label><input id="new-project-title" placeholder="مثال: تصميم جسر معلق"></div>
+        <div class="field" style="margin-top:8px;"><label>وصف مختصر</label><input id="new-project-desc" placeholder="وصف مختصر للمشروع"></div>
+        <button class="btn btn-outline btn-sm" id="btn-add-project" style="margin-top:8px;">إضافة المشروع</button>`;
       $("btn-save-engineering-field")?.addEventListener("click", async ()=>{
         try{
           const val = $("engineering-field-input").value.trim();
@@ -1941,16 +2013,50 @@ function renderVerifyBox(p){
           toast("تم حفظ التخصص");
         }catch(e){ toast("تعذر الحفظ"); }
       });
+      $("btn-add-project")?.addEventListener("click", async ()=>{
+        const title = $("new-project-title").value.trim();
+        const desc = $("new-project-desc").value.trim();
+        if(!title){ toast("اكتب اسم المشروع"); return; }
+        try{
+          const updated = [...(myProfile.engineeringProjects||[]), { title, desc }];
+          await updateDoc(doc(db, USERS_COL, currentUser.uid), { engineeringProjects: updated });
+          myProfile.engineeringProjects = updated;
+          toast("تمت إضافة المشروع");
+          renderVerifyBox(myProfile);
+        }catch(e){ toast("تعذر الحفظ"); }
+      });
+      document.querySelectorAll("[data-rm-project]").forEach(el=>{
+        el.onclick = async ()=>{
+          try{
+            const updated = (myProfile.engineeringProjects||[]).filter((_,i)=>i!==Number(el.dataset.rmProject));
+            await updateDoc(doc(db, USERS_COL, currentUser.uid), { engineeringProjects: updated });
+            myProfile.engineeringProjects = updated;
+            renderVerifyBox(myProfile);
+          }catch(e){ toast("تعذر الحذف"); }
+        };
+      });
+    }
+    if(p.verifiedType==="developer"){
+      box.innerHTML += `<div class="field" style="margin-top:10px;"><label>مقتطف كود مفضّل يظهر في بروفايلك</label><textarea id="dev-snippet-input" rows="4" placeholder="حط أي كود حابب تعرضه في بروفايلك">${p.pinnedSnippet||''}</textarea></div>
+        <button class="btn btn-outline btn-sm" id="btn-save-snippet" style="margin-top:8px;">حفظ المقتطف</button>`;
+      $("btn-save-snippet")?.addEventListener("click", async ()=>{
+        try{
+          const val = $("dev-snippet-input").value;
+          await updateDoc(doc(db, USERS_COL, currentUser.uid), { pinnedSnippet: val });
+          myProfile.pinnedSnippet = val;
+          toast("تم حفظ المقتطف");
+        }catch(e){ toast("تعذر الحفظ"); }
+      });
     }
     form.classList.add("hidden");
   }else if(p.verificationStatus==="pending"){
     box.innerHTML = `<div class="locked-note">طلب التوثيق قيد المراجعة من الفريق</div>`;
     form.classList.add("hidden");
-  }else if(p.planTier!=="pro" && !p.isAdmin){
+  }else if(p.planTier!=="pro" && p.planTier!=="plus" && !p.isAdmin && !p.isStudentVerified){
     box.innerHTML = `<p class="feature-lock-note">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-      التقديم على التوثيق متاح لمشتركي Pro فقط
-    </p><button class="btn btn-accent btn-sm" style="margin-top:10px;" id="btn-verify-upgrade">الترقية إلى Pro</button>`;
+      التقديم على التوثيق متاح لمشتركي Plus وPro
+    </p><button class="btn btn-accent btn-sm" style="margin-top:10px;" id="btn-verify-upgrade">الترقية إلى Plus أو Pro</button>`;
     form.classList.add("hidden");
     $("btn-verify-upgrade").onclick = ()=>{ renderPlans(); show("screen-plans"); };
   }else{
@@ -2531,6 +2637,34 @@ async function openStoryViewersModal(story){
    توثيق الطلاب — اشتراك مجاني بشارة خاصة مقابل رفع هوية طالب
    ============================================================ */
 let pendingStudentIdUrl = null;
+/* لوحة أفضل المبرمجين — ترتيب حسب عدد الإجابات المميزة، مربوطة مباشرة بقاعدة البيانات */
+async function openDeveloperLeaderboard(){
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="modal-sheet" style="max-height:75vh; overflow-y:auto;">
+    <div class="modal-sheet-handle"></div>
+    <h3 style="margin:0 0 10px;">أفضل المبرمجين</h3>
+    <div id="dev-leaderboard-inner"><div class="empty-state"><div class="spinner spinner-dark" style="margin:0 auto;"></div></div></div>
+  </div>`;
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+  const inner = overlay.querySelector("#dev-leaderboard-inner");
+  try{
+    const snap = await getDocs(query(collection(db, USERS_COL), where("verifiedType","==","developer"), limit(100)));
+    const devs = snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.bestAnswersCount||0)-(a.bestAnswersCount||0)).slice(0,10);
+    if(!devs.length){ inner.innerHTML = `<div class="empty-state"><p>لسه مفيش مبرمجين موثّقين</p></div>`; return; }
+    inner.innerHTML = devs.map((u,i)=>`
+      <div class="leaderboard-row" data-open-dev="${u.username}">
+        <span class="rank">${i+1}</span>
+        <img class="avatar avatar-sm" src="${u.profilePic||DEFAULT_AVATAR}">
+        <div style="flex:1;">${u.fullName} ${badgeHTML(u.verifiedType,u.username)}</div>
+        <b>${u.bestAnswersCount||0}</b><span class="post-time meta-font">إجابة مميزة</span>
+      </div>`).join("");
+    inner.querySelectorAll("[data-open-dev]").forEach(row=>{
+      row.onclick = ()=>{ overlay.remove(); openOtherProfile(row.dataset.openDev); };
+    });
+  }catch(e){ console.error(e); inner.innerHTML = `<div class="empty-state"><p>تعذر تحميل اللوحة</p></div>`; }
+}
 function openStudentVerifyModal(){
   if(myProfile.studentStatus==="pending"){ toast("طلبك قيد المراجعة، هيوصلك إشعار أول ما يتم الرد"); return; }
   if(myProfile.isStudentVerified){ toast("حسابك موثّق كطالب بالفعل"); return; }
@@ -2597,6 +2731,7 @@ function renderPagesList(){
     { icon:`<path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>`, label:"المحفوظات", target:"screen-bookmarks", action: ()=>renderBookmarks() },
     { icon:`<circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>`, label:"إضافة ستوري", action: ()=>openStoryComposerModal() },
     { icon:`<path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/>`, label:"توثيق الطلاب (مجانًا)", action: ()=>openStudentVerifyModal() },
+    { icon:`<path d="M8 21l4-13 4 13M9 15h6"/><path d="M12 3v2"/>`, label:"أفضل المبرمجين", action: ()=>openDeveloperLeaderboard() },
     { icon:`<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/>`, label:"زوار بروفايلك", target:"screen-visitors", action: ()=>renderVisitorsScreen() },
     { icon:`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09A1.65 1.65 0 0015 4.6a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.36.4.66.74.85`, label:"الإعدادات", target:"screen-settings" },
     { icon:`<path d="M12 2l1.5 5.5L19 9l-4 3.5L16 18l-4-3-4 3 1-5.5L5 9l5.5-1.5L12 2z"/>`, label:"باقات Plus وPro", target:"screen-plans", action: ()=>renderPlans() },
@@ -2629,9 +2764,9 @@ function renderPagesList(){
 const FREE_FEATURES = ["نشر منشورات نصية بلا حدود","إعجاب وتعليق ومشاركة","غرفة البرمجة والدردشات العامة","رابط واحد فقط في البروفايل","ملف شخصي عام أو خاص","نشر ستوري تختفي تلقائيًا بعد 24 ساعة","تصدير نسخة من بياناتك في أي وقت","حذف حسابك نهائيًا من الإعدادات وقتما تحب","إشعارات فورية بأي رد أو تفاعل عبر شات فريق الدعم"];
 const CODE_ROOM_FEATURES = ["نسخ أي كود بزر واحد مباشرة للحافظة","بحث فوري داخل كل منشورات الغرفة","تصنيف المنشورات بوسم (سؤال / شرح / مشروع / أدوات / وظائف) وفلترة بيها","تحديد تعليق كـ«أفضل إجابة» على أي سؤال","متابعة سؤال معيّن وأخذ إشعار فوري بأي رد جديد عليه","تثبيت منشور في أعلى الغرفة (لمشتركي Pro والأدمن)","فرز المنشورات حسب الأحدث أو الأكثر تفاعلاً","متابعة وسم كامل وأخذ إشعار بأي منشور جديد بيه","شريط إحصائيات فوري: عدد الأسئلة المفتوحة والمحلولة","شارة «إجابات مميزة» على بروفايلك تتزايد تلقائيًا"];
 const PLANS = {
-  plus: { name:"باقة Plus", features:["فتح كل مميزات التطبيق ما عدا التوثيق","رفع صور وفيديوهات وملفات بلا حدود إضافية","دعم فني بأولوية","شارة مميزة على المنشورات","حتى 3 روابط في البروفايل","اختيار مدة الستوري (24 أو 12 ساعة)","معرفة عدد مشاهدات الستوري الإجمالي","إرسال الصور في الشات","متابعة حتى 5 أسئلة في غرفة البرمجة والتنبيه عند الرد عليها","شارة اسمك المميزة تظهر في التعليقات أيضًا","تثبيت تعليق واحد في أعلى تعليقات منشورك","عرض آخر ظهور لك في بروفايلك للمتابعين","إخفاء عدد المتابعين والمتابَعين عن الزوار"],
+  plus: { name:"باقة Plus", features:["فتح معظم مميزات التطبيق بما فيها التقديم على توثيق عام","رفع صور وفيديوهات وملفات بلا حدود إضافية","دعم فني بأولوية","شارة مميزة على المنشورات","حتى 3 روابط في البروفايل","اختيار مدة الستوري (24 أو 12 ساعة)","معرفة عدد مشاهدات الستوري الإجمالي","إرسال الصور في الشات","متابعة حتى 5 أسئلة في غرفة البرمجة والتنبيه عند الرد عليها","شارة اسمك المميزة تظهر في التعليقات أيضًا","تثبيت تعليق واحد في أعلى تعليقات منشورك","عرض آخر ظهور لك في بروفايلك للمتابعين"],
     tiers:[{label:"أسبوعي", egp:60, usd:1, days:7},{label:"شهري", egp:150, usd:2, days:30},{label:"3 أشهر", egp:450, usd:5, days:90},{label:"سنوي", egp:1800, usd:20, days:365}] },
-  pro: { name:"باقة Pro (مبرمجين وتوثيق)", features:["كل مميزات Plus مضافًا إليها","إمكانية التقديم على شارة توثيق","حتى 8 روابط في البروفايل","دخول مبكر لمميزات غرفة البرمجة","دعم فني مباشر من الفريق","تحديد مدة مخصصة للستوري بالساعة والدقيقة","قائمة تفصيلية بمن شاهد الستوري وتفاعل معها مع إمكانية الرد عليهم","إعادة مشاركة الستوري في الشات حتى لو كانت صورة","رفع حتى 10 صور في المنشور الواحد بعرض كاروسيل زي إنستجرام","تثبيت منشوراتك في أعلى غرفة البرمجة","إرسال أكتر من صورة في نفس محادثة الشات","متابعة عدد غير محدود من الأسئلة في غرفة البرمجة","أولوية ظهور منشوراتك في الاقتراحات والبحث","جدولة نشر منشوراتك لوقت لاحق تختاره","حفظ الاستوريز كـ«لحظات» دائمة على بروفايلك","تحميل نسخة أصلية من صور منشوراتك الخاصة","تضمين روابط يوتيوب والفيديوهات تلقائيًا داخل منشوراتك","نقطة «متصل الآن» خضراء حية بجانب صورتك الشخصية"],
+  pro: { name:"باقة Pro (مبرمجين وتوثيق)", features:["كل مميزات Plus مضافًا إليها","إمكانية التقديم على شارة توثيق برو أو مبرمج أو شركة","إخفاء عدد المتابعين والمتابَعين عن الزوار تلقائيًا","حتى 8 روابط في البروفايل","دخول مبكر لمميزات غرفة البرمجة","دعم فني مباشر من الفريق","تحديد مدة مخصصة للستوري بالساعة والدقيقة","قائمة تفصيلية بمن شاهد الستوري وتفاعل معها مع إمكانية الرد عليهم","إعادة مشاركة الستوري في الشات حتى لو كانت صورة","رفع حتى 10 صور في المنشور الواحد بعرض كاروسيل زي إنستجرام","تثبيت منشوراتك في أعلى غرفة البرمجة","إرسال أكتر من صورة في نفس محادثة الشات","متابعة عدد غير محدود من الأسئلة في غرفة البرمجة","أولوية ظهور منشوراتك في الاقتراحات والبحث","جدولة نشر منشوراتك لوقت لاحق تختاره","حفظ الاستوريز كـ«لحظات» دائمة على بروفايلك","تحميل نسخة أصلية من صور منشوراتك الخاصة","تضمين روابط يوتيوب والفيديوهات تلقائيًا داخل منشوراتك","نقطة «متصل الآن» خضراء حية بجانب صورتك الشخصية"],
     tiers:[{label:"شهري", egp:250, usd:4, days:30},{label:"نصف سنوي", egp:1400, usd:20, days:182},{label:"سنة كاملة", egp:2800, usd:35, days:365}] }
 };
 const STUDENT_FEATURES = VERIFICATION_FEATURES.student;
@@ -2698,14 +2833,86 @@ function loadPayPalSDK(){
    لوحة الإدارة
    ============================================================ */
 async function renderAdmin(){
+  let allUsers = [];
   try{
     const snap = await getDocs(query(collection(db, USERS_COL), orderBy("createdAt","desc"), limit(100)));
-    renderAdminList(snap.docs.map(d=>({id:d.id,...d.data()})));
+    allUsers = snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderAdminList(allUsers);
   }catch(e){
     console.error(e);
     $("admin-users-list").innerHTML = `<div class="empty-state"><p>تعذر تحميل قائمة المستخدمين، حاول تاني</p></div>`;
   }
+  renderAdminStats(allUsers);
   renderStudentRequests();
+  renderPaywallRequests();
+}
+/* إحصائيات حية للأدمن — مربوطة بقاعدة البيانات مباشرة */
+function renderAdminStats(users){
+  const bar = $("admin-stats-bar"); if(!bar) return;
+  const now = Date.now();
+  const onlineNow = users.filter(u=>{
+    const ms = u.lastActiveAt?.toMillis ? u.lastActiveAt.toMillis() : (u.lastActiveAt ? new Date(u.lastActiveAt).getTime() : 0);
+    return ms && (now-ms < 5*60*1000);
+  }).length;
+  const verifiedCount = users.filter(u=>u.verifiedType).length;
+  const studentsCount = users.filter(u=>u.isStudentVerified).length;
+  bar.innerHTML = `<div class="admin-stats-grid">
+    <div class="admin-stat-card"><b>${users.length}</b><span>آخر 100 مستخدم</span></div>
+    <div class="admin-stat-card"><b>${onlineNow}</b><span>متصل الآن</span></div>
+    <div class="admin-stat-card"><b>${verifiedCount}</b><span>حساب موثّق</span></div>
+    <div class="admin-stat-card"><b>${studentsCount}</b><span>طالب موثّق</span></div>
+    <div class="admin-stat-card"><b>${users.filter(u=>u.planTier==='pro').length}</b><span>مشترك Pro</span></div>
+    <div class="admin-stat-card"><b>${users.filter(u=>u.planTier==='plus').length}</b><span>مشترك Plus</span></div>
+  </div>`;
+}
+$("btn-admin-broadcast").onclick = ()=>{
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="modal-sheet" style="text-align:right;">
+    <div class="modal-sheet-handle"></div>
+    <h3 style="margin:0 0 10px;">إشعار جماعي لكل المستخدمين</h3>
+    <textarea id="broadcast-text" rows="4" placeholder="اكتب نص الإشعار اللي هيوصل لكل المستخدمين..."></textarea>
+    <button class="btn btn-primary" id="btn-send-broadcast" style="margin-top:12px;">إرسال للجميع</button>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  overlay.querySelector("#btn-send-broadcast").onclick = async ()=>{
+    const text = overlay.querySelector("#broadcast-text").value.trim();
+    if(!text) return;
+    const btn = overlay.querySelector("#btn-send-broadcast"); btn.innerHTML='<div class="spinner"></div>'; btn.disabled=true;
+    try{
+      const snap = await getDocs(query(collection(db, USERS_COL), limit(500)));
+      snap.docs.forEach(d=>{ if(d.id!==currentUser.uid) notifyUser(d.id, text, true); });
+      toast(`تم إرسال الإشعار لـ${snap.size} مستخدم`);
+      overlay.remove();
+    }catch(e){ console.error(e); toast("تعذر إرسال الإشعار الجماعي"); btn.disabled=false; btn.textContent="إرسال للجميع"; }
+  };
+};
+async function renderPaywallRequests(){
+  const wrap = $("admin-paywall-requests");
+  try{
+    const snap = await getDocs(query(collection(db, USERS_COL), where("paywallContactRequested","==",true), limit(50)));
+    if(snap.empty){ wrap.innerHTML=""; return; }
+    wrap.innerHTML = `<h3 style="margin:0 0 8px;">طلبات رفع قفل الدفع (${snap.size})</h3>` + snap.docs.map(d=>{
+      const u = d.data();
+      return `<div class="glass-card section-pad" style="margin-bottom:10px; display:flex; align-items:center; gap:10px;">
+        <img class="avatar avatar-sm" src="${u.profilePic||DEFAULT_AVATAR}">
+        <div style="flex:1;"><div style="font-weight:700;">${u.fullName}</div><div class="post-username">@${u.username} — توثيق ${u.trialPlan==='company'?'شركات':'عام'}</div></div>
+        <button class="btn btn-primary btn-sm" data-lift-paywall="${d.id}">رفع القفل</button>
+      </div>`;
+    }).join("") + `<div class="page-rule"></div>`;
+    wrap.querySelectorAll("[data-lift-paywall]").forEach(btn=>{
+      btn.onclick = async ()=>{
+        const uid = btn.dataset.liftPaywall;
+        try{
+          await updateDoc(doc(db, USERS_COL, uid), { paywallLocked:false, paywallContactRequested:false });
+          notifyUser(uid, "تم رفع قفل الدفع بعد مراجعة الفريق لطلبك — تقدر تكمل استخدام التطبيق عادي");
+          toast("تم رفع القفل");
+          renderPaywallRequests();
+        }catch(e){ toast("تعذر تنفيذ العملية"); }
+      };
+    });
+  }catch(e){ console.error(e); }
 }
 async function renderStudentRequests(){
   const wrap = $("admin-student-requests");
@@ -2769,6 +2976,8 @@ function renderAdminList(users){
           <option value="investigator" ${u.verifiedType==='investigator'?'selected':''}>محقق منه</option>
           <option value="developer" ${u.verifiedType==='developer'?'selected':''}>مبرمجين</option>
           <option value="engineer" ${u.verifiedType==='engineer'?'selected':''}>مهندسين</option>
+          <option value="company" ${u.verifiedType==='company'?'selected':''}>شركات</option>
+          <option value="general" ${u.verifiedType==='general'?'selected':''}>توثيق عام (Plus)</option>
           <option value="app" ${u.verifiedType==='app'?'selected':''}>حساب التطبيق</option>
         </select>
         <button class="btn btn-sm btn-outline" data-edit-reason="${u.id}" data-reason="${(u.verificationReason||'').replace(/"/g,'&quot;')}">سبب التوثيق</button>
@@ -2817,7 +3026,15 @@ function renderAdminList(users){
     }catch(e){ console.error(e); toast("تعذر تنفيذ العملية، حاول تاني"); }
   });
   $("admin-users-list").querySelectorAll("[data-verify]").forEach(sel=> sel.onchange = async ()=>{
-    try{ await updateDoc(doc(db,USERS_COL,sel.dataset.verify), { verifiedType: sel.value || null }); }
+    try{
+      const isTrialType = sel.value==="company" || sel.value==="general";
+      const update = { verifiedType: sel.value || null };
+      if(isTrialType){
+        Object.assign(update, { trialActive:true, trialUsed:true, trialPlan: sel.value, trialStartedAt: serverTimestamp(), paywallLocked:false });
+      }
+      await updateDoc(doc(db,USERS_COL,sel.dataset.verify), update);
+      if(isTrialType) notifyUser(sel.dataset.verify, `تم تفعيل توثيق «${sel.value==='company'?'الشركات':'العام'}» لحسابك — عندك تجربة مجانية 3 أيام، وبعدها هيلزم الدفع للاستمرار`);
+    }
     catch(e){ console.error(e); toast("تعذر تنفيذ العملية، حاول تاني"); }
   });
   $("admin-users-list").querySelectorAll("[data-edit-user]").forEach(b=> b.onclick = ()=>{
