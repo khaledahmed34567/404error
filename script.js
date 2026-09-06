@@ -10,7 +10,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, addDoc,
-  query, where, orderBy, limit, onSnapshot, serverTimestamp,
+  query, where, orderBy, limit, onSnapshot, serverTimestamp, documentId,
   arrayUnion, arrayRemove, getDocs, startAt, endAt, increment
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -54,6 +54,65 @@ async function sha256(text){
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
 }
+/* ---------------- اقتراح المنشن أثناء الكتابة: للمستخدم العادي بس المتابَعين والمتابعين، وللفريق (الأدمن) كل المستخدمين ---------------- */
+let __mentionCache = null;
+async function loadMentionCandidates(){
+  if(__mentionCache) return __mentionCache;
+  const ids = [...new Set([...(myProfile.followers||[]), ...(myProfile.following||[])])];
+  const results = [];
+  for(let i=0;i<ids.length;i+=10){
+    const chunk = ids.slice(i,i+10);
+    if(!chunk.length) continue;
+    try{
+      const snap = await getDocs(query(collection(db,USERS_COL), where(documentId(),"in",chunk)));
+      snap.docs.forEach(d=>{ const u=d.data(); results.push({ username:u.username, fullName:u.fullName, profilePic:u.profilePic }); });
+    }catch(e){ /* صامت */ }
+  }
+  __mentionCache = results;
+  return results;
+}
+async function searchMentionCandidates(prefix){
+  if(myProfile.isAdmin){
+    try{
+      const snap = await getDocs(query(collection(db,USERS_COL), orderBy("username"), where("username",">=",prefix), where("username","<=",prefix+"\uf8ff"), limit(8)));
+      return snap.docs.map(d=>{ const u=d.data(); return { username:u.username, fullName:u.fullName, profilePic:u.profilePic }; });
+    }catch(e){ return []; }
+  }
+  const all = await loadMentionCandidates();
+  return all.filter(u=>u.username && u.username.toLowerCase().startsWith(prefix.toLowerCase())).slice(0,8);
+}
+function attachMentionAutocomplete(inputEl){
+  if(!inputEl || inputEl.__mentionAttached) return;
+  inputEl.__mentionAttached = true;
+  const dropdown = document.createElement("div");
+  dropdown.className = "mention-dropdown hidden";
+  inputEl.parentElement.style.position = inputEl.parentElement.style.position || "relative";
+  inputEl.parentElement.appendChild(dropdown);
+  let debounceT;
+  inputEl.addEventListener("input", ()=>{
+    clearTimeout(debounceT);
+    const val = inputEl.value;
+    const m = val.match(/(^|[\s])@([a-zA-Z0-9_]{1,16})$/);
+    if(!m){ dropdown.classList.add("hidden"); return; }
+    const prefix = m[2];
+    debounceT = setTimeout(async ()=>{
+      const results = await searchMentionCandidates(prefix);
+      if(!results.length){ dropdown.classList.add("hidden"); return; }
+      dropdown.innerHTML = results.map(u=>`<div class="mention-option" data-uname="${u.username}"><img src="${u.profilePic||DEFAULT_AVATAR}"><span>${u.fullName} <b>@${u.username}</b></span></div>`).join("");
+      dropdown.classList.remove("hidden");
+      dropdown.querySelectorAll("[data-uname]").forEach(opt=>{
+        opt.onclick = ()=>{
+          inputEl.value = inputEl.value.replace(/(^|[\s])@([a-zA-Z0-9_]{1,16})$/, `$1@${opt.dataset.uname} `);
+          dropdown.classList.add("hidden");
+          inputEl.focus();
+          inputEl.dispatchEvent(new Event("input"));
+        };
+      });
+    }, 200);
+  });
+  inputEl.addEventListener("blur", ()=> setTimeout(()=> dropdown.classList.add("hidden"), 150));
+}
+
 function linkify(text){
   const escaped = text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const withLinks = escaped.replace(/((https?:\/\/|www\.)[^\s]+)/g, (m)=>{
@@ -855,10 +914,12 @@ $("composer-text").addEventListener("input", ()=>{ $("composer-counter").textCon
 $("code-composer-text").addEventListener("input", ()=>{ $("code-composer-counter").textContent = `${$("code-composer-text").value.length} / 800`; });
 
 $("btn-post-submit").onclick = ()=> submitPost($("composer-text"), postCharLimit(), false);
+attachMentionAutocomplete($("composer-text"));
 $("composer-schedule-toggle")?.addEventListener("change", (e)=>{
   $("composer-schedule-time").style.display = e.target.checked ? "block" : "none";
 });
 $("btn-code-post-submit").onclick = ()=> submitPost($("code-composer-text"), 800, true);
+attachMentionAutocomplete($("code-composer-text"));
 
 /* ---------- إرفاق صور في المنشور: مجاني صورة واحدة، Plus حتى 3، Pro حتى 10 بتصميم كاروسيل ---------- */
 let pendingComposerImages = [];
@@ -1113,7 +1174,7 @@ function postRowHTML(p){
         <div class="post-username">@${p.authorUsername||""}</div>
         <div class="post-time meta-font">${timeAgo(p.createdAt)}</div>
       </div>
-      ${showMenu ? `<button class="icon-btn post-menu-btn" data-post-menu="${p.id}" data-owner="${isOwner}" data-pinned="${!!p.pinned}" data-global-pinned="${!!p.globalPinned}" data-canpin="${canPinOwn}" data-room="${p.room||'general'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="19" r="1.2"/></svg></button>` : ""}
+      ${showMenu ? `<button class="icon-btn post-menu-btn" data-post-menu="${p.id}" data-owner="${isOwner}" data-pinned="${!!p.pinned}" data-global-pinned="${!!p.globalPinned}" data-canpin="${canPinOwn}" data-room="${p.room||'general'}" data-created="${p.createdAt?.toMillis ? p.createdAt.toMillis() : ''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="19" r="1.2"/></svg></button>` : ""}
     </div>
     ${p.text ? `<div class="post-text">${p.room==="code" ? codeify(p.text||"") : linkify(p.text||"")}</div>` : ""}
     ${isRepost ? `
@@ -1297,12 +1358,40 @@ function postMenuOptions(btn){
   const pinned = btn.dataset.pinned==="true";
   const globalPinned = btn.dataset.globalPinned==="true";
   const isCodeRoom = btn.dataset.room==="code";
+  const createdMs = Number(btn.dataset.created)||0;
+  const withinEditWindow = createdMs && (Date.now()-createdMs < 15*60*1000);
   const opts = [];
+  if(isOwner && withinEditWindow) opts.push({ label:"تعديل المنشور", action:()=>openEditPostModal(postId) });
   if(canPin) opts.push({ label: pinned?(isCodeRoom?"إلغاء التثبيت في الغرفة":"إلغاء تثبيت المنشور"):(isCodeRoom?"تثبيت في أعلى غرفة البرمجة":"تثبيت في بروفايلي"), action:()=>toggleOwnPinAction(postId, pinned) });
   if(myProfile.isAdmin) opts.push({ label: globalPinned?"إلغاء التثبيت العام":"تثبيت في الفيد للجميع", action:()=>toggleGlobalPinAction(postId, globalPinned) });
   if(isOwner || myProfile.isAdmin) opts.push({ label:"حذف المنشور", danger:true, action:()=>deletePostAction(postId) });
   if(!isOwner) opts.push({ label:"إبلاغ عن المنشور", action:()=>openReportModal(postId) });
   return opts;
+}
+function openEditPostModal(postId){
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="modal-sheet" style="text-align:right;">
+    <div class="modal-sheet-handle"></div>
+    <h3 style="margin:0 0 10px;">تعديل المنشور</h3>
+    <textarea id="edit-post-text" rows="4" style="width:100%;"></textarea>
+    <p class="subtitle" style="margin-top:6px;">التعديل متاح لمدة 15 دقيقة فقط من وقت النشر</p>
+    <button class="btn btn-primary" id="btn-save-edit-post" style="margin-top:10px;">حفظ التعديل</button>
+  </div>`;
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+  (async ()=>{
+    const snap = await getDoc(doc(db, POSTS_COL, postId));
+    if(snap.exists()) overlay.querySelector("#edit-post-text").value = snap.data().text||"";
+  })();
+  overlay.querySelector("#btn-save-edit-post").onclick = async ()=>{
+    const newText = overlay.querySelector("#edit-post-text").value.trim();
+    try{
+      await updateDoc(doc(db, POSTS_COL, postId), { text:newText, editedAt: serverTimestamp() });
+      toast("تم تعديل المنشور");
+      overlay.remove();
+    }catch(e){ toast("تعذر التعديل — يمكن انتهت مدة الـ15 دقيقة"); }
+  };
 }
 
 async function toggleOwnPinAction(postId, currentlyPinned){
@@ -1332,12 +1421,13 @@ async function deletePostAction(postId){
   try{ await deleteDoc(doc(db, POSTS_COL, postId)); toast("تم حذف المنشور"); }
   catch(e){ toast("تعذر حذف المنشور، حاول تاني"); }
 }
-function openReportModal(postId){
+function openReportModal(postId){ openGenericReportModal({ postId }, "المنشور"); }
+function openGenericReportModal(idFields, label){
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
   overlay.innerHTML = `<div class="modal-sheet" style="text-align:right;">
     <div class="modal-sheet-handle"></div>
-    <h3 style="margin:0 0 10px;">إبلاغ عن المنشور</h3>
+    <h3 style="margin:0 0 10px;">إبلاغ عن ${label}</h3>
     <div class="field"><label>سبب الإبلاغ</label><textarea id="report-reason-input" rows="3" placeholder="اكتب سبب الإبلاغ بالتفصيل..."></textarea></div>
     <button class="btn btn-danger" id="btn-submit-report">إرسال البلاغ</button>
   </div>`;
@@ -1347,7 +1437,7 @@ function openReportModal(postId){
     const reason = overlay.querySelector("#report-reason-input").value.trim();
     if(!reason){ toast("اكتب سبب الإبلاغ"); return; }
     try{
-      await addDoc(collection(db,"reports"), { postId, reason, reporterId: currentUser.uid, reporterUsername: myProfile.username, status:"pending", createdAt: serverTimestamp() });
+      await addDoc(collection(db,"reports"), { ...idFields, reason, reporterId: currentUser.uid, reporterUsername: myProfile.username, status:"pending", createdAt: serverTimestamp() });
       toast("تم إرسال البلاغ، شكرًا لك");
       overlay.remove();
     }catch(e){ toast("تعذر إرسال البلاغ"); }
@@ -1542,6 +1632,7 @@ async function openCommentsModal(postId){
 
   const input = overlay.querySelector("#new-comment-input");
   input.addEventListener("input", ()=>{ overlay.querySelector("#comment-counter").textContent = `${input.value.length} / 300`; });
+  attachMentionAutocomplete(input);
 
   const postSnapForModal = await getDoc(doc(db, POSTS_COL, postId));
   const postForModal = postSnapForModal.exists() ? postSnapForModal.data() : {};
@@ -1568,6 +1659,7 @@ async function openCommentsModal(postId){
           <div style="display:flex; gap:12px; align-items:center; margin-top:4px;">
             ${c.isBest ? `<div class="best-answer-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> أفضل إجابة</div>` : (isOwnerOfQuestion ? `<span class="mark-best-btn" data-mark-best="${c.id}">تحديد كأفضل إجابة</span>` : "")}
             ${canPinComment ? `<span class="mark-best-btn" data-toggle-pin-comment="${c.id}" data-pinned="${!!c.pinned}">${c.pinned?'إلغاء التثبيت':'تثبيت التعليق'}</span>` : ""}
+            ${(c.authorId===currentUser.uid || myProfile.isAdmin) ? `<span class="mark-best-btn" data-delete-comment="${c.id}" style="color:var(--danger);">حذف</span>` : `<span class="mark-best-btn" data-report-comment="${c.id}">إبلاغ</span>`}
           </div>
         </div>
       </div>`;
@@ -1603,6 +1695,20 @@ async function openCommentsModal(postId){
           loadComments();
         }catch(e){ toast("تعذر تنفيذ العملية"); }
       };
+    });
+    listEl.querySelectorAll("[data-delete-comment]").forEach(el=>{
+      el.onclick = async ()=>{
+        try{
+          await deleteDoc(doc(db, POSTS_COL, postId, "comments", el.dataset.deleteComment));
+          const pSnap = await getDoc(doc(db, POSTS_COL, postId));
+          if(pSnap.exists()) updateDoc(doc(db, POSTS_COL, postId), { commentsCount: Math.max(0,(pSnap.data().commentsCount||1)-1) }).catch(()=>{});
+          toast("تم حذف التعليق");
+          loadComments();
+        }catch(e){ toast("تعذر الحذف"); }
+      };
+    });
+    listEl.querySelectorAll("[data-report-comment]").forEach(el=>{
+      el.onclick = ()=> openGenericReportModal({ postId, commentId: el.dataset.reportComment }, "التعليق");
     });
   }
   loadComments();
@@ -1789,7 +1895,7 @@ function startNotifsListener(){
     $("notifs-empty").classList.add("hidden");
     list.innerHTML = snap.docs.map(d=>{
       const n = d.data();
-      return `<div class="notif-item">${n.fromAdmin?'<div class="notif-dot" style="background:var(--gold);"></div>':'<div class="notif-dot"></div>'}<div>${n.fromAdmin?'<div class="chip" style="margin-bottom:5px;">رسالة من الإدارة</div>':''}<div style="font-size:14px;">${n.text||""}</div><div class="post-time meta-font" style="margin-top:4px;">${timeAgo(n.createdAt)}</div></div></div>`;
+      return `<div class="notif-item">${n.fromAdmin?'<div class="notif-dot" style="background:var(--gold);"></div>':'<div class="notif-dot"></div>'}<div>${n.fromAdmin?'<div class="chip" style="margin-bottom:5px;">رسالة من الإدارة</div>':''}<div style="font-size:14px;">${linkify(n.text||"")}</div><div class="post-time meta-font" style="margin-top:4px;">${timeAgo(n.createdAt)}</div></div></div>`;
     }).join("");
   });
 }
@@ -2562,9 +2668,16 @@ async function openChatWithUser(otherUid){
       const mine = m.senderId===currentUser.uid;
       const imgHTML = m.imageUrl ? `<div class="protected-media"><img src="${m.imageUrl}" oncontextmenu="return false" draggable="false"></div>` : "";
       const storyTagHTML = m.sharedStory ? `<div class="chip" style="margin-bottom:4px;">إعادة مشاركة ستوري</div>` : "";
-      return `<div class="msg-bubble ${mine?'msg-mine':'msg-theirs'} ${m.imageUrl?'msg-story-share':''}" id="msg-${d.id}">${storyTagHTML}${imgHTML}<span class="msg-text-slot"></span><div class="msg-time">${timeAgo(m.createdAt)}</div></div>`;
+      const createdMs = m.createdAt?.toMillis ? m.createdAt.toMillis() : 0;
+      const reactions = m.reactions || {};
+      const reactionEmojis = [...new Set(Object.values(reactions))];
+      const reactionsHTML = reactionEmojis.length ? `<div class="msg-reactions">${reactionEmojis.join(" ")}</div>` : "";
+      return `<div class="msg-bubble ${mine?'msg-mine':'msg-theirs'} ${m.imageUrl?'msg-story-share':''}" id="msg-${d.id}" data-msg-id="${d.id}" data-mine="${mine}" data-created="${createdMs}">${storyTagHTML}${imgHTML}<span class="msg-text-slot"></span>${m.editedAt?'<span class="post-time meta-font"> (معدّلة)</span>':''}${reactionsHTML}<div class="msg-time">${timeAgo(m.createdAt)}</div></div>`;
     }).join("");
     msgsWrap.scrollTop = msgsWrap.scrollHeight;
+    msgsWrap.querySelectorAll(".msg-bubble").forEach(bubble=>{
+      bubble.onclick = ()=> openMessageActionSheet(chatId, bubble.dataset.msgId, bubble.dataset.mine==="true", Number(bubble.dataset.created), otherUid, other);
+    });
     /* فك تشفير كل رسالة نصية بشكل غير متزامن بعد الرسم */
     snap.docs.forEach(async d=>{
       const m = d.data();
@@ -2577,6 +2690,7 @@ async function openChatWithUser(otherUid){
   }, (err)=>{ console.error(err); msgsWrap.innerHTML = `<div class="empty-state"><p>تعذر تحميل الرسائل، حاول تاني</p></div>`; });
 
   $("btn-chat-send").onclick = ()=> sendChatMessage(otherUid, other);
+  attachMentionAutocomplete($("chat-message-input"));
 
   /* إرسال صور في الشات — متاح لمشتركي Plus وPro والأدمن فقط */
   const canSendImages = canSend && isPlusOrAbove();
@@ -2598,6 +2712,64 @@ async function openChatWithUser(otherUid){
     }catch(err){ toast("تعذر رفع الصورة"); }
     attachBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>`;
   };
+}
+
+/* شيت تفاعلات ونشاط الرسالة: تفاعل، تعديل (خلال 15 دقيقة)، حذف، إبلاغ */
+function openMessageActionSheet(chatId, msgId, mine, createdMs, otherUid, otherProfile){
+  const withinEditWindow = createdMs && (Date.now()-createdMs < 15*60*1000);
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  const emojis = ["❤️","😂","👍","😮","😢","🔥"];
+  overlay.innerHTML = `<div class="modal-sheet">
+    <div class="modal-sheet-handle"></div>
+    <div style="display:flex; justify-content:space-around; font-size:26px; margin-bottom:10px;">${emojis.map(em=>`<span data-react-emoji="${em}" style="cursor:pointer;">${em}</span>`).join("")}</div>
+    ${mine && withinEditWindow ? `<div class="share-sheet-item" id="msg-action-edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>تعديل الرسالة</div>` : ""}
+    ${mine ? `<div class="share-sheet-item" id="msg-action-delete" style="color:var(--danger);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/></svg>حذف الرسالة</div>` : `<div class="share-sheet-item" id="msg-action-report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="10"/></svg>إبلاغ عن الرسالة</div>`}
+  </div>`;
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+  overlay.querySelectorAll("[data-react-emoji]").forEach(el=>{
+    el.onclick = async ()=>{
+      try{ await updateDoc(doc(db,"chats",chatId,"messages",msgId), { [`reactions.${currentUser.uid}`]: el.dataset.reactEmoji }); }
+      catch(e){ toast("تعذر إرسال التفاعل"); }
+      overlay.remove();
+    };
+  });
+  overlay.querySelector("#msg-action-edit")?.addEventListener("click", async ()=>{
+    overlay.remove();
+    const msnap = await getDoc(doc(db,"chats",chatId,"messages",msgId));
+    if(!msnap.exists()) return;
+    const m = msnap.data();
+    const currentText = m.encText ? await decryptChatText(chatId, m.encText, m.iv) : "";
+    const editOverlay = document.createElement("div");
+    editOverlay.className = "modal-overlay";
+    editOverlay.innerHTML = `<div class="modal-sheet" style="text-align:right;">
+      <div class="modal-sheet-handle"></div>
+      <h3 style="margin:0 0 10px;">تعديل الرسالة</h3>
+      <textarea id="edit-msg-text" rows="3" style="width:100%;">${currentText}</textarea>
+      <button class="btn btn-primary" id="btn-save-msg-edit" style="margin-top:10px;">حفظ</button>
+    </div>`;
+    editOverlay.onclick = (e)=>{ if(e.target===editOverlay) editOverlay.remove(); };
+    document.body.appendChild(editOverlay);
+    editOverlay.querySelector("#btn-save-msg-edit").onclick = async ()=>{
+      const newText = editOverlay.querySelector("#edit-msg-text").value.trim();
+      try{
+        const { encText, iv } = await encryptChatText(chatId, newText);
+        await updateDoc(doc(db,"chats",chatId,"messages",msgId), { encText, iv, editedAt: serverTimestamp() });
+        toast("تم تعديل الرسالة");
+        editOverlay.remove();
+      }catch(e){ toast("تعذر التعديل — يمكن انتهت مدة الـ15 دقيقة"); }
+    };
+  });
+  overlay.querySelector("#msg-action-delete")?.addEventListener("click", async ()=>{
+    try{ await deleteDoc(doc(db,"chats",chatId,"messages",msgId)); toast("تم حذف الرسالة"); }
+    catch(e){ toast("تعذر الحذف"); }
+    overlay.remove();
+  });
+  overlay.querySelector("#msg-action-report")?.addEventListener("click", ()=>{
+    overlay.remove();
+    openGenericReportModal({ chatId, messageId: msgId, reportedUserId: otherUid }, "الرسالة");
+  });
 }
 
 async function sendChatMessage(otherUid, otherProfile, opts){

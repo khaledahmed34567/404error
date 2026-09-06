@@ -146,7 +146,7 @@ img{ user-select:none; -webkit-user-drag:none; }
 .msg-theirs{ align-self:flex-end; background:var(--bg-sunk); border:1px solid var(--line); border-bottom-right-radius:5px; }
 .msg-time{ font-size:10px; opacity:.6; margin-top:4px; }
 #chat-input-bar{ display:flex; gap:8px; align-items:center; padding:10px; margin:10px; border-radius:24px; position:sticky; bottom:10px; }
-#chat-input-bar input{ flex:1; border:none; background:transparent; padding:8px 10px; font-size:14px; outline:none; }
+#chat-input-bar input{ flex:1; min-width:0; border:none; background:transparent; padding:8px 10px; font-size:14px; outline:none; }
 .msg-bubble img{ max-width:100%; border-radius:12px; display:block; margin-bottom:4px; }
 .msg-bubble.msg-story-share{ padding:6px; }
 .code-search-wrap{ padding:0 14px 10px; }
@@ -210,6 +210,7 @@ input,textarea,select{ font-family:"IBM Plex Sans Arabic",sans-serif; font-weigh
   width:38px; height:38px; display:flex; align-items:center; justify-content:center;
   border-radius:50%; background:var(--bg-sunk); border:1px solid var(--line); cursor:pointer;
   transition:transform .15s ease, background .2s ease;
+  flex-shrink:0;
 }
 .icon-btn:active{ transform:scale(.92); }
 .icon-btn svg{ width:19px; height:19px; stroke:var(--ink); }
@@ -295,6 +296,13 @@ input,textarea,select{ font-family:"IBM Plex Sans Arabic",sans-serif; font-weigh
 .post-text a{ color:var(--accent); }
 .hashtag{ color:var(--accent); font-weight:600; cursor:pointer; }
 .mention{ color:var(--violet); font-weight:600; cursor:pointer; }
+.mention-dropdown{ position:absolute; bottom:100%; right:0; left:0; background:#fff; border:1px solid var(--line-strong); border-radius:14px; box-shadow:var(--shadow-glass); max-height:180px; overflow-y:auto; z-index:20; margin-bottom:6px; }
+.mention-dropdown.hidden{ display:none; }
+.mention-option{ display:flex; align-items:center; gap:8px; padding:8px 12px; cursor:pointer; font-size:13px; }
+.mention-option:hover{ background:var(--bg-sunk); }
+.mention-option img{ width:26px; height:26px; border-radius:50%; object-fit:cover; }
+.mention-option b{ font-weight:700; color:var(--muted); font-size:11.5px; }
+.msg-reactions{ font-size:14px; margin-top:2px; }
 .post-username{ color:var(--muted); font-size:12.5px; -webkit-user-select:text; user-select:text; }
 .post-actions{ display:flex; align-items:center; gap:18px; margin-top:12px; padding-top:10px; border-top:1px solid var(--line); }
 .post-action{ display:flex; align-items:center; gap:6px; color:var(--muted); font-size:13px; cursor:pointer; background:none; border:none; padding:4px; }
