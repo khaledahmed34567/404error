@@ -60,9 +60,32 @@ function linkify(text){
     const href = m.startsWith("http") ? m : "https://"+m;
     return `<a href="${href}" target="_blank" rel="noopener">${m}</a>`;
   });
-  return withLinks.replace(/(^|[\s])#([\u0600-\u06FFa-zA-Z0-9_]{2,40})/g, (m, pre, tag)=>{
+  const withMentions = withLinks.replace(/(^|[\s])@([a-zA-Z0-9_]{3,16})/g, (m, pre, uname)=>{
+    return `${pre}<span class="mention" data-mention="${uname.toLowerCase()}">@${uname}</span>`;
+  });
+  return withMentions.replace(/(^|[\s])#([\u0600-\u06FFa-zA-Z0-9_]{2,40})/g, (m, pre, tag)=>{
     return `${pre}<span class="hashtag" data-hashtag="${tag}">#${tag}</span>`;
   });
+}
+function extractMentions(text){
+  const names = new Set();
+  const re = /(^|[\s])@([a-zA-Z0-9_]{3,16})/g;
+  let m;
+  while((m = re.exec(text))){ names.add(m[2].toLowerCase()); }
+  return [...names];
+}
+async function notifyMentions(text, contextLabel, postId){
+  const usernames = extractMentions(text);
+  if(!usernames.length) return;
+  for(const uname of usernames.slice(0,10)){
+    try{
+      const snap = await getDocs(query(collection(db, USERS_COL), where("username","==",uname), limit(1)));
+      if(!snap.empty){
+        const targetId = snap.docs[0].id;
+        if(targetId!==currentUser.uid) notifyUser(targetId, `${myProfile.fullName} منشنك ${contextLabel}`);
+      }
+    }catch(e){ /* صامت */ }
+  }
 }
 function extractHashtags(text){
   const tags = new Set();
@@ -975,6 +998,7 @@ async function submitPost(textarea, maxLen, isCode){
       likes:[], commentsCount:0, createdAt: serverTimestamp()
     };
     await addDoc(collection(db, POSTS_COL), postData);
+    notifyMentions(text, "في منشور");
     if($("composer-course-title")) $("composer-course-title").value = "";
     if($("composer-course-video")) $("composer-course-video").value = "";
     if(isCode){
@@ -1446,6 +1470,9 @@ function attachPostEvents(container){
   container.querySelectorAll(".hashtag").forEach(el=>{
     el.onclick = ()=> openHashtagResults(el.dataset.hashtag);
   });
+  container.querySelectorAll(".mention").forEach(el=>{
+    el.onclick = (e)=>{ e.stopPropagation(); openOtherProfile(el.dataset.mention); };
+  });
   container.querySelectorAll("[data-post-menu]").forEach(btn=>{
     btn.onclick = (e)=>{ e.stopPropagation(); openPostMenu(btn); };
   });
@@ -1602,6 +1629,7 @@ async function openCommentsModal(postId){
           notifyUser(uid, `${myProfile.fullName} رد على سؤال بتتابعه في غرفة البرمجة: ${text.slice(0,60)}`);
         });
       }
+      notifyMentions(text, "في تعليق");
       input.value = ""; input.dispatchEvent(new Event("input"));
       loadComments();
     }catch(e){ toast("تعذر إرسال التعليق"); }
@@ -2084,6 +2112,18 @@ function renderSettings(){
     ? `<p class="subtitle" style="text-align:right;">${status}</p><button class="btn btn-outline" id="btn-manage-plan">إدارة الاشتراك</button>`
     : `<p class="subtitle" style="text-align:right;">مفيش اشتراك Plus أو Pro حاليًا</p><button class="btn btn-accent" id="btn-manage-plan">عرض الباقات</button>`;
   $("btn-manage-plan").onclick = ()=>{ renderPlans(); show("screen-plans"); };
+
+  if((p.planTier==="plus" || p.planTier==="pro") || p.verifiedType){
+    $("settings-pro-status").innerHTML += `<button class="btn btn-outline btn-sm" id="btn-cancel-plan-silent" style="margin-top:8px; color:var(--danger); border-color:rgba(255,59,48,.3);">إلغاء الباقة/التوثيق فورًا</button>`;
+    $("btn-cancel-plan-silent").onclick = async ()=>{
+      try{
+        await updateDoc(doc(db, USERS_COL, currentUser.uid), { planTier:"free", isPro:false, verifiedType:null, verificationReason:null, planFreeForStudent:false });
+        myProfile.planTier = "free"; myProfile.isPro = false; myProfile.verifiedType = null;
+        toast("تم الإلغاء");
+        renderSettings();
+      }catch(e){ toast("تعذر الإلغاء، حاول تاني"); }
+    };
+  }
 
   if(p.isAdmin){ $("settings-admin-box").classList.remove("hidden"); }
   else{ $("settings-admin-box").classList.add("hidden"); }
