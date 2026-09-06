@@ -88,6 +88,7 @@ function badgeIcon(type){
   if(type==="company") return `<path d="M3 21h18M6 21V8l6-4 6 4v13M9 21v-5h6v5M9 12h.01M9 15h.01M15 12h.01M15 15h.01"/>`;
   if(type==="general") return `<circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/>`;
   if(type==="app") return `<path d="M12 2l7 3v6c0 5-3 8.5-7 11-4-2.5-7-6-7-11V5l7-3z"/><path d="M9.5 12l1.8 1.8L15 10"/>`;
+  if(type==="courses") return `<circle cx="12" cy="12" r="9"/><path d="M10 9l5 3-5 3V9z"/>`;
   return `<path d="M20 6L9 17l-5-5"/>`;
 }
 function badgeHTML(type, username){
@@ -100,7 +101,8 @@ function badgeHTML(type, username){
     student: {cls:"badge-student", title:"طالب موثّق"},
     engineer: {cls:"badge-engineer", title:"مهندس موثّق"},
     company: {cls:"badge-company", title:"شركة موثّقة"},
-    general: {cls:"badge-general", title:"حساب موثّق"}
+    general: {cls:"badge-general", title:"حساب موثّق"},
+    courses: {cls:"badge-courses", title:"منصة كورسات موثّقة"}
   };
   const c = map[type]; if(!c) return "";
   const clickAttr = username ? `data-badge-user="${username}" data-badge-type="${type}"` : "";
@@ -114,22 +116,25 @@ const VERIFICATION_REASON_DEFAULTS = {
   student: "طالب تم التحقق من هويته الجامعية أو المدرسية وتوثيقه من فريق 404.",
   engineer: "مهندس تم التحقق من صفته المهنية وتوثيقه رسميًا من فريق 404.",
   company: "حساب شركة أو علامة تجارية تم التحقق من صحته وتوثيقه رسميًا من فريق 404.",
-  general: "حساب موثّق ضمن التوثيق العام المتاح لمشتركي Plus."
+  general: "حساب موثّق ضمن التوثيق العام المتاح لمشتركي Plus.",
+  courses: "منصة أو حساب تعليمي متخصص في الكورسات والفيديوهات التعليمية تم التحقق منه وتوثيقه من فريق 404."
 };
 const VERIFICATION_FEATURES = {
-  pro: ["شارة ذهبية مميزة بجانب اسمك في كل مكان بالتطبيق","أولوية الظهور في نتائج البحث والاقتراحات","علامة حساب موثوق تزيد ثقة متابعينك في محتواك","دعوة لتجربة أي ميزة جديدة قبل الجميع","تثبيت شارتك في أي منشور معاد مشاركته"],
+  pro: ["شارة ذهبية مميزة بجانب اسمك في كل مكان بالتطبيق","أولوية الظهور في نتائج البحث والاقتراحات","علامة حساب موثوق تزيد ثقة متابعينك في محتواك","دعوة لتجربة أي ميزة جديدة قبل الجميع","تثبيت شارتك في أي منشور معاد مشاركته","أولوية الحصول على أي ميزة تجريبية جديدة قبل إطلاقها للجميع","شارة ملف شخصي متحركة بتأثير بصري مميز","دخول لقناة تحديثات خاصة بمشتركي Pro","أرشفة غير محدودة للمنشورات في المحفوظات"],
   investigator: ["شارة بنفسجية توضح إنك شخصية تم التحقق من هويتها","حماية إضافية من حسابات انتحال الشخصية","أولوية الرد من فريق الدعم في أي بلاغ","ظهور مميز لاسمك في نتائج البحث","علامة موثوقية على كل تعليق ومنشور تكتبه"],
-  developer: ["شارة زرقاء-بنفسجية بتصميم </> يوضح خبرتك التقنية","دخول مبكر لأي ميزة جديدة في غرفة البرمجة","تثبيت منشور دائم في أعلى غرفة البرمجة","أولوية الرد على أسئلتك من فريق الدعم التقني","عرض خبير موثّق بجانب أي إجابة تكتبها"],
+  developer: ["شارة زرقاء-بنفسجية بتصميم </> يوضح خبرتك التقنية","دخول مبكر لأي ميزة جديدة في غرفة البرمجة","تثبيت منشور دائم في أعلى غرفة البرمجة","أولوية الرد على أسئلتك من فريق الدعم التقني","عرض خبير موثّق بجانب أي إجابة تكتبها","الوصول المبكر لأدوات تجريبية في غرفة البرمجة قبل إطلاقها","إمكانية استضافة نقاش تقني مثبّت أسبوعيًا","شارة تفاعل خاصة تظهر على تعليقاتك التقنية","دعوة لعضوية مجلس مراجعة الأسئلة المميزة"],
   app: ["شارة سوداء تدل إنه حساب رسمي تابع لفريق 404","ظهور تلقائي في أعلى نتائج البحث دائمًا","الحساب الوحيد المسموح له يبعت إشعارات نظامية","حماية كاملة من الحظر أو التقييد","أولوية قصوى في كل تفاعل داخل التطبيق","صلاحية الوصول لكل التقارير والبلاغات في لوحة الإدارة","القدرة على تعديل بيانات أي مستخدم مباشرة","القدرة على تفعيل أو إلغاء أي نوع توثيق لأي حساب","استقبال كل طلبات توثيق الطلاب والموافقة عليها","حساب لا يظهر بريده الإلكتروني في أي إشعار أو رسالة"],
-  engineer: ["شارة برتقالية مميزة توضح إنك مهندس موثّق باحترافيتك","إمكانية إضافة تخصصك الهندسي في بروفايلك","أولوية الظهور في نتائج البحث ضمن فئة المهندسين","شارة موثوقية على كل منشور تقني تنشره","دعم فني بأولوية عند أي استفسار"],
-  student: ["شارة توثيق طالب خاصة بتصميم ولون مختلف (أخضر مميز)","فتح كل مميزات باقة Plus مجانًا طول فترة التوثيق","رفع حتى 5 صور في المنشور الواحد بعرض كاروسيل","متابعة حتى 10 أسئلة في غرفة البرمجة مع التنبيه بالرد","ترقية تلقائية لباقة Pro مجانًا بعد شهر واحد من التوثيق"],
+  engineer: ["شارة برتقالية مميزة توضح إنك مهندس موثّق باحترافيتك","إمكانية إضافة تخصصك الهندسي في بروفايلك","أولوية الظهور في نتائج البحث ضمن فئة المهندسين","شارة موثوقية على كل منشور تقني تنشره","دعم فني بأولوية عند أي استفسار","إمكانية عرض شهاداتك المهنية على البروفايل","تصنيف مشاريعك حسب التخصص الهندسي","دعوة لفعاليات ولقاءات المهندسين في التطبيق","أولوية الظهور في نتائج البحث الهندسي المتخصص"],
+  student: ["شارة توثيق طالب خاصة بتصميم ولون مختلف (أخضر مميز)","فتح كل مميزات باقة Plus مجانًا طول فترة التوثيق","رفع حتى 5 صور في المنشور الواحد بعرض كاروسيل","متابعة حتى 10 أسئلة في غرفة البرمجة مع التنبيه بالرد","ترقية تلقائية لباقة Pro مجانًا بعد شهر واحد من التوثيق","تفعيل Coursera Pro مجانًا بمجرد كتابة إيميلك (يفعّل تلقائيًا بعد 18 يوم)","عداد تنازلي يوضح الوقت المتبقي لتفعيل Coursera Pro","أولوية التقديم على فرص التدريب المعلنة داخل التطبيق","خصم إضافي لو قررت الاشتراك المدفوع بعد التخرج"],
   company: ["شارة زرقاء مميزة لأي حساب شركة أو علامة تجارية موثّقة","ظهور الشركة ضمن تصنيف خاص بالحسابات التجارية","إمكانية إضافة رابط الموقع الرسمي في أعلى البروفايل","دعم فني مخصص لحسابات الشركات","أولوية الرد على استفسارات العملاء عبر الشات"],
-  general: ["شارة توثيق عامة تناسب مشتركي باقة Plus","زيادة ثقة متابعينك بحسابك الموثّق","أولوية أعلى قليلاً في نتائج البحث","إمكانية تقديم بلاغات بأولوية أعلى","علامة موثوقية تظهر في كل تعليقاتك"]
+  general: ["شارة توثيق عامة تناسب مشتركي باقة Plus","زيادة ثقة متابعينك بحسابك الموثّق","أولوية أعلى قليلاً في نتائج البحث","إمكانية تقديم بلاغات بأولوية أعلى","علامة موثوقية تظهر في كل تعليقاتك"],
+  courses: ["شارة أرجوانية مميزة لمنصات وحسابات الكورسات التعليمية","إمكانية رفع كورسات وفيديوهات تعليمية كاملة كمنشورات","بطاقة كورس مخصصة تعرض العنوان والفيديو بشكل احترافي","ظهور ضمن تصنيف خاص بمنصات التعليم","دعم فني مخصص لحسابات الكورسات","أولوية الظهور في نتائج البحث التعليمي","إمكانية تثبيت أشهر كورس في أعلى بروفايلك","إحصائية بعدد مشاهدات كل كورس تنشره","شارة موثوقية على كل فيديو تعليمي تشاركه"]
+};
 };
 async function showVerificationReason(username, type){
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay verify-reason-overlay";
-  const colorMap = { pro:"var(--gold)", investigator:"var(--violet)", developer:"linear-gradient(135deg,#0A84FF,#5E5CE6)", app:"var(--ink)", student:"linear-gradient(135deg,#0FA968,#0C7A4E)", engineer:"linear-gradient(135deg,#F5A623,#D9720A)", company:"linear-gradient(135deg,#17A2B8,#0D6E7D)", general:"var(--accent)" };
+  const colorMap = { pro:"var(--gold)", investigator:"var(--violet)", developer:"linear-gradient(135deg,#0A84FF,#5E5CE6)", app:"var(--ink)", student:"linear-gradient(135deg,#0FA968,#0C7A4E)", engineer:"linear-gradient(135deg,#F5A623,#D9720A)", company:"linear-gradient(135deg,#17A2B8,#0D6E7D)", general:"var(--accent)", courses:"linear-gradient(135deg,#7C3AED,#5B21B6)" };
   /* المبرمجين بياخدوا الـ5 مميزات الخاصة بيهم + الـ5 مميزات بتاعة Pro مضافة عليهم = 10 */
   const features = type==="developer" ? [...VERIFICATION_FEATURES.developer, ...VERIFICATION_FEATURES.pro] : (VERIFICATION_FEATURES[type] || []);
   overlay.innerHTML = `<div class="modal-sheet" style="text-align:center;">
@@ -680,6 +685,19 @@ async function proceedAfterAuth(user, profile){
   if(!myProfile.isAdmin) autoFollowAllAdmins(user.uid);
   checkStudentFreeProUpgrade();
   checkVerificationTrialExpiry();
+  checkCourseraActivation();
+}
+/* تفعيل Coursera Pro تلقائيًا بعد 18 يوم من طلب الطالب */
+async function checkCourseraActivation(){
+  if(myProfile.courseraStatus!=="pending" || !myProfile.courseraRequestedAt) return;
+  const startMs = myProfile.courseraRequestedAt?.toMillis ? myProfile.courseraRequestedAt.toMillis() : new Date(myProfile.courseraRequestedAt).getTime();
+  if(Date.now() - startMs < 18*24*3600*1000) return;
+  try{
+    await updateDoc(doc(db, USERS_COL, currentUser.uid), { courseraStatus:"active", courseraActivatedAt: serverTimestamp() });
+    myProfile.courseraStatus = "active";
+    notifyUser(currentUser.uid, `تم تفعيل Coursera Pro مجانًا على إيميلك ${myProfile.courseraEmail}`);
+    toast("مبروك! Coursera Pro اتفعّل على إيميلك");
+  }catch(e){ console.error(e); }
 }
 /* بعد شهر من توثيق الطالب، تفعيل باقة Pro مجانًا تلقائيًا (مكافأة الطلاب) */
 async function checkStudentFreeProUpgrade(){
@@ -798,6 +816,7 @@ function enterApp(){
   $("composer-admin-tools").style.display = myProfile.isAdmin ? "flex" : "none";
   $("composer-counter").textContent = `${$("composer-text").value.length} / ${postCharLimit()}`;
   $("composer-schedule-wrap").style.display = (myProfile.planTier==="pro" || myProfile.isAdmin) ? "block" : "none";
+  $("composer-course-wrap").style.display = (myProfile.verifiedType==="courses") ? "block" : "none";
   document.querySelector('.tab-item[data-target="screen-feed"]').click();
   startFeedListener();
   startCodeFeedListener();
@@ -925,6 +944,11 @@ async function submitPost(textarea, maxLen, isCode){
     if(d.getTime() <= Date.now()){ toast("وقت الجدولة لازم يكون في المستقبل"); return; }
     scheduledAt = d;
   }
+  let courseTitle = null, courseVideoUrl = null;
+  if(!isCode && myProfile.verifiedType==="courses"){
+    courseTitle = $("composer-course-title")?.value.trim() || null;
+    courseVideoUrl = $("composer-course-video")?.value.trim() || null;
+  }
 
   try{
     const postData = {
@@ -941,6 +965,7 @@ async function submitPost(textarea, maxLen, isCode){
       imageUrl: images.length ? images[0] : null,
       mediaType: finalMedia ? finalMedia.type : null,
       mediaUrl: finalMedia ? finalMedia.url : null,
+      courseTitle, courseVideoUrl, courseViews: (courseTitle||courseVideoUrl) ? 0 : null,
       hashtags,
       pinned:false, globalPinned:false,
       tag: isCode ? ($("code-tag-select")?.value || null) : null,
@@ -951,6 +976,8 @@ async function submitPost(textarea, maxLen, isCode){
       likes:[], commentsCount:0, createdAt: serverTimestamp()
     };
     await addDoc(collection(db, POSTS_COL), postData);
+    if($("composer-course-title")) $("composer-course-title").value = "";
+    if($("composer-course-video")) $("composer-course-video").value = "";
     if(isCode){
       const tagVal = postData.tag;
       if(tagVal){
@@ -1077,6 +1104,17 @@ function postRowHTML(p){
         </div>
         ${p.originalText ? `<div class="post-text" style="font-size:13.5px;">${linkify(p.originalText)}</div>` : ""}
         ${mediaBlockHTML({images:p.originalImages||[], imageUrl:p.originalImageUrl||null})}
+      </div>` : (p.courseTitle||p.courseVideoUrl) ? `
+      <div class="course-card" data-course-video="${p.courseVideoUrl||''}" data-course-id="${p.id}">
+        <div class="course-thumb">
+          ${mediaBlockHTML(p)}
+          <div class="course-play-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4V8z"/></svg></div>
+        </div>
+        <div class="course-info">
+          <div class="course-title">${p.courseTitle||"كورس"}</div>
+          ${p.courseVideoUrl ? `<div class="course-watch-link">مشاهدة الفيديو</div>` : ""}
+          ${typeof p.courseViews==="number" ? `<div class="post-time meta-font">${p.courseViews} مشاهدة</div>` : ""}
+        </div>
       </div>` : mediaBlockHTML(p)}
     ${signatureHTML}
     <div class="post-actions">
@@ -1330,7 +1368,8 @@ function attachPostEvents(container){
       const unlimited = btn.dataset.unlimited==="true";
       const cap = myProfile.isStudentVerified ? 10 : 5;
       if(!subscribed && !unlimited){
-        const mySubs = await getDocs(query(collection(db,POSTS_COL), where("room","==","code"), where("subscribers","array-contains",myProfile.id), limit(cap+1)));
+        /* استعلام بحقل واحد فقط لتفادي الحاجة لفهرس مركّب في Firestore */
+        const mySubs = await getDocs(query(collection(db,POSTS_COL), where("subscribers","array-contains",myProfile.id), limit(cap+1)));
         if(mySubs.size >= cap){ toast(`وصلت للحد الأقصى (${cap} أسئلة) — Pro يفتح متابعة بلا حدود`); return; }
       }
       try{
@@ -1368,6 +1407,14 @@ function attachPostEvents(container){
   });
   container.querySelectorAll("[data-open-post]").forEach(el=>{
     el.onclick = (e)=>{ e.stopPropagation(); openPostDirect(el.dataset.openPost); };
+  });
+  container.querySelectorAll("[data-course-video]").forEach(card=>{
+    card.onclick = (e)=>{
+      e.stopPropagation();
+      const url = card.dataset.courseVideo;
+      updateDoc(doc(db, POSTS_COL, card.dataset.courseId), { courseViews: increment(1) }).catch(()=>{});
+      if(url) window.open(url, "_blank");
+    };
   });
   container.querySelectorAll("[data-bookmark]").forEach(btn=>{
     btn.onclick = async ()=>{
@@ -2185,7 +2232,7 @@ $("btn-add-link").onclick = ()=>{
 let pendingVerifyIdUrl = null;
 function renderVerifyBox(p){
   const box = $("verify-status-box"); const form = $("verify-form");
-  const typeLabels = { pro:"برو", investigator:"محقق منه", developer:"مبرمج", engineer:"مهندس", app:"حساب رسمي", student:"طالب" };
+  const typeLabels = { pro:"برو", investigator:"محقق منه", developer:"مبرمج", engineer:"مهندس", app:"حساب رسمي", student:"طالب", company:"شركة", general:"توثيق عام", courses:"منصة كورسات" };
   if(p.verifiedType){
     box.innerHTML = `<div class="locked-note">حسابك موثّق بالفعل (${typeLabels[p.verifiedType]||p.verifiedType})</div>`;
     if(p.verifiedType==="engineer"){
@@ -2240,6 +2287,39 @@ function renderVerifyBox(p){
           toast("تم حفظ المقتطف");
         }catch(e){ toast("تعذر الحفظ"); }
       });
+    }
+    if(p.verifiedType==="student"){
+      const COURSERA_DAYS = 18;
+      if(!p.courseraStatus){
+        box.innerHTML += `<div class="page-rule"></div>
+          <label style="font-size:13px; color:var(--ink-soft);">تفعيل Coursera Pro مجانًا</label>
+          <div class="field" style="margin-top:8px;"><input id="coursera-email-input" type="email" placeholder="اكتب إيميلك على Coursera" dir="ltr" style="text-align:left;"></div>
+          <button class="btn btn-primary btn-sm" id="btn-activate-coursera" style="margin-top:8px;">تفعيل Coursera Pro</button>
+          <p class="subtitle" style="margin-top:6px;">هيتفعّل تلقائيًا بعد ${COURSERA_DAYS} يوم من التسجيل</p>`;
+        $("btn-activate-coursera")?.addEventListener("click", async ()=>{
+          const email = $("coursera-email-input").value.trim();
+          if(!email || !email.includes("@")){ toast("اكتب إيميل صحيح"); return; }
+          try{
+            await updateDoc(doc(db, USERS_COL, currentUser.uid), { courseraEmail: email, courseraStatus:"pending", courseraRequestedAt: serverTimestamp() });
+            myProfile.courseraEmail = email; myProfile.courseraStatus = "pending"; myProfile.courseraRequestedAt = new Date();
+            toast(`تم تسجيل طلبك، هيتفعّل تلقائيًا خلال ${COURSERA_DAYS} يوم`);
+            renderVerifyBox(myProfile);
+          }catch(e){ toast("تعذر التفعيل، حاول تاني"); }
+        });
+      }else if(p.courseraStatus==="pending"){
+        const startMs = p.courseraRequestedAt?.toMillis ? p.courseraRequestedAt.toMillis() : new Date(p.courseraRequestedAt).getTime();
+        const daysPassed = Math.floor((Date.now()-startMs)/(24*3600*1000));
+        const daysLeft = Math.max(0, COURSERA_DAYS - daysPassed);
+        box.innerHTML += `<div class="page-rule"></div>
+          <label style="font-size:13px; color:var(--ink-soft);">Coursera Pro</label>
+          <div class="glass-card section-pad" style="text-align:center; margin-top:8px;">
+            <div style="font-size:26px; font-weight:800;">${daysLeft}</div>
+            <p class="subtitle">يوم متبقي لتفعيل Coursera Pro تلقائيًا</p>
+            <p class="post-time meta-font" style="margin-top:6px;">مسجّل بإيميل: ${p.courseraEmail}</p>
+          </div>`;
+      }else if(p.courseraStatus==="active"){
+        box.innerHTML += `<div class="page-rule"></div><div class="locked-note" style="color:#7C3AED;">Coursera Pro مفعّل على إيميلك: ${p.courseraEmail}</div>`;
+      }
     }
     form.classList.add("hidden");
   }else if(p.verificationStatus==="pending"){
@@ -2884,7 +2964,7 @@ function openVerificationCenter(){
         </div>`;
         return;
       }
-      const typeLabels = { pro:"برو", investigator:"محقق منه", developer:"مبرمج", engineer:"مهندس", app:"حساب رسمي", student:"طالب", company:"شركة", general:"توثيق عام" };
+      const typeLabels = { pro:"برو", investigator:"محقق منه", developer:"مبرمج", engineer:"مهندس", app:"حساب رسمي", student:"طالب", company:"شركة", general:"توثيق عام", courses:"منصة كورسات" };
       const features = u.verifiedType==="developer" ? [...VERIFICATION_FEATURES.developer, ...VERIFICATION_FEATURES.pro] : (VERIFICATION_FEATURES[u.verifiedType]||[]);
       resultEl.innerHTML = `<div class="glass-card section-pad">
         <div style="display:flex; align-items:center; gap:10px;">
@@ -3073,7 +3153,7 @@ function renderPagesList(){
 /* ============================================================
    الباقات والدفع (PayPal)
    ============================================================ */
-const FREE_FEATURES = ["نشر منشورات نصية بلا حدود","إعجاب وتعليق ومشاركة","غرفة البرمجة والدردشات العامة","رابط واحد فقط في البروفايل","ملف شخصي عام أو خاص","نشر ستوري تختفي تلقائيًا بعد 24 ساعة","تصدير نسخة من بياناتك في أي وقت","حذف حسابك نهائيًا من الإعدادات وقتما تحب","إشعارات فورية بأي رد أو تفاعل عبر شات فريق الدعم"];
+const FREE_FEATURES = ["نشر منشورات نصية بلا حدود","إعجاب وتعليق ومشاركة","غرفة البرمجة والدردشات العامة","رابط واحد فقط في البروفايل","ملف شخصي عام أو خاص","نشر ستوري تختفي تلقائيًا بعد 24 ساعة","تصدير نسخة من بياناتك في أي وقت","حذف حسابك نهائيًا من الإعدادات وقتما تحب","إشعارات فورية بأي رد أو تفاعل عبر شات فريق الدعم","دعوة أصدقائك عبر رابط دعوة مباشر","لوحة تحقق عامة لمعرفة حالة توثيق أي حساب"];
 const CODE_ROOM_FEATURES = ["نسخ أي كود بزر واحد مباشرة للحافظة","بحث فوري داخل كل منشورات الغرفة","تصنيف المنشورات بوسم (سؤال / شرح / مشروع / أدوات / وظائف) وفلترة بيها","تحديد تعليق كـ«أفضل إجابة» على أي سؤال","متابعة سؤال معيّن وأخذ إشعار فوري بأي رد جديد عليه","تثبيت منشور في أعلى الغرفة (لمشتركي Pro والأدمن)","فرز المنشورات حسب الأحدث أو الأكثر تفاعلاً","متابعة وسم كامل وأخذ إشعار بأي منشور جديد بيه","شريط إحصائيات فوري: عدد الأسئلة المفتوحة والمحلولة","شارة «إجابات مميزة» على بروفايلك تتزايد تلقائيًا"];
 const PLANS = {
   plus: { name:"باقة Plus", features:["فتح معظم مميزات التطبيق بما فيها التقديم على توثيق عام","رفع صور وفيديوهات وملفات بلا حدود إضافية","دعم فني بأولوية","شارة مميزة على المنشورات","حتى 3 روابط في البروفايل","اختيار مدة الستوري (24 أو 12 ساعة)","معرفة عدد مشاهدات الستوري الإجمالي","إرسال الصور في الشات","متابعة حتى 5 أسئلة في غرفة البرمجة والتنبيه عند الرد عليها","شارة اسمك المميزة تظهر في التعليقات أيضًا","تثبيت تعليق واحد في أعلى تعليقات منشورك","عرض آخر ظهور لك في بروفايلك للمتابعين"],
@@ -3397,6 +3477,7 @@ function renderAdminList(users){
           <option value="engineer" ${u.verifiedType==='engineer'?'selected':''}>مهندسين</option>
           <option value="company" ${u.verifiedType==='company'?'selected':''}>شركات</option>
           <option value="general" ${u.verifiedType==='general'?'selected':''}>توثيق عام (Plus)</option>
+          <option value="courses" ${u.verifiedType==='courses'?'selected':''}>منصة كورسات</option>
           <option value="app" ${u.verifiedType==='app'?'selected':''}>حساب التطبيق</option>
         </select>
         <button class="btn btn-sm btn-outline" data-edit-reason="${u.id}" data-reason="${(u.verificationReason||'').replace(/"/g,'&quot;')}">سبب التوثيق</button>
@@ -3623,19 +3704,7 @@ if("serviceWorker" in navigator){
 }
 
 /* ---------------- حماية أخيرة: لو حصل أي خطأ غير متوقع، امنع شاشة اللوجو من التعليق للأبد ---------------- */
-window.addEventListener("error", ()=>{
-  setTimeout(()=>{
-    const splash = document.getElementById("splash");
-    if(splash && !splash.classList.contains("hide")){
-      splash.classList.add("hide");
-      if(!document.querySelector(".screen.active")){
-        const login = document.getElementById("screen-login");
-        if(login) login.classList.add("active");
-      }
-    }
-  }, 300);
-});
-setTimeout(()=>{
+function forceHideSplash(){
   const splash = document.getElementById("splash");
   if(splash && !splash.classList.contains("hide")){
     splash.classList.add("hide");
@@ -3644,4 +3713,16 @@ setTimeout(()=>{
       if(login) login.classList.add("active");
     }
   }
-}, 8000);
+}
+window.addEventListener("error", ()=>{ setTimeout(forceHideSplash, 300); });
+/* لو استغرق التحميل أكتر من 4 ثواني، اظهر زرار "إعادة المحاولة" بدل ما المستخدم يفضل مستني بلاش */
+setTimeout(()=>{
+  const splash = document.getElementById("splash");
+  const retryBtn = document.getElementById("splash-retry-btn");
+  if(splash && !splash.classList.contains("hide") && retryBtn) retryBtn.style.display = "inline-block";
+}, 4000);
+document.getElementById("splash-retry-btn")?.addEventListener("click", ()=>{
+  forceHideSplash();
+  location.reload();
+});
+setTimeout(forceHideSplash, 8000);

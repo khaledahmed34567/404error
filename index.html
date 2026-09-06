@@ -23,6 +23,7 @@
 <div id="splash">
   <div class="splash-logo"><img src="https://i.ibb.co/WN3DTcGc/logo.jpg" alt=""></div>
   <div class="splash-dots"><span></span><span></span><span></span></div>
+  <button id="splash-retry-btn" style="display:none; margin-top:22px; padding:10px 22px; border-radius:20px; border:1.5px solid #0B0B0C; background:transparent; color:#0B0B0C; font-size:13px; cursor:pointer;">بيقعد يحمّل؟ اضغط هنا لإعادة المحاولة</button>
 </div>
 
 <div id="app">
@@ -170,6 +171,10 @@
             جدولة النشر لوقت لاحق
           </label>
           <input type="datetime-local" id="composer-schedule-time" style="display:none; margin-top:6px; width:100%; padding:9px 12px; border-radius:12px; border:1px solid var(--line-strong); font-size:12.5px;">
+        </div>
+        <div id="composer-course-wrap" style="display:none; margin-top:8px;">
+          <div class="field"><label>عنوان الكورس</label><input id="composer-course-title" placeholder="مثال: أساسيات JavaScript"></div>
+          <div class="field" style="margin-top:8px;"><label>رابط الفيديو</label><input id="composer-course-video" placeholder="رابط الفيديو (يوتيوب أو غيره)" dir="ltr" style="text-align:left;"></div>
         </div>
         <div class="composer-actions">
           <div class="composer-tools">
