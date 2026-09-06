@@ -130,7 +130,6 @@ const VERIFICATION_FEATURES = {
   general: ["شارة توثيق عامة تناسب مشتركي باقة Plus","زيادة ثقة متابعينك بحسابك الموثّق","أولوية أعلى قليلاً في نتائج البحث","إمكانية تقديم بلاغات بأولوية أعلى","علامة موثوقية تظهر في كل تعليقاتك"],
   courses: ["شارة أرجوانية مميزة لمنصات وحسابات الكورسات التعليمية","إمكانية رفع كورسات وفيديوهات تعليمية كاملة كمنشورات","بطاقة كورس مخصصة تعرض العنوان والفيديو بشكل احترافي","ظهور ضمن تصنيف خاص بمنصات التعليم","دعم فني مخصص لحسابات الكورسات","أولوية الظهور في نتائج البحث التعليمي","إمكانية تثبيت أشهر كورس في أعلى بروفايلك","إحصائية بعدد مشاهدات كل كورس تنشره","شارة موثوقية على كل فيديو تعليمي تشاركه"]
 };
-};
 async function showVerificationReason(username, type){
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay verify-reason-overlay";
@@ -1267,6 +1266,7 @@ async function sharePostAsImage(postId){
     }, "image/png");
   }catch(e){ console.error(e); toast("تعذر إنشاء صورة المنشور، حاول تاني"); }
 }
+function postMenuOptions(btn){
   const postId = btn.dataset.postMenu;
   const isOwner = btn.dataset.owner==="true";
   const canPin = btn.dataset.canpin==="true";
