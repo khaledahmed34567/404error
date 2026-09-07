@@ -32,12 +32,17 @@ const db = getFirestore(fbApp);
 const USERS_COL = "moustagdem";
 const POSTS_COL = "posssst";
 const STORIES_COL = "stories";
-const SUPPORT_EMAIL = "404team@404error.qd.je";
+const SUPPORT_EMAIL = "contact@sarmad.qd.je";
 const ADMIN_WELCOME_EMAIL = SUPPORT_EMAIL; // كل الرسائل والإشعارات الآلية تُرسل من حساب الدعم الرسمي فقط، وإيميله لا يظهر لأي مستخدم
-const ADMIN_EMAILS = ["khwailedapp@gmail.com", "soudadteam@gmail.com", "404team@404error.qd.je"];
+const ADMIN_EMAILS = ["khwailedapp@gmail.com", "soudadteam@gmail.com", "contact@sarmad.qd.je"];
 const IMGBB_KEY = "36b0e2658ed6fad2ca48081442f1539b";
+const APP_NAME = "Aether";
+const APP_TAGLINE = "Beyond the Noise";
+const LOGO_SYMBOL = "https://i.ibb.co/9kM2xQR2/Picsart-26-09-07-05-03-23-733.png";
+const LOGO_TEXT = "https://i.ibb.co/MyCWgyRm/Picsart-26-09-07-05-03-09-978.png";
+const APP_ICON = "https://i.ibb.co/svgm6jMG/Picsart-26-09-07-05-02-20-600.jpg";
 const PAYPAL_CLIENT_ID = "AW_M1acPABnrPp2AJklYALUDZ1OUA2NS6CPGp3D3ZB9fVIfmfD87le9WZmHF3fOCqINDO3RAtQGWLteZ";
-const LOGO_URL = "https://i.ibb.co/WN3DTcGc/logo.jpg";
+const LOGO_URL = "https://i.ibb.co/9kM2xQR2/Picsart-26-09-07-05-03-23-733.png";
 const DEFAULT_AVATAR = "https://files.cdn-files-a.com/uploads/9487240/2000_699b80b0c7cc4.jpg";
 
 /* ---------------- حالة التطبيق ---------------- */
@@ -192,20 +197,20 @@ function badgeHTML(type, username){
 }
 const VERIFICATION_REASON_DEFAULTS = {
   pro: "حساب مشترك في باقة Pro — تم تفعيل التوثيق كجزء من مميزات الباقة.",
-  investigator: "شخصية عامة تم التحقق من هويتها وتوثيقها رسميًا من فريق 404.",
-  developer: "مبرمج تم توثيقه من فريق 404 لمساهماته وخبرته التقنية في غرفة البرمجة.",
-  app: "هذا الحساب الرسمي لفريق تطبيق 404.",
-  student: "طالب تم التحقق من هويته الجامعية أو المدرسية وتوثيقه من فريق 404.",
-  engineer: "مهندس تم التحقق من صفته المهنية وتوثيقه رسميًا من فريق 404.",
-  company: "حساب شركة أو علامة تجارية تم التحقق من صحته وتوثيقه رسميًا من فريق 404.",
+  investigator: "شخصية عامة تم التحقق من هويتها وتوثيقها رسميًا من فريق Aether.",
+  developer: "مبرمج تم توثيقه من فريق Aether لمساهماته وخبرته التقنية في غرفة البرمجة.",
+  app: "هذا الحساب الرسمي لفريق تطبيق Aether.",
+  student: "طالب تم التحقق من هويته الجامعية أو المدرسية وتوثيقه من فريق Aether.",
+  engineer: "مهندس تم التحقق من صفته المهنية وتوثيقه رسميًا من فريق Aether.",
+  company: "حساب شركة أو علامة تجارية تم التحقق من صحته وتوثيقه رسميًا من فريق Aether.",
   general: "حساب موثّق ضمن التوثيق العام المتاح لمشتركي Plus.",
-  courses: "منصة أو حساب تعليمي متخصص في الكورسات والفيديوهات التعليمية تم التحقق منه وتوثيقه من فريق 404."
+  courses: "منصة أو حساب تعليمي متخصص في الكورسات والفيديوهات التعليمية تم التحقق منه وتوثيقه من فريق Aether."
 };
 const VERIFICATION_FEATURES = {
   pro: ["شارة ذهبية مميزة بجانب اسمك في كل مكان بالتطبيق","أولوية الظهور في نتائج البحث والاقتراحات","علامة حساب موثوق تزيد ثقة متابعينك في محتواك","دعوة لتجربة أي ميزة جديدة قبل الجميع","تثبيت شارتك في أي منشور معاد مشاركته","أولوية الحصول على أي ميزة تجريبية جديدة قبل إطلاقها للجميع","شارة ملف شخصي متحركة بتأثير بصري مميز","دخول لقناة تحديثات خاصة بمشتركي Pro","أرشفة غير محدودة للمنشورات في المحفوظات"],
   investigator: ["شارة بنفسجية توضح إنك شخصية تم التحقق من هويتها","حماية إضافية من حسابات انتحال الشخصية","أولوية الرد من فريق الدعم في أي بلاغ","ظهور مميز لاسمك في نتائج البحث","علامة موثوقية على كل تعليق ومنشور تكتبه"],
   developer: ["شارة زرقاء-بنفسجية بتصميم </> يوضح خبرتك التقنية","دخول مبكر لأي ميزة جديدة في غرفة البرمجة","تثبيت منشور دائم في أعلى غرفة البرمجة","أولوية الرد على أسئلتك من فريق الدعم التقني","عرض خبير موثّق بجانب أي إجابة تكتبها","الوصول المبكر لأدوات تجريبية في غرفة البرمجة قبل إطلاقها","إمكانية استضافة نقاش تقني مثبّت أسبوعيًا","شارة تفاعل خاصة تظهر على تعليقاتك التقنية","دعوة لعضوية مجلس مراجعة الأسئلة المميزة"],
-  app: ["شارة سوداء تدل إنه حساب رسمي تابع لفريق 404","ظهور تلقائي في أعلى نتائج البحث دائمًا","الحساب الوحيد المسموح له يبعت إشعارات نظامية","حماية كاملة من الحظر أو التقييد","أولوية قصوى في كل تفاعل داخل التطبيق","صلاحية الوصول لكل التقارير والبلاغات في لوحة الإدارة","القدرة على تعديل بيانات أي مستخدم مباشرة","القدرة على تفعيل أو إلغاء أي نوع توثيق لأي حساب","استقبال كل طلبات توثيق الطلاب والموافقة عليها","حساب لا يظهر بريده الإلكتروني في أي إشعار أو رسالة"],
+  app: ["شارة سوداء تدل إنه حساب رسمي تابع لفريق Aether","ظهور تلقائي في أعلى نتائج البحث دائمًا","الحساب الوحيد المسموح له يبعت إشعارات نظامية","حماية كاملة من الحظر أو التقييد","أولوية قصوى في كل تفاعل داخل التطبيق","صلاحية الوصول لكل التقارير والبلاغات في لوحة الفريق","القدرة على تعديل بيانات أي مستخدم مباشرة","القدرة على تفعيل أو إلغاء أي نوع توثيق لأي حساب","استقبال كل طلبات توثيق الطلاب والموافقة عليها","حساب لا يظهر بريده الإلكتروني في أي إشعار أو رسالة"],
   engineer: ["شارة برتقالية مميزة توضح إنك مهندس موثّق باحترافيتك","إمكانية إضافة تخصصك الهندسي في بروفايلك","أولوية الظهور في نتائج البحث ضمن فئة المهندسين","شارة موثوقية على كل منشور تقني تنشره","دعم فني بأولوية عند أي استفسار","إمكانية عرض شهاداتك المهنية على البروفايل","تصنيف مشاريعك حسب التخصص الهندسي","دعوة لفعاليات ولقاءات المهندسين في التطبيق","أولوية الظهور في نتائج البحث الهندسي المتخصص"],
   student: ["شارة توثيق طالب خاصة بتصميم ولون مختلف (أخضر مميز)","فتح كل مميزات باقة Plus مجانًا طول فترة التوثيق","رفع حتى 5 صور في المنشور الواحد بعرض كاروسيل","متابعة حتى 10 أسئلة في غرفة البرمجة مع التنبيه بالرد","ترقية تلقائية لباقة Pro مجانًا بعد شهر واحد من التوثيق","تفعيل Coursera Pro مجانًا بمجرد كتابة إيميلك (يفعّل تلقائيًا بعد 18 يوم)","عداد تنازلي يوضح الوقت المتبقي لتفعيل Coursera Pro","أولوية التقديم على فرص التدريب المعلنة داخل التطبيق","خصم إضافي لو قررت الاشتراك المدفوع بعد التخرج"],
   company: ["شارة زرقاء مميزة لأي حساب شركة أو علامة تجارية موثّقة","ظهور الشركة ضمن تصنيف خاص بالحسابات التجارية","إمكانية إضافة رابط الموقع الرسمي في أعلى البروفايل","دعم فني مخصص لحسابات الشركات","أولوية الرد على استفسارات العملاء عبر الشات"],
@@ -229,7 +234,7 @@ async function showVerificationReason(username, type){
   </div>`;
   overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
   document.body.appendChild(overlay);
-  let reason = VERIFICATION_REASON_DEFAULTS[type] || "حساب موثّق من فريق 404.";
+  let reason = VERIFICATION_REASON_DEFAULTS[type] || "حساب موثّق من فريق Aether.";
   try{
     if(username){
       const snap = await getDocs(query(collection(db, USERS_COL), where("username","==",username), limit(1)));
@@ -299,7 +304,7 @@ async function sendSupportChatMessage(uid, text, extra){
       participants:[uid, admin.id],
       participantInfo:{
         [uid]: { name: target.fullName||"مستخدم", pic: target.profilePic||DEFAULT_AVATAR, verifiedType: target.verifiedType||null, username: target.username||null },
-        [admin.id]: { name: admin.fullName||"فريق 404", pic: admin.profilePic||DEFAULT_AVATAR, verifiedType: admin.verifiedType||"app", username: admin.username||null }
+        [admin.id]: { name: admin.fullName||"فريق Aether", pic: admin.profilePic||DEFAULT_AVATAR, verifiedType: admin.verifiedType||"app", username: admin.username||null }
       },
       lastMessageEnc: encText, lastMessageIv: iv, lastMessageAt: serverTimestamp()
     }, { merge:true });
@@ -732,7 +737,7 @@ async function proceedAfterAuth(user, profile){
   myProfile = profile;
   updateDoc(doc(db, USERS_COL, user.uid), { lastActiveAt: serverTimestamp() }).catch(()=>{});
 
-  // منح صلاحية الأدمن تلقائيًا لحسابات فريق الإدارة المعروفة
+  // منح صلاحية الأدمن تلقائيًا لحسابات فريق الفريق المعروفة
   if(ADMIN_EMAILS.includes((myProfile.email||"").toLowerCase()) && !myProfile.isAdmin){
     try{
       await updateDoc(doc(db, USERS_COL, user.uid), { isAdmin:true, planTier:"pro", isPro:true, verifiedType: myProfile.verifiedType || "app" });
@@ -873,9 +878,12 @@ $("btn-404-home").onclick = ()=>{
 
 function renderBannedScreen(){
   $("app").innerHTML = `<div class="center-screen" style="min-height:100vh;">
-    <div class="brand-mark"><img src="${LOGO_URL}"></div>
-    <h2>عذرًا، تم حظر حسابك</h2>
-    <p class="subtitle">يمكنك التواصل مع الفريق لمعرفة المشكلة</p>
+    <div class="brand-mark-plain">
+      <img class="brand-symbol" src="${LOGO_SYMBOL}" alt="Aether">
+      <img class="brand-wordmark" src="${LOGO_TEXT}" alt="Aether">
+    </div>
+    <h2>عذرًا، تم إيقاف حسابك</h2>
+    <p class="subtitle">${myProfile?.bannedReason ? `السبب: ${myProfile.bannedReason}` : "يمكنك التواصل مع الفريق لمعرفة السبب"}</p>
     <a class="btn btn-primary" style="width:auto; padding:12px 24px;" href="mailto:${SUPPORT_EMAIL}">تواصل مع الفريق</a>
   </div>`;
 }
@@ -1096,7 +1104,7 @@ function mediaBlockHTML(p){
   if(p.mediaType==="pdf" && p.mediaUrl){
     html += `<div class="post-media-card">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>
-      <div class="media-info"><b>ملف PDF من فريق 404</b><span class="post-username">اضغط للتحميل المباشر</span></div>
+      <div class="media-info"><b>ملف PDF من فريق Aether</b><span class="post-username">اضغط للتحميل المباشر</span></div>
       <a class="btn btn-primary btn-sm" href="${p.mediaUrl}" download target="_blank" rel="noopener">تحميل</a>
     </div>`;
   }
@@ -1133,7 +1141,7 @@ function postRowHTML(p){
   const avatarHTML = (p.authorPlan==="pro" || p.authorPlan==="admin")
     ? `<span class="avatar-pro-ring"><img class="avatar" style="width:38px;height:38px;" src="${p.authorPic||DEFAULT_AVATAR}"></span>`
     : `<img class="avatar" src="${p.authorPic||DEFAULT_AVATAR}">`;
-  const pinTag = (p.pinned||p.globalPinned) ? `<div class="pinned-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l1.5 5.5L19 9l-4 3.5L16 18l-4-3-4 3 1-5.5L5 9l5.5-1.5L12 2z"/></svg>${p.globalPinned?'مثبّت من الإدارة':'منشور مثبّت'}</div>` : "";
+  const pinTag = (p.pinned||p.globalPinned) ? `<div class="pinned-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l1.5 5.5L19 9l-4 3.5L16 18l-4-3-4 3 1-5.5L5 9l5.5-1.5L12 2z"/></svg>${p.globalPinned?'مثبّت من الفريق':'منشور مثبّت'}</div>` : "";
   const scheduledTag = (p.scheduledAt && p.authorId===myProfile?.id) ? `<div class="pinned-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>مجدول — هيظهر للكل قريبًا</div>` : "";
   const isOwner = myProfile && myProfile.id===p.authorId;
   const canPinOwn = isOwner && (myProfile.planTier==="pro" || myProfile.isAdmin);
@@ -1335,13 +1343,13 @@ async function sharePostAsImage(postId){
 
     ctx.fillStyle = "#86868B"; ctx.font = "600 26px 'IBM Plex Sans Arabic', sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("404", W/2, canvas.height-35);
+    ctx.fillText("Aether", W/2, canvas.height-35);
 
     canvas.toBlob(async (blob)=>{
       if(!blob){ toast("تعذر إنشاء الصورة"); return; }
       const file = new File([blob], `404-post-${postId}.png`, { type:"image/png" });
       if(navigator.canShare && navigator.canShare({ files:[file] })){
-        try{ await navigator.share({ files:[file], title:"404" }); return; }catch(e){ /* المستخدم لغى المشاركة أو مش مدعومة، هنزل الصورة بدلاً من كده */ }
+        try{ await navigator.share({ files:[file], title:"Aether" }); return; }catch(e){ /* المستخدم لغى المشاركة أو مش مدعومة، هنزل الصورة بدلاً من كده */ }
       }
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a"); a.href = url; a.download = `404-post-${postId}.png`;
@@ -1427,6 +1435,10 @@ function openGenericReportModal(idFields, label){
   overlay.className = "modal-overlay";
   overlay.innerHTML = `<div class="modal-sheet" style="text-align:right;">
     <div class="modal-sheet-handle"></div>
+    <div class="brand-mark-plain" style="margin-bottom:12px;">
+      <img class="brand-symbol" src="${LOGO_SYMBOL}" alt="Aether" style="width:38px; height:38px;">
+      <img class="brand-wordmark" src="${LOGO_TEXT}" alt="Aether" style="height:14px;">
+    </div>
     <h3 style="margin:0 0 10px;">إبلاغ عن ${label}</h3>
     <div class="field"><label>سبب الإبلاغ</label><textarea id="report-reason-input" rows="3" placeholder="اكتب سبب الإبلاغ بالتفصيل..."></textarea></div>
     <button class="btn btn-danger" id="btn-submit-report">إرسال البلاغ</button>
@@ -1895,7 +1907,7 @@ function startNotifsListener(){
     $("notifs-empty").classList.add("hidden");
     list.innerHTML = snap.docs.map(d=>{
       const n = d.data();
-      return `<div class="notif-item">${n.fromAdmin?'<div class="notif-dot" style="background:var(--gold);"></div>':'<div class="notif-dot"></div>'}<div>${n.fromAdmin?'<div class="chip" style="margin-bottom:5px;">رسالة من الإدارة</div>':''}<div style="font-size:14px;">${linkify(n.text||"")}</div><div class="post-time meta-font" style="margin-top:4px;">${timeAgo(n.createdAt)}</div></div></div>`;
+      return `<div class="notif-item">${n.fromAdmin?'<div class="notif-dot" style="background:var(--gold);"></div>':'<div class="notif-dot"></div>'}<div>${n.fromAdmin?'<div class="chip" style="margin-bottom:5px;">رسالة من الفريق</div>':''}<div style="font-size:14px;">${linkify(n.text||"")}</div><div class="post-time meta-font" style="margin-top:4px;">${timeAgo(n.createdAt)}</div></div></div>`;
     }).join("");
   });
 }
@@ -3150,20 +3162,20 @@ function openPublicGroupsBrowser(){
   })();
 }
 
-/* ---------- رسالة ترحيب تلقائية من حساب الإدارة عند كل تسجيل حساب جديد ---------- */
+/* ---------- رسالة ترحيب تلقائية من حساب الفريق عند كل تسجيل حساب جديد ---------- */
 async function sendAdminWelcomeChat(newUserUid, newUserProfile){
   try{
     const adminSnap = await getDocs(query(collection(db, USERS_COL), where("email","==",ADMIN_WELCOME_EMAIL), limit(1)));
     if(!adminSnap.empty){
       const adminUid = adminSnap.docs[0].id; const admin = adminSnap.docs[0].data();
       const chatId = chatIdFor(newUserUid, adminUid);
-      const welcomeText = `أهلاً بيك يا ${newUserProfile.fullName} في 404! لو احتجت أي مساعدة إحنا هنا.`;
-      const { encText: lastMessageEnc, iv: lastMessageIv } = await encryptChatText(chatId, "أهلاً بيك في 404!");
+      const welcomeText = `أهلاً بيك يا ${newUserProfile.fullName} في Aether! لو احتجت أي مساعدة إحنا هنا.`;
+      const { encText: lastMessageEnc, iv: lastMessageIv } = await encryptChatText(chatId, "أهلاً بيك في Aether!");
       await setDoc(doc(db,"chats",chatId), {
         participants:[newUserUid, adminUid],
         participantInfo:{
           [newUserUid]: { name:newUserProfile.fullName, pic:newUserProfile.profilePic||DEFAULT_AVATAR, verifiedType:null, username:newUserProfile.username||null },
-          [adminUid]: { name:admin.fullName||"فريق 404", pic:admin.profilePic||DEFAULT_AVATAR, verifiedType:admin.verifiedType||"app", username:admin.username||null }
+          [adminUid]: { name:admin.fullName||"فريق Aether", pic:admin.profilePic||DEFAULT_AVATAR, verifiedType:admin.verifiedType||"app", username:admin.username||null }
         },
         lastMessageEnc, lastMessageIv, lastMessageAt: serverTimestamp()
       }, { merge:true });
@@ -3171,7 +3183,7 @@ async function sendAdminWelcomeChat(newUserUid, newUserProfile){
       await addDoc(collection(db,"chats",chatId,"messages"), { senderId: adminUid, encText, iv, createdAt: serverTimestamp() });
     }
     await autoFollowAllAdmins(newUserUid);
-  }catch(e){ console.error("تعذر إرسال رسالة الترحيب من الإدارة:", e); }
+  }catch(e){ console.error("تعذر إرسال رسالة الترحيب من الفريق:", e); }
 }
 /* أي مستخدم جديد (وأي مستخدم قديم عند الدخول) بيتابع كل حسابات الأدمن تلقائيًا */
 async function autoFollowAllAdmins(uid){
@@ -3502,6 +3514,10 @@ function openVerificationCenter(){
   overlay.className = "modal-overlay";
   overlay.innerHTML = `<div class="modal-sheet" style="max-height:80vh; overflow-y:auto;">
     <div class="modal-sheet-handle"></div>
+    <div class="brand-mark-plain" style="margin-bottom:12px;">
+      <img class="brand-symbol" src="${LOGO_SYMBOL}" alt="Aether" style="width:38px; height:38px;">
+      <img class="brand-wordmark" src="${LOGO_TEXT}" alt="Aether" style="height:14px;">
+    </div>
     <h3 style="margin:0 0 6px;">لوحة التحقق</h3>
     <p class="subtitle" style="margin:0 0 12px;">اكتب اسم المستخدم عشان تتأكد من حالة توثيق أي حساب</p>
     <div class="identity-row" style="display:flex; gap:8px;">
@@ -3743,7 +3759,7 @@ function loadPayPalSDK(){
 }
 
 /* ============================================================
-   لوحة الإدارة
+   لوحة الفريق
    ============================================================ */
 async function renderAdmin(){
   let allUsers = [];
@@ -3803,7 +3819,7 @@ $("btn-admin-broadcast").onclick = ()=>{
 };
 
 /* ---------------- تقارير قابلة للطباعة بشعار التطبيق ---------------- */
-const REPORT_LOGO = "https://i.ibb.co/WN3DTcGc/logo.jpg";
+const REPORT_LOGO = LOGO_SYMBOL;
 function openPrintableDocument(title, bodyHTML){
   const win = window.open("", "_blank");
   if(!win){ toast("المتصفح منع فتح نافذة جديدة، اسمح بالنوافذ المنبثقة وحاول تاني"); return; }
@@ -4027,8 +4043,15 @@ function renderAdminList(users){
   });
 
   $("admin-users-list").querySelectorAll("[data-ban]").forEach(b=> b.onclick = async ()=>{
+    const willBan = !(b.dataset.state==="true");
     try{
-      await updateDoc(doc(db,USERS_COL,b.dataset.ban), { banned: !(b.dataset.state==="true") });
+      if(willBan){
+        const reason = prompt("اكتب سبب حظر الحساب (هيظهر للمستخدم عند دخوله):");
+        if(reason===null) return;
+        await updateDoc(doc(db,USERS_COL,b.dataset.ban), { banned:true, bannedReason: reason.trim() || "مخالفة شروط الاستخدام" });
+      }else{
+        await updateDoc(doc(db,USERS_COL,b.dataset.ban), { banned:false, bannedReason: null });
+      }
       renderAdmin();
     }catch(e){ console.error(e); toast("تعذر تنفيذ العملية، حاول تاني"); }
   });
@@ -4175,7 +4198,10 @@ async function handlePasswordResetLink(oobCode){
     try{
       await confirmPasswordReset(auth, oobCode, p1);
       document.querySelector("#screen-reset-password .center-screen").innerHTML = `
-        <div class="brand-mark"><img src="https://i.ibb.co/WN3DTcGc/logo.jpg"></div>
+        <div class="brand-mark-plain">
+          <img class="brand-symbol" src="${LOGO_SYMBOL}" alt="Aether">
+          <img class="brand-wordmark" src="${LOGO_TEXT}" alt="Aether">
+        </div>
         <h2>تم تغيير كلمة المرور</h2>
         <p class="subtitle">تقدر تسجّل دخولك دلوقتي بكلمة المرور الجديدة</p>
         <button class="btn btn-primary" style="width:auto; padding:12px 26px;" id="btn-reset-done">تسجيل الدخول</button>`;
