@@ -759,7 +759,7 @@ async function proceedAfterAuth(user, profile){
     return;
   }
 
-  if(sessionStorage.getItem("pinVerified")==="1"){ enterApp(); }
+  if(myProfile.pinLockDisabled || sessionStorage.getItem("pinVerified")==="1"){ enterApp(); }
   else{ show("screen-pinlock"); clearPinInputs("pinlock-inputs"); }
 
   sendLoginWelcome(user, myProfile);
@@ -1155,7 +1155,7 @@ function postRowHTML(p){
     ? `<button class="post-action" data-toggle-solved="${p.id}" data-state="${!!p.solved}" title="${p.solved?'إلغاء علامة الحل':'تحديد كمحلول'}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
       </button>` : "";
-  const canBookmark = myProfile && (myProfile.planTier==="plus" || myProfile.planTier==="pro" || myProfile.isAdmin);
+  const canBookmark = !!myProfile;
   const isBookmarked = myProfile && (myProfile.bookmarks||[]).includes(p.id);
   const bookmarkBtn = canBookmark ? `<button class="post-action bookmark-btn ${isBookmarked?'saved':''}" data-bookmark="${p.id}" data-state="${!!isBookmarked}" title="حفظ المنشور">
       <svg viewBox="0 0 24 24" fill="${isBookmarked?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
@@ -1909,25 +1909,72 @@ $("search-input").addEventListener("input", ()=>{
   searchDebounce = setTimeout(runSearch, 350);
 });
 async function runSearch(){
-  const term = $("search-input").value.trim().toLowerCase();
+  const term = $("search-input").value.trim();
+  const termLower = term.toLowerCase();
   const wrap = $("search-results");
   if(!term){ wrap.innerHTML=""; return; }
-  const q = query(collection(db, USERS_COL), orderBy("username"), startAt(term), endAt(term+"\uf8ff"), limit(20));
-  const snap = await getDocs(q);
-  if(snap.empty){ wrap.innerHTML = `<div class="empty-state"><p>مفيش نتائج</p></div>`; return; }
-  wrap.innerHTML = snap.docs.map(d=>{
-    const u = d.data();
-    return `<div class="glass-card section-pad" style="display:flex; align-items:center; gap:12px; margin-bottom:10px; cursor:pointer;" data-open-user="${u.username}">
-      <img class="avatar" src="${u.profilePic||DEFAULT_AVATAR}">
-      <div><div style="font-weight:700; display:flex; align-items:center; gap:5px;">${u.fullName} ${badgeHTML(u.verifiedType, u.username)}</div><div class="post-username">@${u.username}</div></div>
-    </div>`;
-  }).join("");
-  wrap.querySelectorAll("[data-open-user]").forEach(el=> el.onclick = ()=> openOtherProfile(el.dataset.openUser));
+  wrap.innerHTML = `<div class="empty-state"><div class="spinner spinner-dark" style="margin:0 auto;"></div></div>`;
+  try{
+    const [userSnap, postsSnap] = await Promise.all([
+      getDocs(query(collection(db, USERS_COL), orderBy("username"), startAt(termLower), endAt(termLower+"\uf8ff"), limit(20))),
+      getDocs(query(collection(db, POSTS_COL), limit(500)))
+    ]);
+    const matchingPosts = postsSnap.docs
+      .map(d=>({id:d.id, ...d.data()}))
+      .filter(p=> (p.text||"").toLowerCase().includes(termLower) && !isScheduledHidden(p));
+    let html = "";
+    if(!userSnap.empty){
+      html += `<h3 style="font-size:13px; margin:4px 0 8px;">حسابات</h3>` + userSnap.docs.map(d=>{
+        const u = d.data();
+        return `<div class="glass-card section-pad" style="display:flex; align-items:center; gap:12px; margin-bottom:10px; cursor:pointer;" data-open-user="${u.username}">
+          <img class="avatar" src="${u.profilePic||DEFAULT_AVATAR}">
+          <div><div style="font-weight:700; display:flex; align-items:center; gap:5px;">${u.fullName} ${badgeHTML(u.verifiedType, u.username)}</div><div class="post-username">@${u.username}</div></div>
+        </div>`;
+      }).join("");
+    }
+    if(matchingPosts.length){
+      html += `<h3 style="font-size:13px; margin:14px 0 8px;">منشورات</h3>` + matchingPosts.map(p=>postRowHTML(p)).join("");
+    }
+    if(!html){ wrap.innerHTML = `<div class="empty-state"><p>مفيش نتائج</p></div>`; return; }
+    wrap.innerHTML = html;
+    wrap.querySelectorAll("[data-open-user]").forEach(el=> el.onclick = ()=> openOtherProfile(el.dataset.openUser));
+    attachPostEvents(wrap);
+  }catch(e){ console.error(e); wrap.innerHTML = `<div class="empty-state"><p>تعذر البحث، حاول مرة أخرى</p></div>`; }
 }
 
 /* ============================================================
    البروفايل الشخصي
    ============================================================ */
+/* قائمة المتابعين/تتابعهم — بالاسم والصورة، قابلة للضغط لفتح البروفايل */
+async function openFollowListModal(uids, title){
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="modal-sheet" style="max-height:75vh; overflow-y:auto;">
+    <div class="modal-sheet-handle"></div>
+    <h3 style="margin:0 0 10px;">${title}</h3>
+    <div id="follow-list-inner"><div class="empty-state"><div class="spinner spinner-dark" style="margin:0 auto;"></div></div></div>
+  </div>`;
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+  const inner = overlay.querySelector("#follow-list-inner");
+  if(!uids.length){ inner.innerHTML = `<div class="empty-state"><p>القائمة فارغة</p></div>`; return; }
+  try{
+    const results = [];
+    for(let i=0;i<uids.length;i+=10){
+      const chunk = uids.slice(i,i+10);
+      if(!chunk.length) continue;
+      const snap = await getDocs(query(collection(db, USERS_COL), where(documentId(),"in",chunk)));
+      snap.docs.forEach(d=> results.push({ id:d.id, ...d.data() }));
+    }
+    inner.innerHTML = results.map(u=>`<div class="likers-row" data-open-follow-user="${u.username}">
+      <img class="avatar avatar-sm" src="${u.profilePic||DEFAULT_AVATAR}">
+      <div style="flex:1;">${u.fullName} ${badgeHTML(u.verifiedType,u.username)}<div class="post-username">@${u.username}</div></div>
+    </div>`).join("");
+    inner.querySelectorAll("[data-open-follow-user]").forEach(row=>{
+      row.onclick = ()=>{ overlay.remove(); openOtherProfile(row.dataset.openFollowUser); };
+    });
+  }catch(e){ console.error(e); inner.innerHTML = `<div class="empty-state"><p>تعذر التحميل</p></div>`; }
+}
 function openHighlightLightbox(url){
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
@@ -1950,8 +1997,8 @@ async function renderMyProfile(){
       ${(p.verifiedType==="engineer" && p.engineeringField)?`<div class="chip" style="margin-top:6px;">${p.engineeringField}</div>`:""}
       ${(p.links&&p.links.length)?`<div class="profile-links">${p.links.map(l=>socialLinkChip(l)).join("")}</div>`:""}
       <div class="profile-stats">
-        <div><b>${(p.followers||[]).length}</b> <span>متابِع</span></div>
-        <div><b>${(p.following||[]).length}</b> <span>متابَع</span></div>
+        <div data-open-my-followers style="cursor:pointer;"><b>${(p.followers||[]).length}</b> <span>متابعين</span></div>
+        <div data-open-my-following style="cursor:pointer;"><b>${(p.following||[]).length}</b> <span>تتابعهم</span></div>
         ${p.bestAnswersCount ? `<div><b>${p.bestAnswersCount}</b> <span>إجابة مميزة</span></div>` : ""}
       </div>
       ${expiry?`<div class="locked-note" style="margin-top:14px;">${expiry}</div>`:""}
@@ -1964,6 +2011,8 @@ async function renderMyProfile(){
     <div class="feed" id="my-posts-feed"></div>
   `;
   $("btn-goto-plans") && ($("btn-goto-plans").onclick = ()=>{ renderPlans(); show("screen-plans"); });
+  $("profile-content").querySelector("[data-open-my-followers]")?.addEventListener("click", ()=> openFollowListModal(p.followers||[], "متابعينك"));
+  $("profile-content").querySelector("[data-open-my-following]")?.addEventListener("click", ()=> openFollowListModal(p.following||[], "الحسابات اللي بتتابعها"));
   $("profile-content").querySelectorAll("[data-highlight]").forEach(el=>{
     el.onclick = ()=> openHighlightLightbox(myProfile.highlights[Number(el.dataset.highlight)].url);
   });
@@ -2027,7 +2076,7 @@ async function openOtherProfile(username){
       ${u.bio?`<div class="profile-bio">${linkify(u.bio)}</div>`:""}
       ${(u.verifiedType==="engineer" && u.engineeringField)?`<div class="chip" style="margin-top:6px;">${u.engineeringField}</div>`:""}
       ${(u.links&&u.links.length)?`<div class="profile-links">${u.links.map(l=>socialLinkChip(l)).join("")}</div>`:""}
-      ${hideCounts ? "" : `<div class="profile-stats"><div><b>${(u.followers||[]).length}</b> <span>متابِع</span></div><div><b>${(u.following||[]).length}</b> <span>متابَع</span></div>${u.bestAnswersCount ? `<div><b>${u.bestAnswersCount}</b> <span>إجابة مميزة</span></div>` : ""}</div>`}
+      ${hideCounts ? "" : `<div class="profile-stats"><div data-open-other-followers style="cursor:pointer;"><b>${(u.followers||[]).length}</b> <span>متابعين</span></div><div data-open-other-following style="cursor:pointer;"><b>${(u.following||[]).length}</b> <span>تتابعهم</span></div>${u.bestAnswersCount ? `<div><b>${u.bestAnswersCount}</b> <span>إجابة مميزة</span></div>` : ""}</div>`}
       <div style="margin-top:14px; display:flex; gap:10px;">${followBtn}<button class="btn btn-outline" id="btn-message-user" style="flex:0; padding:12px 16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></button>
       ${(u.verifiedType==="engineer" && u.id!==myProfile.id) ? `<button class="btn btn-outline endorse-btn" id="btn-endorse-engineer" data-endorsed="${(u.endorsedBy||[]).includes(myProfile.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/></svg>${(u.endorsedBy||[]).includes(myProfile.id)?'تراجع عن التوصية':'أوصي بيه'} (${(u.endorsedBy||[]).length})</button>` : ""}</div>
       ${(u.highlights && u.highlights.length) ? `<div class="highlights-row">${u.highlights.map((h,i)=>`<div class="highlight-circle" data-other-highlight="${i}"><img src="${h.url}"></div>`).join("")}</div>` : ""}
@@ -2046,6 +2095,8 @@ async function openOtherProfile(username){
   const followBtnEl = $("btn-follow-toggle");
   if(followBtnEl) followBtnEl.onclick = ()=> toggleFollow(uid, u, iAmFollowing, requested);
   $("btn-message-user").onclick = ()=> openChatWithUser(uid);
+  $("other-profile-content").querySelector("[data-open-other-followers]")?.addEventListener("click", ()=> openFollowListModal(u.followers||[], `متابعين ${u.fullName}`));
+  $("other-profile-content").querySelector("[data-open-other-following]")?.addEventListener("click", ()=> openFollowListModal(u.following||[], `الحسابات اللي ${u.fullName} بتتابعها`));
   $("btn-endorse-engineer")?.addEventListener("click", async ()=>{
     const endorsed = (u.endorsedBy||[]).includes(myProfile.id);
     try{
@@ -2203,6 +2254,16 @@ function renderSettings(){
   renderVerifyBox(p);
   renderMyPerks(p);
   renderSignatureBox(p);
+  $("pinlock-toggle-label").textContent = p.pinLockDisabled ? "تفعيل رمز PIN عند الدخول (متوقف حاليًا)" : "إيقاف رمز PIN عند الدخول (مفعّل حاليًا)";
+  $("btn-toggle-pinlock").onclick = async ()=>{
+    try{
+      await updateDoc(doc(db, USERS_COL, currentUser.uid), { pinLockDisabled: !p.pinLockDisabled });
+      myProfile.pinLockDisabled = !p.pinLockDisabled;
+      if(myProfile.pinLockDisabled) sessionStorage.setItem("pinVerified","1");
+      toast(myProfile.pinLockDisabled ? "تم إيقاف رمز PIN" : "تم تفعيل رمز PIN");
+      renderSettings();
+    }catch(e){ toast("تعذر تنفيذ العملية"); }
+  };
   const hideNote = (p.planTier==="pro" || p.verifiedType==="developer" || p.isAdmin);
   $("hide-counts-wrap").style.display = "block";
   $("hide-counts-label").textContent = hideNote
@@ -2303,7 +2364,7 @@ async function renderAccountStats(p){
         <div style="flex:1;"><div style="font-size:22px; font-weight:800;">${posts.length}</div><div class="post-username">منشور</div></div>
         <div style="flex:1;"><div style="font-size:22px; font-weight:800;">${totalLikes}</div><div class="post-username">إعجاب</div></div>
         <div style="flex:1;"><div style="font-size:22px; font-weight:800;">${totalComments}</div><div class="post-username">تعليق</div></div>
-        <div style="flex:1;"><div style="font-size:22px; font-weight:800;">${(p.followers||[]).length}</div><div class="post-username">متابِع</div></div>
+        <div style="flex:1;"><div style="font-size:22px; font-weight:800;">${(p.followers||[]).length}</div><div class="post-username">متابعين</div></div>
       </div>`;
   }catch(e){ box.innerHTML = `<p class="subtitle">تعذر تحميل الإحصائيات</p>`; }
 }
@@ -2607,10 +2668,25 @@ async function renderChatsList(){
   const wrap = $("chats-list-wrap");
   wrap.innerHTML = `<div class="empty-state"><div class="spinner spinner-dark" style="margin:0 auto;"></div></div>`;
   try{
-    const snap = await getDocs(query(collection(db,"chats"), where("participants","array-contains", currentUser.uid), limit(50)));
-    if(snap.empty){ wrap.innerHTML = `<div class="empty-state"><p>لسه مفيش محادثات، ابدأ من بروفايل أي حد بتتابعه</p></div>`; return; }
+    const [snap, groupsSnap] = await Promise.all([
+      getDocs(query(collection(db,"chats"), where("participants","array-contains", currentUser.uid), limit(50))),
+      getDocs(query(collection(db, GROUPS_COL), where("members","array-contains", currentUser.uid), limit(50)))
+    ]);
+    if(snap.empty && groupsSnap.empty){ wrap.innerHTML = `<div class="empty-state"><p>لسه مفيش محادثات، ابدأ من بروفايل أي حد بتتابعه</p></div>`; return; }
     const chats = sortByCreatedAtDesc(snap.docs.map(d=>({id:d.id, ...d.data(), createdAt:d.data().lastMessageAt})));
-    wrap.innerHTML = chats.map(c=>{
+    const groups = sortByCreatedAtDesc(groupsSnap.docs.map(d=>({id:d.id, ...d.data(), createdAt:d.data().lastMessageAt, isGroup:true})));
+    const combined = sortByCreatedAtDesc([...chats, ...groups]);
+    wrap.innerHTML = combined.map(c=>{
+      if(c.isGroup){
+        return `<div class="chat-list-item" data-open-group="${c.id}">
+          <div style="position:relative;"><img class="avatar" src="${c.photo||DEFAULT_AVATAR}"><span class="group-badge-icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/></svg></span></div>
+          <div class="chat-meta">
+            <div style="font-weight:700; font-size:14px;">${c.name}</div>
+            <div class="chat-last" id="chat-last-${c.id}">${c.lastMessageEnc ? "..." : "جروب"}</div>
+          </div>
+          <div class="post-time meta-font">${timeAgo(c.lastMessageAt)}</div>
+        </div>`;
+      }
       const otherUid = c.participants.find(id=>id!==currentUser.uid);
       const info = c.participantInfo?.[otherUid] || {};
       return `<div class="chat-list-item" data-open-chat="${otherUid}">
@@ -2623,7 +2699,8 @@ async function renderChatsList(){
       </div>`;
     }).join("");
     wrap.querySelectorAll("[data-open-chat]").forEach(el=> el.onclick = ()=> openChatWithUser(el.dataset.openChat));
-    chats.filter(c=>c.lastMessageEnc).forEach(async c=>{
+    wrap.querySelectorAll("[data-open-group]").forEach(el=> el.onclick = ()=> openGroupChat(el.dataset.openGroup));
+    combined.filter(c=>c.lastMessageEnc).forEach(async c=>{
       const plain = await decryptChatText(c.id, c.lastMessageEnc, c.lastMessageIv);
       const el = document.getElementById(`chat-last-${c.id}`);
       if(el) el.textContent = plain.slice(0,50);
@@ -2796,6 +2873,282 @@ async function sendChatMessage(otherUid, otherProfile, opts){
   }catch(e){ console.error(e); toast("تعذر إرسال الرسالة، حاول تاني"); }
 }
 $("chat-message-input").addEventListener("keydown", (e)=>{ if(e.key==="Enter" && currentChatOtherUid) $("btn-chat-send").click(); });
+
+/* ============================================================
+   الجروبات — إنشاء، دردشة جماعية، خصوصية (عام/خاص)
+   ============================================================ */
+const GROUPS_COL = "groups";
+let currentGroupId = null;
+let unsubGroupMessages = null;
+
+function openCreateGroupModal(){
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="modal-sheet" style="max-height:82vh; overflow-y:auto; text-align:right;">
+    <div class="modal-sheet-handle"></div>
+    <h3 style="margin:0 0 10px;">إنشاء جروب جديد</h3>
+    <div class="field"><label>اسم الجروب</label><input id="new-group-name" placeholder="اكتب اسم الجروب"></div>
+    <input type="file" id="new-group-photo-file" accept="image/*" style="display:none;">
+    <button class="btn btn-ghost" id="btn-pick-group-photo" style="width:100%; margin-top:10px;">اختيار صورة الجروب (اختياري)</button>
+    <div id="new-group-photo-preview" style="margin-top:8px;"></div>
+    <div style="margin-top:12px;">
+      <label style="font-size:13px; color:var(--ink-soft);">الخصوصية</label>
+      <div class="privacy-toggle" style="margin-top:6px;">
+        <div class="chip active" data-privacy="private">خاص (بالدعوة فقط)</div>
+        <div class="chip" data-privacy="public">عام (يظهر للجميع)</div>
+      </div>
+    </div>
+    <div style="margin-top:14px;">
+      <label style="font-size:13px; color:var(--ink-soft);">اختار الأعضاء</label>
+      <div id="group-members-picker" style="margin-top:6px; max-height:220px; overflow-y:auto;"><div class="empty-state"><div class="spinner spinner-dark" style="margin:0 auto;"></div></div></div>
+    </div>
+    <p class="err-msg" id="create-group-error" style="color:var(--danger); font-size:12.5px; display:none; margin-top:6px;"></p>
+    <button class="btn btn-primary" id="btn-create-group-submit" style="margin-top:14px;">إنشاء الجروب</button>
+  </div>`;
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+
+  let selectedPrivacy = "private";
+  overlay.querySelectorAll("[data-privacy]").forEach(chip=>{
+    chip.onclick = ()=>{
+      selectedPrivacy = chip.dataset.privacy;
+      overlay.querySelectorAll("[data-privacy]").forEach(c=>c.classList.remove("active"));
+      chip.classList.add("active");
+    };
+  });
+
+  let pendingGroupPhoto = null;
+  overlay.querySelector("#btn-pick-group-photo").onclick = ()=> overlay.querySelector("#new-group-photo-file").click();
+  overlay.querySelector("#new-group-photo-file").addEventListener("change", async (e)=>{
+    const file = e.target.files[0]; if(!file) return;
+    const btn = overlay.querySelector("#btn-pick-group-photo"); btn.innerHTML = '<div class="spinner spinner-dark"></div>';
+    try{
+      const fd = new FormData(); fd.append("image", file);
+      const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method:"POST", body:fd });
+      const data = await res.json();
+      if(data.success){
+        pendingGroupPhoto = data.data.url;
+        overlay.querySelector("#new-group-photo-preview").innerHTML = `<img src="${pendingGroupPhoto}" style="width:64px; height:64px; border-radius:16px; object-fit:cover;">`;
+      }else{ toast("تعذر رفع الصورة"); }
+    }catch(err){ toast("تعذر رفع الصورة"); }
+    btn.textContent = "اختيار صورة الجروب (اختياري)";
+  });
+
+  (async ()=>{
+    const candidates = await loadMentionCandidates();
+    const pickerEl = overlay.querySelector("#group-members-picker");
+    if(!candidates.length){ pickerEl.innerHTML = `<div class="empty-state"><p>مفيش متابِعين أو متابَعين تقدر تضيفهم دلوقتي</p></div>`; return; }
+    pickerEl.innerHTML = candidates.map(u=>`<label class="member-pick-row"><input type="checkbox" data-member-uname="${u.username}"><img class="avatar avatar-sm" src="${u.profilePic||DEFAULT_AVATAR}"><span>${u.fullName} <span class="post-username">@${u.username}</span></span></label>`).join("");
+  })();
+
+  overlay.querySelector("#btn-create-group-submit").onclick = async ()=>{
+    const errEl = overlay.querySelector("#create-group-error"); errEl.style.display="none";
+    const name = overlay.querySelector("#new-group-name").value.trim();
+    if(!name){ errEl.textContent="اكتب اسم الجروب"; errEl.style.display="block"; return; }
+    const checkedUnames = [...overlay.querySelectorAll("[data-member-uname]:checked")].map(el=>el.dataset.memberUname);
+    const btn = overlay.querySelector("#btn-create-group-submit"); btn.innerHTML='<div class="spinner"></div>'; btn.disabled=true;
+    try{
+      const memberIds = [currentUser.uid];
+      if(checkedUnames.length){
+        const snap = await getDocs(query(collection(db, USERS_COL), where("username","in", checkedUnames.slice(0,10))));
+        snap.docs.forEach(d=>{ if(!memberIds.includes(d.id)) memberIds.push(d.id); });
+      }
+      const groupRef = await addDoc(collection(db, GROUPS_COL), {
+        name, photo: pendingGroupPhoto || null, privacy: selectedPrivacy,
+        ownerId: currentUser.uid, admins:[currentUser.uid], members: memberIds,
+        createdAt: serverTimestamp(), lastMessageAt: serverTimestamp()
+      });
+      toast("تم إنشاء الجروب");
+      overlay.remove();
+      openGroupChat(groupRef.id);
+    }catch(e){ console.error(e); errEl.textContent="تعذر إنشاء الجروب، حاول تاني"; errEl.style.display="block"; btn.disabled=false; btn.textContent="إنشاء الجروب"; }
+  };
+}
+
+async function openGroupChat(groupId){
+  currentGroupId = groupId;
+  const gSnap = await getDoc(doc(db, GROUPS_COL, groupId));
+  if(!gSnap.exists()){ toast("الجروب ده مش موجود"); return; }
+  const g = gSnap.data();
+  $("group-chat-avatar").src = g.photo || DEFAULT_AVATAR;
+  $("group-chat-title").textContent = `${g.name} (${(g.members||[]).length})`;
+  show("screen-group-chat");
+
+  if(unsubGroupMessages) unsubGroupMessages();
+  const msgsWrap = $("group-messages-wrap");
+  msgsWrap.innerHTML = `<div class="empty-state"><div class="spinner spinner-dark" style="margin:0 auto;"></div></div>`;
+  unsubGroupMessages = onSnapshot(query(collection(db, GROUPS_COL, groupId, "messages"), orderBy("createdAt","asc"), limit(300)), (snap)=>{
+    if(snap.empty){ msgsWrap.innerHTML = `<div class="empty-state"><p>ابدأ المحادثة الجماعية</p></div>`; return; }
+    msgsWrap.innerHTML = snap.docs.map(d=>{
+      const m = d.data();
+      const mine = m.senderId===currentUser.uid;
+      const imgHTML = m.imageUrl ? `<div class="protected-media"><img src="${m.imageUrl}" oncontextmenu="return false" draggable="false"></div>` : "";
+      const createdMs = m.createdAt?.toMillis ? m.createdAt.toMillis() : 0;
+      const reactions = m.reactions || {};
+      const reactionEmojis = [...new Set(Object.values(reactions))];
+      const reactionsHTML = reactionEmojis.length ? `<div class="msg-reactions">${reactionEmojis.join(" ")}</div>` : "";
+      return `<div class="msg-bubble ${mine?'msg-mine':'msg-theirs'}" id="gmsg-${d.id}" data-msg-id="${d.id}" data-mine="${mine}" data-created="${createdMs}" data-sender="${m.senderId}">${!mine?`<div class="post-username" style="margin-bottom:2px;">${m.senderName||''}</div>`:''}${imgHTML}<span class="msg-text-slot"></span>${m.editedAt?'<span class="post-time meta-font"> (معدّلة)</span>':''}${reactionsHTML}<div class="msg-time">${timeAgo(m.createdAt)}</div></div>`;
+    }).join("");
+    msgsWrap.scrollTop = msgsWrap.scrollHeight;
+    msgsWrap.querySelectorAll(".msg-bubble").forEach(bubble=>{
+      bubble.onclick = ()=> openMessageActionSheet("groups", groupId, bubble.dataset.msgId, bubble.dataset.mine==="true", Number(bubble.dataset.created), null, null);
+    });
+    snap.docs.forEach(async d=>{
+      const m = d.data();
+      if(!m.encText) return;
+      const plain = await decryptChatText(groupId, m.encText, m.iv);
+      const bubble = document.getElementById(`gmsg-${d.id}`);
+      const slot = bubble?.querySelector(".msg-text-slot");
+      if(slot) slot.innerHTML = linkify(plain);
+    });
+  }, (err)=>{ console.error(err); msgsWrap.innerHTML = `<div class="empty-state"><p>تعذر تحميل الرسائل، حاول تاني</p></div>`; });
+
+  $("btn-group-chat-send").onclick = ()=> sendGroupMessage(groupId);
+  attachMentionAutocomplete($("group-chat-message-input"));
+  $("btn-group-chat-attach-image").onclick = ()=> $("group-chat-image-file").click();
+  $("group-chat-image-file").onchange = async (e)=>{
+    const file = e.target.files[0]; if(!file) return;
+    e.target.value = "";
+    const btn = $("btn-group-chat-attach-image"); btn.innerHTML = '<div class="spinner spinner-dark"></div>';
+    try{
+      const fd = new FormData(); fd.append("image", file);
+      const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, { method:"POST", body:fd });
+      const data = await res.json();
+      if(data.success) await sendGroupMessage(groupId, { imageUrl: data.data.url });
+      else toast("تعذر رفع الصورة");
+    }catch(err){ toast("تعذر رفع الصورة"); }
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>`;
+  };
+  $("btn-open-group-info").onclick = ()=> openGroupInfoModal(groupId);
+  $("btn-group-info-icon").onclick = ()=> openGroupInfoModal(groupId);
+}
+
+async function sendGroupMessage(groupId, opts){
+  const input = $("group-chat-message-input");
+  const text = opts?.text ?? input.value.trim();
+  const imageUrl = opts?.imageUrl || null;
+  if(!text && !imageUrl) return;
+  try{
+    const previewText = imageUrl ? "📷 صورة" : text;
+    const { encText: lastMessageEnc, iv: lastMessageIv } = await encryptChatText(groupId, previewText);
+    await updateDoc(doc(db, GROUPS_COL, groupId), { lastMessageEnc, lastMessageIv, lastMessageAt: serverTimestamp() });
+    const { encText, iv } = await encryptChatText(groupId, text||"");
+    await addDoc(collection(db, GROUPS_COL, groupId, "messages"), { senderId: currentUser.uid, senderName: myProfile.fullName, encText, iv, imageUrl, createdAt: serverTimestamp() });
+    if(!opts) input.value = "";
+  }catch(e){ console.error(e); toast("تعذر إرسال الرسالة، حاول تاني"); }
+}
+$("group-chat-message-input").addEventListener("keydown", (e)=>{ if(e.key==="Enter" && currentGroupId) $("btn-group-chat-send").click(); });
+$("btn-group-chat-back").onclick = ()=>{ if(unsubGroupMessages) unsubGroupMessages(); show("screen-chats"); };
+
+async function openGroupInfoModal(groupId){
+  const gSnap = await getDoc(doc(db, GROUPS_COL, groupId));
+  if(!gSnap.exists()) return;
+  const g = gSnap.data();
+  const isOwner = g.ownerId===currentUser.uid;
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="modal-sheet" style="max-height:82vh; overflow-y:auto; text-align:right;">
+    <div class="modal-sheet-handle"></div>
+    <div style="text-align:center;"><img src="${g.photo||DEFAULT_AVATAR}" style="width:64px; height:64px; border-radius:18px; object-fit:cover;"><h3 style="margin:8px 0 2px;">${g.name}</h3><p class="subtitle">${g.privacy==='public'?'جروب عام':'جروب خاص'} — ${(g.members||[]).length} عضو</p></div>
+    <div class="page-rule"></div>
+    <label style="font-size:13px; color:var(--ink-soft);">الأعضاء</label>
+    <div id="group-members-list" style="margin-top:8px;"><div class="empty-state"><div class="spinner spinner-dark" style="margin:0 auto;"></div></div></div>
+    <div class="page-rule"></div>
+    ${isOwner ? `<button class="btn btn-outline btn-sm" id="btn-delete-group" style="color:var(--danger); width:100%;">حذف الجروب نهائيًا</button>` : `<button class="btn btn-outline btn-sm" id="btn-leave-group" style="color:var(--danger); width:100%;">مغادرة الجروب</button>`}
+  </div>`;
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+
+  (async ()=>{
+    const ids = g.members||[];
+    const membersData = [];
+    for(let i=0;i<ids.length;i+=10){
+      const chunk = ids.slice(i,i+10);
+      if(!chunk.length) continue;
+      const snap = await getDocs(query(collection(db, USERS_COL), where(documentId(),"in",chunk)));
+      snap.docs.forEach(d=> membersData.push({ id:d.id, ...d.data() }));
+    }
+    const listEl = overlay.querySelector("#group-members-list");
+    listEl.innerHTML = membersData.map(u=>`<div class="member-row" data-member-uname="${u.username}">
+      <img class="avatar avatar-sm" src="${u.profilePic||DEFAULT_AVATAR}">
+      <div style="flex:1;">${u.fullName} ${badgeHTML(u.verifiedType,u.username)} ${u.id===g.ownerId?'<span class="chip">مالك الجروب</span>':''}</div>
+      ${isOwner && u.id!==g.ownerId ? `<span class="mark-best-btn" data-remove-member="${u.id}" style="color:var(--danger);">إزالة</span>` : ""}
+    </div>`).join("");
+    listEl.querySelectorAll("[data-member-uname]").forEach(row=>{
+      row.onclick = (e)=>{ if(e.target.closest("[data-remove-member]")) return; overlay.remove(); openOtherProfile(row.dataset.memberUname); };
+    });
+    listEl.querySelectorAll("[data-remove-member]").forEach(btn=>{
+      btn.onclick = async (e)=>{
+        e.stopPropagation();
+        try{
+          await updateDoc(doc(db, GROUPS_COL, groupId), { members: arrayRemove(btn.dataset.removeMember) });
+          toast("تم إزالة العضو");
+          overlay.remove();
+          openGroupInfoModal(groupId);
+        }catch(err){ toast("تعذر تنفيذ العملية"); }
+      };
+    });
+  })();
+
+  overlay.querySelector("#btn-leave-group")?.addEventListener("click", async ()=>{
+    try{
+      await updateDoc(doc(db, GROUPS_COL, groupId), { members: arrayRemove(currentUser.uid) });
+      toast("تم مغادرة الجروب");
+      overlay.remove();
+      if(unsubGroupMessages) unsubGroupMessages();
+      show("screen-chats");
+      renderChatsList();
+    }catch(e){ toast("تعذر تنفيذ العملية"); }
+  });
+  overlay.querySelector("#btn-delete-group")?.addEventListener("click", async ()=>{
+    try{
+      await deleteDoc(doc(db, GROUPS_COL, groupId));
+      toast("تم حذف الجروب");
+      overlay.remove();
+      if(unsubGroupMessages) unsubGroupMessages();
+      show("screen-chats");
+      renderChatsList();
+    }catch(e){ toast("تعذر تنفيذ العملية"); }
+  });
+}
+
+/* تصفح الجروبات العامة والانضمام إليها */
+function openPublicGroupsBrowser(){
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="modal-sheet" style="max-height:82vh; overflow-y:auto;">
+    <div class="modal-sheet-handle"></div>
+    <h3 style="margin:0 0 10px;">الجروبات العامة</h3>
+    <div id="public-groups-inner"><div class="empty-state"><div class="spinner spinner-dark" style="margin:0 auto;"></div></div></div>
+  </div>`;
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+  (async ()=>{
+    const inner = overlay.querySelector("#public-groups-inner");
+    try{
+      const snap = await getDocs(query(collection(db, GROUPS_COL), where("privacy","==","public"), limit(50)));
+      if(snap.empty){ inner.innerHTML = `<div class="empty-state"><p>مفيش جروبات عامة لسه</p></div>`; return; }
+      inner.innerHTML = snap.docs.map(d=>{
+        const g = d.data(); const isMember = (g.members||[]).includes(currentUser.uid);
+        return `<div class="leaderboard-row">
+          <img class="avatar avatar-sm" src="${g.photo||DEFAULT_AVATAR}">
+          <div style="flex:1;">${g.name} <div class="post-time meta-font">${(g.members||[]).length} عضو</div></div>
+          <button class="btn btn-sm ${isMember?'btn-outline':'btn-accent'}" data-join-group="${d.id}" ${isMember?'disabled':''}>${isMember?'عضو بالفعل':'انضمام'}</button>
+        </div>`;
+      }).join("");
+      inner.querySelectorAll("[data-join-group]").forEach(btn=>{
+        btn.onclick = async ()=>{
+          try{
+            await updateDoc(doc(db, GROUPS_COL, btn.dataset.joinGroup), { members: arrayUnion(currentUser.uid) });
+            toast("تم الانضمام للجروب");
+            overlay.remove();
+            openGroupChat(btn.dataset.joinGroup);
+          }catch(e){ toast("تعذر الانضمام"); }
+        };
+      });
+    }catch(e){ console.error(e); inner.innerHTML = `<div class="empty-state"><p>تعذر التحميل</p></div>`; }
+  })();
+}
 
 /* ---------- رسالة ترحيب تلقائية من حساب الإدارة عند كل تسجيل حساب جديد ---------- */
 async function sendAdminWelcomeChat(newUserUid, newUserProfile){
@@ -3193,51 +3546,7 @@ function openVerificationCenter(){
   overlay.querySelector("#vc-username-input").addEventListener("keydown", (e)=>{ if(e.key==="Enter") doSearch(); });
 }
 
-/* صفحات الخصوصية والشروط — محتوى ثابت */
-const LEGAL_CONTENT = {
-  privacy: {
-    title: "سياسة الخصوصية",
-    html: `
-      <h3>البيانات اللي بنجمعها</h3>
-      <p>بنجمع بياناتك الأساسية وقت التسجيل (الاسم، البريد، رقم الهاتف)، بالإضافة للمحتوى اللي بتنشره أو ترفعه بنفسك.</p>
-      <h3>استخدام البيانات</h3>
-      <p>بنستخدم بياناتك عشان نشغّل حسابك، نحسّن تجربتك، ونتواصل معاك بخصوص أي تحديثات أو مشاكل في حسابك.</p>
-      <h3>مشاركة البيانات</h3>
-      <p>مبنبيعش أو مبنشاركش بياناتك مع أي طرف تالت لأغراض تجارية. بياناتك بتتخزن بشكل آمن على خوادم Firebase.</p>
-      <h3>الرسائل والمحادثات</h3>
-      <p>نصوص الرسائل بين المستخدمين مشفّرة قبل التخزين، وميقدرش يوصلها إلا الأطراف المشتركة في المحادثة أو فريق الإدارة لأغراض الإشراف والأمان.</p>
-      <h3>حقك في حذف بياناتك</h3>
-      <p>تقدر تصدّر نسخة من بياناتك أو تحذف حسابك نهائيًا في أي وقت من صفحة الإعدادات.</p>
-    `
-  },
-  terms: {
-    title: "الشروط والأحكام",
-    html: `
-      <h3>استخدام التطبيق</h3>
-      <p>باستخدامك لتطبيق 404 إنت موافق على الالتزام بهذه الشروط. لازم تكون بياناتك المسجلة صحيحة ومحدّثة.</p>
-      <h3>المحتوى المسموح</h3>
-      <p>ممنوع نشر محتوى مسيء، يحض على الكراهية، ينتهك حقوق ملكية فكرية، أو يخالف القانون. الإدارة لها الحق تحذف أي محتوى مخالف أو توقف أي حساب يخالف الشروط.</p>
-      <h3>الباقات والدفع</h3>
-      <p>الاشتراك في أي باقة مدفوعة (Plus أو Pro) أو توثيق مدفوع بيتجدد حسب المدة المختارة، وأي تجربة مجانية بتتحول لدفع إجباري بعد انتهائها ما لم يتم الإلغاء.</p>
-      <h3>التوثيق</h3>
-      <p>شارات التوثيق بتتمنح حسب تقدير فريق 404، وممكن تتسحب في أي وقت لو ثبت مخالفة أو معلومات غير صحيحة.</p>
-      <h3>تعديل الشروط</h3>
-      <p>ممكن نعدّل هذه الشروط من وقت للتاني، واستمرارك في استخدام التطبيق بعد التعديل يعتبر موافقة عليه.</p>
-    `
-  }
-};
-function openLegalPage(key){
-  const data = LEGAL_CONTENT[key];
-  const overlay = document.createElement("div");
-  overlay.className = "modal-overlay";
-  overlay.innerHTML = `<div class="modal-sheet" style="max-height:82vh; overflow-y:auto; text-align:right;">
-    <div class="modal-sheet-handle"></div>
-    <h3 style="margin:0 0 12px;">${data.title}</h3>
-    <div style="font-size:12.5px; color:var(--ink-soft); line-height:1.85;">${data.html}</div>
-  </div>`;
-  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
-  document.body.appendChild(overlay);
-}
+/* صفحات الخصوصية والشروط اتشالت بناءً على طلب المستخدم */
 
 async function openDeveloperLeaderboard(){
   const overlay = document.createElement("div");
@@ -3334,8 +3643,8 @@ function renderPagesList(){
     { icon:`<path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/>`, label:"توثيق الطلاب (مجانًا)", action: ()=>openStudentVerifyModal() },
     { icon:`<path d="M8 21l4-13 4 13M9 15h6"/><path d="M12 3v2"/>`, label:"أفضل المبرمجين", action: ()=>openDeveloperLeaderboard() },
     { icon:`<circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/>`, label:"لوحة التحقق", action: ()=>openVerificationCenter() },
-    { icon:`<rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>`, label:"سياسة الخصوصية", action: ()=>openLegalPage("privacy") },
-    { icon:`<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/>`, label:"الشروط والأحكام", action: ()=>openLegalPage("terms") },
+    { icon:`<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>`, label:"إنشاء جروب", action: ()=>openCreateGroupModal() },
+    { icon:`<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>`, label:"تصفح الجروبات العامة", action: ()=>openPublicGroupsBrowser() },
     { icon:`<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/>`, label:"زوار بروفايلك", target:"screen-visitors", action: ()=>renderVisitorsScreen() },
     { icon:`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09A1.65 1.65 0 0015 4.6a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.36.4.66.74.85`, label:"الإعدادات", target:"screen-settings" },
     { icon:`<path d="M12 2l1.5 5.5L19 9l-4 3.5L16 18l-4-3-4 3 1-5.5L5 9l5.5-1.5L12 2z"/>`, label:"باقات Plus وPro", target:"screen-plans", action: ()=>renderPlans() },

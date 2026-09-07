@@ -435,6 +435,13 @@
         </div>
       </div>
 
+      <div class="glass-card section-pad" style="padding:0;">
+        <div class="page-list-item" id="btn-toggle-pinlock">
+          <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></div>
+          <span id="pinlock-toggle-label">تفعيل رمز PIN عند الدخول</span>
+        </div>
+      </div>
+
       <div class="glass-card section-pad" style="padding:0;" id="hide-counts-wrap">
         <div class="page-list-item" id="btn-toggle-hide-counts">
           <div class="icon-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17"><path d="M17.94 17.94A10.94 10.94 0 0112 20c-7 0-11-8-11-8a21.6 21.6 0 015.06-6.06M9.9 4.24A10.94 10.94 0 0112 4c7 0 11 8 11 8a21.6 21.6 0 01-2.16 3.19M14.12 14.12a3 3 0 11-4.24-4.24"/><path d="M1 1l22 22"/></svg></div>
@@ -526,6 +533,25 @@
       <button class="icon-btn" id="btn-chat-send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg></button>
     </div>
     <p class="feature-lock-note hidden" id="chat-locked-note" style="margin:14px;"></p>
+  </section>
+
+  <!-- ================= شات جروب ================= -->
+  <section class="screen" id="screen-group-chat">
+    <div class="topbar">
+      <div class="icon-btn" id="btn-group-chat-back"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></div>
+      <div style="display:flex; align-items:center; gap:8px; cursor:pointer;" id="btn-open-group-info">
+        <img class="avatar avatar-sm" id="group-chat-avatar" src="">
+        <h1 id="group-chat-title" style="font-size:15px;"></h1>
+      </div>
+      <div class="icon-btn" id="btn-group-info-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></div>
+    </div>
+    <div id="group-messages-wrap"></div>
+    <div class="glass-card" id="group-chat-input-bar">
+      <input type="file" id="group-chat-image-file" accept="image/*" style="display:none;">
+      <button class="icon-btn" id="btn-group-chat-attach-image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></button>
+      <input id="group-chat-message-input" placeholder="اكتب رسالة...">
+      <button class="icon-btn" id="btn-group-chat-send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg></button>
+    </div>
   </section>
 
   <!-- ================= إعادة تعيين كلمة المرور ================= -->
