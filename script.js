@@ -174,8 +174,10 @@ function badgeIcon(type){
   if(type==="engineer") return `<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>`;
   if(type==="company") return `<path d="M3 21h18M6 21V8l6-4 6 4v13M9 21v-5h6v5M9 12h.01M9 15h.01M15 12h.01M15 15h.01"/>`;
   if(type==="general") return `<circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/>`;
-  if(type==="app") return `<path d="M12 2l7 3v6c0 5-3 8.5-7 11-4-2.5-7-6-7-11V5l7-3z"/><path d="M9.5 12l1.8 1.8L15 10"/>`;
+  if(type==="app") return `<path d="M12 2l2.4 1.4 2.8-.3 1.1 2.6 2.6 1.1-.3 2.8L22 12l-1.4 2.4.3 2.8-2.6 1.1-1.1 2.6-2.8-.3L12 22l-2.4-1.4-2.8.3-1.1-2.6-2.6-1.1.3-2.8L2 12l1.4-2.4-.3-2.8 2.6-1.1 1.1-2.6 2.8.3z"/><path d="M9 12l2 2 4-4"/>`;
   if(type==="courses") return `<circle cx="12" cy="12" r="9"/><path d="M10 9l5 3-5 3V9z"/>`;
+  if(type==="teacher") return `<path d="M2 3h16v14H6l-4 4V3z"/><path d="M22 8v10a2 2 0 01-2 2H8"/>`;
+  if(type==="oversight") return `<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>`;
   return `<path d="M20 6L9 17l-5-5"/>`;
 }
 function badgeHTML(type, username){
@@ -189,7 +191,9 @@ function badgeHTML(type, username){
     engineer: {cls:"badge-engineer", title:"مهندس موثّق"},
     company: {cls:"badge-company", title:"شركة موثّقة"},
     general: {cls:"badge-general", title:"حساب موثّق"},
-    courses: {cls:"badge-courses", title:"منصة كورسات موثّقة"}
+    courses: {cls:"badge-courses", title:"منصة كورسات موثّقة"},
+    teacher: {cls:"badge-teacher", title:"معلّم موثّق"},
+    oversight: {cls:"badge-oversight", title:"رقابة علمية وبرمجية وهندسية"}
   };
   const c = map[type]; if(!c) return "";
   const clickAttr = username ? `data-badge-user="${username}" data-badge-type="${type}"` : "";
@@ -204,7 +208,9 @@ const VERIFICATION_REASON_DEFAULTS = {
   engineer: "مهندس تم التحقق من صفته المهنية وتوثيقه رسميًا من فريق Aether.",
   company: "حساب شركة أو علامة تجارية تم التحقق من صحته وتوثيقه رسميًا من فريق Aether.",
   general: "حساب موثّق ضمن التوثيق العام المتاح لمشتركي Plus.",
-  courses: "منصة أو حساب تعليمي متخصص في الكورسات والفيديوهات التعليمية تم التحقق منه وتوثيقه من فريق Aether."
+  courses: "منصة أو حساب تعليمي متخصص في الكورسات والفيديوهات التعليمية تم التحقق منه وتوثيقه من فريق Aether.",
+  teacher: "معلّم تم التحقق من صفته المهنية التعليمية وتوثيقه من فريق Aether.",
+  oversight: "حساب مسؤول عن الرقابة العلمية ومراجعة المحتوى البرمجي والهندسي والمنشورات والمنح داخل التطبيق."
 };
 const VERIFICATION_FEATURES = {
   pro: ["شارة ذهبية مميزة بجانب اسمك في كل مكان بالتطبيق","أولوية الظهور في نتائج البحث والاقتراحات","علامة حساب موثوق تزيد ثقة متابعينك في محتواك","دعوة لتجربة أي ميزة جديدة قبل الجميع","تثبيت شارتك في أي منشور معاد مشاركته","أولوية الحصول على أي ميزة تجريبية جديدة قبل إطلاقها للجميع","شارة ملف شخصي متحركة بتأثير بصري مميز","دخول لقناة تحديثات خاصة بمشتركي Pro","أرشفة غير محدودة للمنشورات في المحفوظات"],
@@ -215,12 +221,14 @@ const VERIFICATION_FEATURES = {
   student: ["شارة توثيق طالب خاصة بتصميم ولون مختلف (أخضر مميز)","فتح كل مميزات باقة Plus مجانًا طول فترة التوثيق","رفع حتى 5 صور في المنشور الواحد بعرض كاروسيل","متابعة حتى 10 أسئلة في غرفة البرمجة مع التنبيه بالرد","ترقية تلقائية لباقة Pro مجانًا بعد شهر واحد من التوثيق","تفعيل Coursera Pro مجانًا بمجرد كتابة إيميلك (يفعّل تلقائيًا بعد 18 يوم)","عداد تنازلي يوضح الوقت المتبقي لتفعيل Coursera Pro","أولوية التقديم على فرص التدريب المعلنة داخل التطبيق","خصم إضافي لو قررت الاشتراك المدفوع بعد التخرج"],
   company: ["شارة زرقاء مميزة لأي حساب شركة أو علامة تجارية موثّقة","ظهور الشركة ضمن تصنيف خاص بالحسابات التجارية","إمكانية إضافة رابط الموقع الرسمي في أعلى البروفايل","دعم فني مخصص لحسابات الشركات","أولوية الرد على استفسارات العملاء عبر الشات"],
   general: ["شارة توثيق عامة تناسب مشتركي باقة Plus","زيادة ثقة متابعينك بحسابك الموثّق","أولوية أعلى قليلاً في نتائج البحث","إمكانية تقديم بلاغات بأولوية أعلى","علامة موثوقية تظهر في كل تعليقاتك"],
-  courses: ["شارة أرجوانية مميزة لمنصات وحسابات الكورسات التعليمية","إمكانية رفع كورسات وفيديوهات تعليمية كاملة كمنشورات","بطاقة كورس مخصصة تعرض العنوان والفيديو بشكل احترافي","ظهور ضمن تصنيف خاص بمنصات التعليم","دعم فني مخصص لحسابات الكورسات","أولوية الظهور في نتائج البحث التعليمي","إمكانية تثبيت أشهر كورس في أعلى بروفايلك","إحصائية بعدد مشاهدات كل كورس تنشره","شارة موثوقية على كل فيديو تعليمي تشاركه"]
+  courses: ["شارة أرجوانية مميزة لمنصات وحسابات الكورسات التعليمية","إمكانية رفع كورسات وفيديوهات تعليمية كاملة كمنشورات","بطاقة كورس مخصصة تعرض العنوان والفيديو بشكل احترافي","ظهور ضمن تصنيف خاص بمنصات التعليم","دعم فني مخصص لحسابات الكورسات","أولوية الظهور في نتائج البحث التعليمي","إمكانية تثبيت أشهر كورس في أعلى بروفايلك","إحصائية بعدد مشاهدات كل كورس تنشره","شارة موثوقية على كل فيديو تعليمي تشاركه"],
+  teacher: ["شارة توثيق خاصة بالمعلمين","ظهور ضمن تصنيف خاص بالمعلمين الموثّقين","دعم فني بأولوية","علامة موثوقية على المحتوى التعليمي","أولوية الظهور في نتائج البحث التعليمي"],
+  oversight: ["شارة مميزة تدل على صلاحية رقابية رسمية","صلاحية مراجعة المنشورات والمنح داخل التطبيق","أولوية قصوى في التعامل مع البلاغات التقنية والعلمية","ثقة إضافية من باقي المستخدمين والحسابات الموثّقة","دعم مباشر من فريق Aether"]
 };
 async function showVerificationReason(username, type){
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay verify-reason-overlay";
-  const colorMap = { pro:"var(--gold)", investigator:"var(--violet)", developer:"linear-gradient(135deg,#0A84FF,#5E5CE6)", app:"var(--ink)", student:"linear-gradient(135deg,#0FA968,#0C7A4E)", engineer:"linear-gradient(135deg,#F5A623,#D9720A)", company:"linear-gradient(135deg,#17A2B8,#0D6E7D)", general:"var(--accent)", courses:"linear-gradient(135deg,#7C3AED,#5B21B6)" };
+  const colorMap = { pro:"var(--gold)", investigator:"var(--violet)", developer:"linear-gradient(135deg,#0A84FF,#5E5CE6)", app:"radial-gradient(circle at 30% 30%, #3A3A3D, #0B0B0C 70%)", student:"linear-gradient(135deg,#0FA968,#0C7A4E)", engineer:"linear-gradient(135deg,#F5A623,#D9720A)", company:"linear-gradient(135deg,#17A2B8,#0D6E7D)", general:"var(--accent)", courses:"linear-gradient(135deg,#7C3AED,#5B21B6)", teacher:"linear-gradient(135deg,#0891B2,#0E7490)", oversight:"linear-gradient(135deg,#B91C1C,#7F1D1D)" };
   /* المبرمجين بياخدوا الـ5 مميزات الخاصة بيهم + الـ5 مميزات بتاعة Pro مضافة عليهم = 10 */
   const features = type==="developer" ? [...VERIFICATION_FEATURES.developer, ...VERIFICATION_FEATURES.pro] : (VERIFICATION_FEATURES[type] || []);
   overlay.innerHTML = `<div class="modal-sheet" style="text-align:center;">
@@ -2056,6 +2064,15 @@ async function openOtherProfile(username){
   $("other-profile-title").textContent = "@"+u.username;
   viewingUsername = username;
 
+  if(u.banned){
+    $("other-profile-content").innerHTML = `<div class="center-screen" style="padding:60px 20px; text-align:center;">
+      <div class="profile-avatar" style="opacity:.4; margin:0 auto 14px; width:88px; height:88px; border-radius:50%; overflow:hidden;"><img src="${u.profilePic||DEFAULT_AVATAR}" style="width:100%; height:100%; object-fit:cover; filter:grayscale(1);"></div>
+      <h3 style="margin:0 0 6px;">هذا الحساب مغلق</h3>
+      <p class="subtitle">حساب @${u.username} تم إغلاقه من الفريق ولا يمكن متابعته أو التفاعل معه حاليًا</p>
+    </div>`;
+    return;
+  }
+
   trackProfileVisit(uid);
 
   const iAmFollowing = (u.followers||[]).includes(currentUser.uid);
@@ -2090,6 +2107,7 @@ async function openOtherProfile(username){
       ${(u.links&&u.links.length)?`<div class="profile-links">${u.links.map(l=>socialLinkChip(l)).join("")}</div>`:""}
       ${hideCounts ? "" : `<div class="profile-stats"><div data-open-other-followers style="cursor:pointer;"><b>${(u.followers||[]).length}</b> <span>متابعين</span></div><div data-open-other-following style="cursor:pointer;"><b>${(u.following||[]).length}</b> <span>تتابعهم</span></div>${u.bestAnswersCount ? `<div><b>${u.bestAnswersCount}</b> <span>إجابة مميزة</span></div>` : ""}</div>`}
       <div style="margin-top:14px; display:flex; gap:10px;">${followBtn}<button class="btn btn-outline" id="btn-message-user" style="flex:0; padding:12px 16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></button>
+      ${`<button class="btn btn-outline" id="btn-report-account" style="flex:0; padding:12px 16px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="10"/></svg></button>`}
       ${(u.verifiedType==="engineer" && u.id!==myProfile.id) ? `<button class="btn btn-outline endorse-btn" id="btn-endorse-engineer" data-endorsed="${(u.endorsedBy||[]).includes(myProfile.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/></svg>${(u.endorsedBy||[]).includes(myProfile.id)?'تراجع عن التوصية':'أوصي بيه'} (${(u.endorsedBy||[]).length})</button>` : ""}</div>
       ${(u.highlights && u.highlights.length) ? `<div class="highlights-row">${u.highlights.map((h,i)=>`<div class="highlight-circle" data-other-highlight="${i}"><img src="${h.url}"></div>`).join("")}</div>` : ""}
       ${(u.verifiedType==="developer" && u.pinnedSnippet) ? `<div class="dev-snippet-box">${u.pinnedSnippet.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>` : ""}
@@ -2107,6 +2125,7 @@ async function openOtherProfile(username){
   const followBtnEl = $("btn-follow-toggle");
   if(followBtnEl) followBtnEl.onclick = ()=> toggleFollow(uid, u, iAmFollowing, requested);
   $("btn-message-user").onclick = ()=> openChatWithUser(uid);
+  $("btn-report-account")?.addEventListener("click", ()=> openGenericReportModal({ reportedUserId: uid, reportedUsername: u.username }, "الحساب"));
   $("other-profile-content").querySelector("[data-open-other-followers]")?.addEventListener("click", ()=> openFollowListModal(u.followers||[], `متابعين ${u.fullName}`));
   $("other-profile-content").querySelector("[data-open-other-following]")?.addEventListener("click", ()=> openFollowListModal(u.following||[], `الحسابات اللي ${u.fullName} بتتابعها`));
   $("btn-endorse-engineer")?.addEventListener("click", async ()=>{
@@ -2451,7 +2470,7 @@ $("btn-add-link").onclick = ()=>{
 let pendingVerifyIdUrl = null;
 function renderVerifyBox(p){
   const box = $("verify-status-box"); const form = $("verify-form");
-  const typeLabels = { pro:"برو", investigator:"محقق منه", developer:"مبرمج", engineer:"مهندس", app:"حساب رسمي", student:"طالب", company:"شركة", general:"توثيق عام", courses:"منصة كورسات" };
+  const typeLabels = { pro:"برو", investigator:"محقق منه", developer:"مبرمج", engineer:"مهندس", app:"حساب رسمي", student:"طالب", company:"شركة", general:"توثيق عام", courses:"منصة كورسات", teacher:"معلّم", oversight:"رقابة علمية وبرمجية وهندسية" };
   if(p.verifiedType){
     box.innerHTML = `<div class="locked-note">حسابك موثّق بالفعل (${typeLabels[p.verifiedType]||p.verifiedType})</div>`;
     if(p.verifiedType==="engineer"){
@@ -3545,7 +3564,7 @@ function openVerificationCenter(){
         </div>`;
         return;
       }
-      const typeLabels = { pro:"برو", investigator:"محقق منه", developer:"مبرمج", engineer:"مهندس", app:"حساب رسمي", student:"طالب", company:"شركة", general:"توثيق عام", courses:"منصة كورسات" };
+      const typeLabels = { pro:"برو", investigator:"محقق منه", developer:"مبرمج", engineer:"مهندس", app:"حساب رسمي", student:"طالب", company:"شركة", general:"توثيق عام", courses:"منصة كورسات", teacher:"معلّم", oversight:"رقابة علمية وبرمجية وهندسية" };
       const features = u.verifiedType==="developer" ? [...VERIFICATION_FEATURES.developer, ...VERIFICATION_FEATURES.pro] : (VERIFICATION_FEATURES[u.verifiedType]||[]);
       resultEl.innerHTML = `<div class="glass-card section-pad">
         <div style="display:flex; align-items:center; gap:10px;">
@@ -3774,6 +3793,50 @@ async function renderAdmin(){
   renderAdminStats(allUsers);
   renderStudentRequests();
   renderPaywallRequests();
+  renderReportsPanel();
+}
+/* لوحة مراجعة كل البلاغات (منشورات، تعليقات، رسائل، حسابات) مع إمكانية حظر مباشر */
+async function renderReportsPanel(){
+  const wrap = $("admin-reports-panel");
+  if(!wrap) return;
+  try{
+    const snap = await getDocs(query(collection(db,"reports"), where("status","==","pending"), limit(100)));
+    if(snap.empty){ wrap.innerHTML=""; return; }
+    const reports = snap.docs.map(d=>({id:d.id,...d.data()}));
+    wrap.innerHTML = `<h3 style="margin:0 0 8px;">البلاغات المعلّقة (${reports.length})</h3>` + reports.map(r=>{
+      let typeLabel = "منشور", targetInfo = r.postId||"";
+      if(r.commentId){ typeLabel="تعليق"; targetInfo = r.commentId; }
+      if(r.messageId){ typeLabel="رسالة"; targetInfo = r.messageId; }
+      if(r.reportedUsername){ typeLabel="حساب"; targetInfo = "@"+r.reportedUsername; }
+      return `<div class="glass-card section-pad" style="margin-bottom:10px;">
+        <div class="chip" style="margin-bottom:6px;">إبلاغ عن ${typeLabel}</div>
+        <p style="font-size:12.5px; color:var(--ink-soft);">${r.reason}</p>
+        <p class="post-time meta-font">من @${r.reporterUsername||'مستخدم'} — ${targetInfo}</p>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button class="btn btn-outline btn-sm" data-dismiss-report="${r.id}" style="flex:1;">تجاهل</button>
+          ${r.reportedUserId ? `<button class="btn btn-danger btn-sm" data-ban-reported="${r.id}" data-uid="${r.reportedUserId}" style="flex:1;">حظر الحساب</button>` : ""}
+        </div>
+      </div>`;
+    }).join("");
+    wrap.querySelectorAll("[data-dismiss-report]").forEach(btn=>{
+      btn.onclick = async ()=>{
+        try{ await updateDoc(doc(db,"reports",btn.dataset.dismissReport), { status:"dismissed" }); toast("تم تجاهل البلاغ"); renderReportsPanel(); }
+        catch(e){ toast("تعذر تنفيذ العملية"); }
+      };
+    });
+    wrap.querySelectorAll("[data-ban-reported]").forEach(btn=>{
+      btn.onclick = async ()=>{
+        const reason = prompt("اكتب سبب حظر الحساب (هيظهر للمستخدم عند دخوله):");
+        if(reason===null) return;
+        try{
+          await updateDoc(doc(db, USERS_COL, btn.dataset.uid), { banned:true, bannedReason: reason.trim() || "مخالفة شروط الاستخدام" });
+          await updateDoc(doc(db,"reports",btn.dataset.banReported), { status:"resolved" });
+          toast("تم حظر الحساب");
+          renderReportsPanel();
+        }catch(e){ toast("تعذر تنفيذ العملية"); }
+      };
+    });
+  }catch(e){ console.error(e); }
 }
 /* إحصائيات حية للأدمن — مربوطة بقاعدة البيانات مباشرة */
 function renderAdminStats(users){
@@ -4015,6 +4078,9 @@ function renderAdminList(users){
           <option value="company" ${u.verifiedType==='company'?'selected':''}>شركات</option>
           <option value="general" ${u.verifiedType==='general'?'selected':''}>توثيق عام (Plus)</option>
           <option value="courses" ${u.verifiedType==='courses'?'selected':''}>منصة كورسات</option>
+          <option value="student" ${u.verifiedType==='student'?'selected':''}>طالب</option>
+          <option value="teacher" ${u.verifiedType==='teacher'?'selected':''}>معلّم</option>
+          <option value="oversight" ${u.verifiedType==='oversight'?'selected':''}>رقابة علمية وبرمجية وهندسية</option>
           <option value="app" ${u.verifiedType==='app'?'selected':''}>حساب التطبيق</option>
         </select>
         <button class="btn btn-sm btn-outline" data-edit-reason="${u.id}" data-reason="${(u.verificationReason||'').replace(/"/g,'&quot;')}">سبب التوثيق</button>

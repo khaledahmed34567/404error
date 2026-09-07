@@ -330,13 +330,15 @@ input,textarea,select{ font-family:"IBM Plex Sans Arabic",sans-serif; font-weigh
 .badge svg{ width:11px; height:11px; stroke:#fff; stroke-width:3; fill:none; }
 .badge-pro{ background:var(--gold); }
 .badge-investigator{ background:var(--violet); }
-.badge-app{ background:linear-gradient(135deg,#0B0B0C,#2C2C2E); box-shadow:0 0 0 2px rgba(201,164,92,.35), 0 2px 8px rgba(0,0,0,.45); }
+.badge-app{ background:radial-gradient(circle at 30% 30%, #3A3A3D, #0B0B0C 70%); box-shadow:0 0 0 1.5px #C9A45C, 0 0 0 3px rgba(0,0,0,.15), 0 2px 6px rgba(0,0,0,.4); }
 .badge-student{ background:linear-gradient(135deg,#0FA968,#0C7A4E); }
 .badge-developer{ background:linear-gradient(135deg,#0A84FF,#5E5CE6,#7C3AED); box-shadow:0 0 0 2px rgba(94,92,230,.18), 0 2px 6px rgba(94,92,230,.35); }
 .badge-engineer{ background:linear-gradient(135deg,#F5A623,#D9720A); box-shadow:0 0 0 2px rgba(245,166,35,.18), 0 2px 6px rgba(217,114,10,.35); }
 .badge-company{ background:linear-gradient(135deg,#17A2B8,#0D6E7D); box-shadow:0 0 0 2px rgba(23,162,184,.18), 0 2px 6px rgba(13,110,125,.35); }
 .badge-general{ background:var(--accent); }
 .badge-courses{ background:linear-gradient(135deg,#7C3AED,#5B21B6); box-shadow:0 0 0 2px rgba(124,58,237,.18), 0 2px 6px rgba(91,33,182,.35); }
+.badge-teacher{ background:linear-gradient(135deg,#0891B2,#0E7490); box-shadow:0 0 0 2px rgba(8,145,178,.18), 0 2px 6px rgba(14,116,144,.35); }
+.badge-oversight{ background:linear-gradient(135deg,#B91C1C,#7F1D1D); box-shadow:0 0 0 2px rgba(185,28,28,.2), 0 2px 6px rgba(127,29,29,.4); }
 .badge[data-badge-user]{ cursor:pointer; }
 .verify-reason-overlay .verify-reason-icon{ width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 12px; }
 .verify-reason-overlay .verify-reason-icon svg{ width:24px; height:24px; stroke:#fff; fill:none; stroke-width:2; }
