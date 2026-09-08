@@ -224,8 +224,8 @@ const VERIFICATION_FEATURES = {
   company: ["شارة زرقاء مميزة لأي حساب شركة أو علامة تجارية موثّقة","ظهور الشركة ضمن تصنيف خاص بالحسابات التجارية","إمكانية إضافة رابط الموقع الرسمي في أعلى البروفايل","دعم فني مخصص لحسابات الشركات","أولوية الرد على استفسارات العملاء عبر الشات"],
   general: ["شارة توثيق عامة تناسب مشتركي باقة Plus","زيادة ثقة متابعينك بحسابك الموثّق","أولوية أعلى قليلاً في نتائج البحث","إمكانية تقديم بلاغات بأولوية أعلى","علامة موثوقية تظهر في كل تعليقاتك"],
   courses: ["شارة أرجوانية مميزة لمنصات وحسابات الكورسات التعليمية","إمكانية رفع كورسات وفيديوهات تعليمية كاملة كمنشورات","بطاقة كورس مخصصة تعرض العنوان والفيديو بشكل احترافي","ظهور ضمن تصنيف خاص بمنصات التعليم","دعم فني مخصص لحسابات الكورسات","أولوية الظهور في نتائج البحث التعليمي","إمكانية تثبيت أشهر كورس في أعلى بروفايلك","إحصائية بعدد مشاهدات كل كورس تنشره","شارة موثوقية على كل فيديو تعليمي تشاركه"],
-  teacher: ["شارة توثيق خاصة بالمعلمين","ظهور ضمن تصنيف خاص بالمعلمين الموثّقين","دعم فني بأولوية","علامة موثوقية على المحتوى التعليمي","أولوية الظهور في نتائج البحث التعليمي"],
-  oversight: ["شارة مميزة تدل على صلاحية رقابية رسمية","صلاحية مراجعة المنشورات والمنح داخل التطبيق","أولوية قصوى في التعامل مع البلاغات التقنية والعلمية","ثقة إضافية من باقي المستخدمين والحسابات الموثّقة","دعم مباشر من فريق Aether"]
+  teacher: ["شارة توثيق خاصة بالمعلمين","ظهور ضمن تصنيف خاص بالمعلمين الموثّقين","دعم فني بأولوية","علامة موثوقية على المحتوى التعليمي","أولوية الظهور في نتائج البحث التعليمي","إمكانية إضافة المادة أو التخصص الدراسي في البروفايل","شارة «معلّم يجيب على الأسئلة» في المنشورات التعليمية","إمكانية تثبيت منشور تعليمي في أعلى بروفايلك","دخول مبكر لأي ميزة تعليمية جديدة"],
+  oversight: ["شارة مميزة تدل على صلاحية رقابية رسمية","صلاحية مراجعة المنشورات والمنح داخل التطبيق","أولوية قصوى في التعامل مع البلاغات التقنية والعلمية","ثقة إضافية من باقي المستخدمين والحسابات الموثّقة","دعم مباشر من فريق Aether","إمكانية حذف أو تثبيت أي منشور مخالف مباشرة","الاطلاع على البلاغات التقنية والعلمية أولاً","شارة «جهة رقابية معتمدة» تظهر في كل تفاعلاتك","صلاحية التنسيق المباشر مع فريق Aether في القرارات الرقابية"]
 };
 async function showVerificationReason(username, type){
   const overlay = document.createElement("div");
@@ -915,6 +915,12 @@ async function sendLoginWelcome(user, profile){
       });
     }catch(e){ console.error("تعذر إرسال إيميل تنبيه الأمان:", e); }
   }
+  /* سجل تسجيل الدخول — جزء من ميزات الأمان العالي، آخر 20 عملية دخول بالجهاز والوقت */
+  try{
+    await addDoc(collection(db, USERS_COL, user.uid, "loginHistory"), {
+      device: navigator.userAgent.slice(0,120), createdAt: serverTimestamp()
+    });
+  }catch(e){ /* صامت */ }
 }
 async function sendLogoutNotice(uid, fullName){
   if(!uid) return;
@@ -2935,6 +2941,28 @@ const GROUPS_COL = "groups";
 let currentGroupId = null;
 let unsubGroupMessages = null;
 
+/* سجل تسجيل الدخول — ميزة أمان: يوضح آخر 20 عملية دخول بالجهاز والوقت */
+async function openLoginHistoryModal(){
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="modal-sheet" style="max-height:75vh; overflow-y:auto;">
+    <div class="modal-sheet-handle"></div>
+    <h3 style="margin:0 0 10px;">سجل تسجيل الدخول</h3>
+    <div id="login-history-inner"><div class="empty-state"><div class="spinner spinner-dark" style="margin:0 auto;"></div></div></div>
+  </div>`;
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
+  const inner = overlay.querySelector("#login-history-inner");
+  try{
+    const snap = await getDocs(query(collection(db, USERS_COL, currentUser.uid, "loginHistory"), orderBy("createdAt","desc"), limit(20)));
+    if(snap.empty){ inner.innerHTML = `<div class="empty-state"><p>لسه مفيش سجل دخول</p></div>`; return; }
+    inner.innerHTML = snap.docs.map(d=>{
+      const l = d.data();
+      return `<div class="likers-row" style="align-items:flex-start;"><div style="flex:1;"><div style="font-size:12.5px;">${l.device||"جهاز غير معروف"}</div><div class="post-time meta-font" style="margin-top:2px;">${timeAgo(l.createdAt)}</div></div></div>`;
+    }).join("");
+  }catch(e){ console.error(e); inner.innerHTML = `<div class="empty-state"><p>تعذر تحميل السجل</p></div>`; }
+}
+
 function openCreateGroupModal(){
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
@@ -3702,6 +3730,7 @@ function renderPagesList(){
     { icon:`<path d="M8 21l4-13 4 13M9 15h6"/><path d="M12 3v2"/>`, label:"أفضل المبرمجين", action: ()=>openDeveloperLeaderboard() },
     { icon:`<circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/>`, label:"لوحة التحقق", action: ()=>openVerificationCenter() },
     { icon:`<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>`, label:"إنشاء جروب", action: ()=>openCreateGroupModal() },
+    { icon:`<rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/><circle cx="12" cy="16" r="1.5"/>`, label:"سجل تسجيل الدخول", action: ()=>openLoginHistoryModal() },
     { icon:`<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>`, label:"تصفح الجروبات العامة", action: ()=>openPublicGroupsBrowser() },
     { icon:`<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/>`, label:"زوار بروفايلك", target:"screen-visitors", action: ()=>renderVisitorsScreen() },
     { icon:`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 005 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09A1.65 1.65 0 0015 4.6a1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9c.14.36.4.66.74.85`, label:"الإعدادات", target:"screen-settings" },
