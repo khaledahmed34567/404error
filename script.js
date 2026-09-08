@@ -6,7 +6,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import {
   getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
   signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, deleteUser,
-  sendPasswordResetEmail, confirmPasswordReset, verifyPasswordResetCode
+  sendPasswordResetEmail, confirmPasswordReset, verifyPasswordResetCode, sendEmailVerification
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, addDoc,
@@ -34,7 +34,9 @@ const POSTS_COL = "posssst";
 const STORIES_COL = "stories";
 const SUPPORT_EMAIL = "contact@sarmad.qd.je";
 const ADMIN_WELCOME_EMAIL = SUPPORT_EMAIL; // كل الرسائل والإشعارات الآلية تُرسل من حساب الدعم الرسمي فقط، وإيميله لا يظهر لأي مستخدم
-const ADMIN_EMAILS = ["khwailedapp@gmail.com", "soudadteam@gmail.com", "contact@sarmad.qd.je"];
+const ADMIN_EMAILS = ["khwailedapp@gmail.com", "soudadteam@gmail.com", "contact@sarmad.qd.je", "support@404error.qd.je", "404team@404error.qd.je"];
+const REPORTS_TEAM_EMAIL = "404team@404error.qd.je"; // حساب فريق البلاغات
+const GENERAL_SUPPORT_EMAIL = "support@404error.qd.je"; // إيميل الدعم العام ولأي استفسار تاني
 const IMGBB_KEY = "36b0e2658ed6fad2ca48081442f1539b";
 const APP_NAME = "Aether";
 const APP_TAGLINE = "Beyond the Noise";
@@ -643,6 +645,7 @@ $("btn-finish-register").onclick = async ()=>{
       banned:false, pinHash, usernameChangedAt:null, bookmarks:[], signature:"", createdAt: serverTimestamp()
     };
     await setDoc(doc(db, USERS_COL, uid), profileData);
+    sendEmailVerification(currentUser).catch(()=>{});
     sessionStorage.setItem("pinVerified","1");
     awaitingManualFlow = false;
     myProfile = { id: uid, ...profileData };
@@ -901,6 +904,17 @@ async function sendLoginWelcome(user, profile){
   if(sessionStorage.getItem("welcomeSent")==="1") return;
   sessionStorage.setItem("welcomeSent","1");
   await notifyUser(user.uid, `تم تسجيل الدخول إلى حسابك يا ${profile.fullName} — لو مش إنت، غيّر كلمة المرور فورًا من الإعدادات`, true);
+  if(profile.securityEmailEnabled && user.email){
+    try{
+      await addDoc(collection(db,"mail"), {
+        to:[user.email],
+        message:{
+          subject:`تنبيه أمان — تسجيل دخول جديد إلى حسابك في ${APP_NAME}`,
+          text:`مرحبًا ${profile.fullName}،\nتم تسجيل الدخول إلى حسابك الآن. لو مكنش إنت، غيّر كلمة المرور فورًا من إعدادات حسابك.\n\nفريق ${APP_NAME}`
+        }
+      });
+    }catch(e){ console.error("تعذر إرسال إيميل تنبيه الأمان:", e); }
+  }
 }
 async function sendLogoutNotice(uid, fullName){
   if(!uid) return;
@@ -2010,7 +2024,7 @@ async function renderMyProfile(){
   $("profile-content").innerHTML = `
     <div class="profile-cover" style="${p.coverPhoto?`background-image:url('${p.coverPhoto}'); background-size:cover; background-position:center;`:''}"></div>
     <div class="profile-head">
-      <img class="profile-avatar" src="${p.profilePic||DEFAULT_AVATAR}">
+      <img class="profile-avatar" src="${p.profilePic||DEFAULT_AVATAR}" oncontextmenu="return false" draggable="false">
       <div class="profile-name">${p.fullName} ${badgeHTML(p.verifiedType, p.username)} ${planChip(p)}</div>
       <div class="post-username">@${p.username} ${p.isPrivate?lockChip():''}</div>
       ${p.bio?`<div class="profile-bio">${linkify(p.bio)}</div>`:""}
@@ -2077,7 +2091,7 @@ async function openOtherProfile(username){
 
   const iAmFollowing = (u.followers||[]).includes(currentUser.uid);
   const requested = (u.followRequests||[]).includes(currentUser.uid);
-  const isLockedForMe = u.isPrivate && !iAmFollowing && u.verifiedType==null;
+  const isLockedForMe = u.isPrivate && !iAmFollowing && u.id!==myProfile.id;
 
   const lastActiveMs = u.lastActiveAt?.toMillis ? u.lastActiveAt.toMillis() : (u.lastActiveAt ? new Date(u.lastActiveAt).getTime() : 0);
   const isOnlineNow = lastActiveMs && (Date.now()-lastActiveMs < 5*60*1000);
@@ -2086,7 +2100,7 @@ async function openOtherProfile(username){
   const hideCounts = u.planTier==="pro" || u.verifiedType==="developer" || u.isAdmin;
 
   let followBtn = "";
-  if(!u.isPrivate || u.autoAcceptFollow){
+  if(!u.isPrivate){
     followBtn = `<button class="btn ${iAmFollowing?'btn-outline':'btn-accent'}" id="btn-follow-toggle">${iAmFollowing?'إلغاء المتابعة':'متابعة'}</button>`;
   }else{
     followBtn = `<button class="btn ${requested?'btn-outline':'btn-accent'}" id="btn-follow-toggle" ${requested?'disabled':''}>${iAmFollowing?'إلغاء المتابعة':(requested?'تم إرسال الطلب':'طلب متابعة')}</button>`;
@@ -2096,7 +2110,7 @@ async function openOtherProfile(username){
     <div class="profile-cover" style="${u.coverPhoto?`background-image:url('${u.coverPhoto}'); background-size:cover; background-position:center;`:''}"></div>
     <div class="profile-head">
       <div style="position:relative; display:inline-block;">
-        <img class="profile-avatar" src="${u.profilePic||DEFAULT_AVATAR}">
+        <img class="profile-avatar" src="${u.profilePic||DEFAULT_AVATAR}" oncontextmenu="return false" draggable="false">
         ${showOnlineDot ? `<span style="position:absolute; bottom:4px; left:4px; width:14px; height:14px; border-radius:50%; background:var(--green); border:2px solid #fff;" title="متصل الآن"></span>` : ""}
       </div>
       <div class="profile-name">${u.fullName} ${badgeHTML(u.verifiedType, u.username)}</div>
@@ -2232,7 +2246,7 @@ async function toggleFollow(uid, u, iAmFollowing, requested){
   if(iAmFollowing){
     await updateDoc(myRef, { following: arrayRemove(uid) });
     await updateDoc(otherRef, { followers: arrayRemove(currentUser.uid) });
-  }else if(!u.isPrivate || u.autoAcceptFollow){
+  }else if(!u.isPrivate){
     await updateDoc(myRef, { following: arrayUnion(uid) });
     await updateDoc(otherRef, { followers: arrayUnion(currentUser.uid) });
     await notifyUser(uid, `${myProfile.fullName} بدأ متابعتك`);
@@ -2285,6 +2299,15 @@ function renderSettings(){
   renderVerifyBox(p);
   renderMyPerks(p);
   renderSignatureBox(p);
+  $("security-email-label").textContent = p.securityEmailEnabled ? "إيقاف تنبيه الأمان بالإيميل عند تسجيل الدخول (مفعّل حاليًا)" : "تفعيل تنبيه أمان بالإيميل عند كل تسجيل دخول";
+  $("btn-toggle-security-email").onclick = async ()=>{
+    try{
+      await updateDoc(doc(db, USERS_COL, currentUser.uid), { securityEmailEnabled: !p.securityEmailEnabled });
+      myProfile.securityEmailEnabled = !p.securityEmailEnabled;
+      toast(myProfile.securityEmailEnabled ? "تم تفعيل تنبيه الأمان بالإيميل" : "تم إيقاف تنبيه الأمان بالإيميل");
+      renderSettings();
+    }catch(e){ toast("تعذر تنفيذ العملية"); }
+  };
   $("pinlock-toggle-label").textContent = p.pinLockDisabled ? "تفعيل رمز PIN عند الدخول (متوقف حاليًا)" : "إيقاف رمز PIN عند الدخول (مفعّل حاليًا)";
   $("btn-toggle-pinlock").onclick = async ()=>{
     try{
@@ -2784,7 +2807,7 @@ async function openChatWithUser(otherUid){
     }).join("");
     msgsWrap.scrollTop = msgsWrap.scrollHeight;
     msgsWrap.querySelectorAll(".msg-bubble").forEach(bubble=>{
-      bubble.onclick = ()=> openMessageActionSheet(chatId, bubble.dataset.msgId, bubble.dataset.mine==="true", Number(bubble.dataset.created), otherUid, other);
+      bubble.onclick = ()=> openMessageActionSheet("chats", chatId, bubble.dataset.msgId, bubble.dataset.mine==="true", Number(bubble.dataset.created), otherUid, other);
     });
     /* فك تشفير كل رسالة نصية بشكل غير متزامن بعد الرسم */
     snap.docs.forEach(async d=>{
@@ -2823,7 +2846,7 @@ async function openChatWithUser(otherUid){
 }
 
 /* شيت تفاعلات ونشاط الرسالة: تفاعل، تعديل (خلال 15 دقيقة)، حذف، إبلاغ */
-function openMessageActionSheet(chatId, msgId, mine, createdMs, otherUid, otherProfile){
+function openMessageActionSheet(collectionName, chatId, msgId, mine, createdMs, otherUid, otherProfile){
   const withinEditWindow = createdMs && (Date.now()-createdMs < 15*60*1000);
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
@@ -2838,14 +2861,14 @@ function openMessageActionSheet(chatId, msgId, mine, createdMs, otherUid, otherP
   document.body.appendChild(overlay);
   overlay.querySelectorAll("[data-react-emoji]").forEach(el=>{
     el.onclick = async ()=>{
-      try{ await updateDoc(doc(db,"chats",chatId,"messages",msgId), { [`reactions.${currentUser.uid}`]: el.dataset.reactEmoji }); }
+      try{ await updateDoc(doc(db,collectionName,chatId,"messages",msgId), { [`reactions.${currentUser.uid}`]: el.dataset.reactEmoji }); }
       catch(e){ toast("تعذر إرسال التفاعل"); }
       overlay.remove();
     };
   });
   overlay.querySelector("#msg-action-edit")?.addEventListener("click", async ()=>{
     overlay.remove();
-    const msnap = await getDoc(doc(db,"chats",chatId,"messages",msgId));
+    const msnap = await getDoc(doc(db,collectionName,chatId,"messages",msgId));
     if(!msnap.exists()) return;
     const m = msnap.data();
     const currentText = m.encText ? await decryptChatText(chatId, m.encText, m.iv) : "";
@@ -2863,14 +2886,14 @@ function openMessageActionSheet(chatId, msgId, mine, createdMs, otherUid, otherP
       const newText = editOverlay.querySelector("#edit-msg-text").value.trim();
       try{
         const { encText, iv } = await encryptChatText(chatId, newText);
-        await updateDoc(doc(db,"chats",chatId,"messages",msgId), { encText, iv, editedAt: serverTimestamp() });
+        await updateDoc(doc(db,collectionName,chatId,"messages",msgId), { encText, iv, editedAt: serverTimestamp() });
         toast("تم تعديل الرسالة");
         editOverlay.remove();
       }catch(e){ toast("تعذر التعديل — يمكن انتهت مدة الـ15 دقيقة"); }
     };
   });
   overlay.querySelector("#msg-action-delete")?.addEventListener("click", async ()=>{
-    try{ await deleteDoc(doc(db,"chats",chatId,"messages",msgId)); toast("تم حذف الرسالة"); }
+    try{ await deleteDoc(doc(db,collectionName,chatId,"messages",msgId)); toast("تم حذف الرسالة"); }
     catch(e){ toast("تعذر الحذف"); }
     overlay.remove();
   });
@@ -3812,8 +3835,10 @@ async function renderReportsPanel(){
         <div class="chip" style="margin-bottom:6px;">إبلاغ عن ${typeLabel}</div>
         <p style="font-size:12.5px; color:var(--ink-soft);">${r.reason}</p>
         <p class="post-time meta-font">من @${r.reporterUsername||'مستخدم'} — ${targetInfo}</p>
-        <div style="display:flex; gap:8px; margin-top:8px;">
+        <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
           <button class="btn btn-outline btn-sm" data-dismiss-report="${r.id}" style="flex:1;">تجاهل</button>
+          <button class="btn btn-outline btn-sm" data-accept-report="${r.id}" style="flex:1;">قبول البلاغ</button>
+          ${(r.postId||r.commentId||r.messageId) ? `<button class="btn btn-danger btn-sm" data-delete-reported="${r.id}" style="flex:1;">حذف المحتوى</button>` : ""}
           ${r.reportedUserId ? `<button class="btn btn-danger btn-sm" data-ban-reported="${r.id}" data-uid="${r.reportedUserId}" style="flex:1;">حظر الحساب</button>` : ""}
         </div>
       </div>`;
@@ -3822,6 +3847,27 @@ async function renderReportsPanel(){
       btn.onclick = async ()=>{
         try{ await updateDoc(doc(db,"reports",btn.dataset.dismissReport), { status:"dismissed" }); toast("تم تجاهل البلاغ"); renderReportsPanel(); }
         catch(e){ toast("تعذر تنفيذ العملية"); }
+      };
+    });
+    wrap.querySelectorAll("[data-accept-report]").forEach(btn=>{
+      btn.onclick = async ()=>{
+        try{ await updateDoc(doc(db,"reports",btn.dataset.acceptReport), { status:"accepted" }); toast("تم قبول البلاغ"); renderReportsPanel(); }
+        catch(e){ toast("تعذر تنفيذ العملية"); }
+      };
+    });
+    wrap.querySelectorAll("[data-delete-reported]").forEach(btn=>{
+      btn.onclick = async ()=>{
+        const r = reports.find(x=>x.id===btn.dataset.deleteReported);
+        if(!r) return;
+        if(!confirm("متأكد إنك عايز تحذف المحتوى المُبلَّغ عنه؟")) return;
+        try{
+          if(r.commentId && r.postId) await deleteDoc(doc(db, POSTS_COL, r.postId, "comments", r.commentId));
+          else if(r.messageId && r.chatId) await deleteDoc(doc(db, "chats", r.chatId, "messages", r.messageId));
+          else if(r.postId) await deleteDoc(doc(db, POSTS_COL, r.postId));
+          await updateDoc(doc(db,"reports",r.id), { status:"resolved" });
+          toast("تم حذف المحتوى");
+          renderReportsPanel();
+        }catch(e){ toast("تعذر تنفيذ عملية الحذف"); }
       };
     });
     wrap.querySelectorAll("[data-ban-reported]").forEach(btn=>{
