@@ -3,6 +3,7 @@
    =================================================================== */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 import {
   getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
   signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, deleteUser,
@@ -10,7 +11,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, addDoc,
-  query, where, orderBy, limit, onSnapshot, serverTimestamp, documentId,
+  query, where, orderBy, limit, onSnapshot, serverTimestamp, documentId, writeBatch,
   arrayUnion, arrayRemove, getDocs, startAt, endAt, increment
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -28,6 +29,7 @@ const firebaseConfig = {
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
 const db = getFirestore(fbApp);
+const fns = getFunctions(fbApp);
 
 const USERS_COL = "moustagdem";
 const POSTS_COL = "posssst";
@@ -262,6 +264,24 @@ document.addEventListener("click", (e)=>{
 });
 /* ---------------- حساب الدعم الرسمي: إشعارات كلها عبر شات هذا الحساب بدل الإيميل، وإيميله مخفي دائمًا عن المستخدمين ---------------- */
 function chatIdFor(uidA, uidB){ return [uidA, uidB].sort().join("_"); }
+/* لما المستخدم يغيّر اسمه أو يوزرنيمه أو صورته، بنحدّث كل منشوراته القديمة والجديدة بنفس البيانات */
+async function propagateAuthorInfoToPosts(uid, updates){
+  try{
+    const snap = await getDocs(query(collection(db, POSTS_COL), where("authorId","==",uid), limit(500)));
+    if(snap.empty) return;
+    const docs = snap.docs;
+    for(let i=0;i<docs.length;i+=400){
+      const chunk = docs.slice(i,i+400);
+      const batch = writeBatch(db);
+      chunk.forEach(d=> batch.update(d.ref, updates));
+      await batch.commit();
+    }
+  }catch(e){ console.error("تعذر تحديث بيانات المؤلف في المنشورات القديمة:", e); }
+}
+/* لما الحساب يتحظر أو يتفك حظره، منشوراته كلها تتبند أو ترجع تظهر معاه */
+async function propagateBanStatusToPosts(uid, banned){
+  await propagateAuthorInfoToPosts(uid, { authorBanned: !!banned });
+}
 /* ---------------- تشفير رسائل الشات: مفتاح AES-GCM مشتق من معرّف المحادثة نفسه، فمحدش يقدر يقرا النص من قاعدة البيانات مباشرة ---------------- */
 const __chatKeyCache = {};
 async function deriveChatKey(chatId){
@@ -739,6 +759,20 @@ $("btn-delete-account").onclick = ()=>{
   };
 };
 
+/* تسجيل خروج حقيقي من كل الأجهزة عبر Cloud Function تبطل كل جلسات الدخول فعليًا */
+$("btn-logout-everywhere").onclick = ()=>{
+  if(!confirm("هيتم تسجيل خروجك من كل الأجهزة المسجّل عليها حسابك، متأكد؟")) return;
+  const revoke = httpsCallable(fns, "revokeAllSessions");
+  revoke().then(async ()=>{
+    toast("تم تسجيل الخروج من كل الأجهزة");
+    sessionStorage.clear();
+    await signOut(auth);
+  }).catch((e)=>{
+    console.error(e);
+    toast("الميزة دي محتاجة تفعيل Cloud Functions على مشروعك الأول");
+  });
+};
+
 /* ============================================================
    دورة حياة المصادقة
    ============================================================ */
@@ -1164,6 +1198,11 @@ window.copyCodeBlock = function(btn){
 };
 
 function postRowHTML(p){
+  if(p.authorBanned && p.authorId!==currentUser?.uid && !myProfile?.isAdmin){
+    return `<div class="glass-card post" data-id="${p.id}" style="text-align:center; padding:22px; opacity:.6;">
+      <p class="subtitle" style="margin:0;">هذا المنشور غير متاح — تم إغلاق حساب صاحبه من الفريق</p>
+    </div>`;
+  }
   const liked = (p.likes||[]).includes(currentUser?.uid);
   const nameStyle = p.authorNameColor ? `style="color:${p.authorNameColor}"` : "";
   const avatarHTML = (p.authorPlan==="pro" || p.authorPlan==="admin")
@@ -2467,6 +2506,7 @@ $("btn-save-username").onclick = async ()=>{
   if(!snap.empty){ toast("اسم المستخدم ده محجوز بالفعل"); return; }
   await updateDoc(doc(db, USERS_COL, currentUser.uid), { username:newUsername, usernameChangedAt: serverTimestamp() });
   myProfile.username = newUsername; myProfile.usernameChangedAt = new Date();
+  propagateAuthorInfoToPosts(currentUser.uid, { authorUsername: newUsername });
   toast("تم تغيير اسم المستخدم");
   renderSettings();
 };
@@ -2672,6 +2712,7 @@ $("set-avatar-file").addEventListener("change", async (e)=>{
       await updateDoc(doc(db, USERS_COL, currentUser.uid), { profilePic: data.data.url });
       myProfile.profilePic = data.data.url;
       $("mini-avatar").src = data.data.url;
+      propagateAuthorInfoToPosts(currentUser.uid, { authorPic: data.data.url });
       toast("تم تحديث الصورة");
     }else{ toast("تعذر رفع الصورة"); }
   }catch(err){ toast("تعذر رفع الصورة"); }
@@ -2701,6 +2742,7 @@ $("btn-save-profile").onclick = async ()=>{
   const links = selects.map((sel,i)=>({ platform: sel.value, url: urlInputs[i].value.trim() })).filter(l=>l.url);
   await updateDoc(doc(db, USERS_COL, currentUser.uid), { fullName: $("set-fullname").value.trim(), bio: $("set-bio").value.trim(), links });
   myProfile.fullName = $("set-fullname").value.trim(); myProfile.bio = $("set-bio").value.trim(); myProfile.links = links;
+  propagateAuthorInfoToPosts(currentUser.uid, { authorName: myProfile.fullName });
   toast("تم حفظ التغييرات");
 };
 $("toggle-private").addEventListener("change", async ()=>{
@@ -3905,6 +3947,7 @@ async function renderReportsPanel(){
         if(reason===null) return;
         try{
           await updateDoc(doc(db, USERS_COL, btn.dataset.uid), { banned:true, bannedReason: reason.trim() || "مخالفة شروط الاستخدام" });
+          propagateBanStatusToPosts(btn.dataset.uid, true);
           await updateDoc(doc(db,"reports",btn.dataset.banReported), { status:"resolved" });
           toast("تم حظر الحساب");
           renderReportsPanel();
@@ -4190,8 +4233,10 @@ function renderAdminList(users){
         const reason = prompt("اكتب سبب حظر الحساب (هيظهر للمستخدم عند دخوله):");
         if(reason===null) return;
         await updateDoc(doc(db,USERS_COL,b.dataset.ban), { banned:true, bannedReason: reason.trim() || "مخالفة شروط الاستخدام" });
+        propagateBanStatusToPosts(b.dataset.ban, true);
       }else{
         await updateDoc(doc(db,USERS_COL,b.dataset.ban), { banned:false, bannedReason: null });
+        propagateBanStatusToPosts(b.dataset.ban, false);
       }
       renderAdmin();
     }catch(e){ console.error(e); toast("تعذر تنفيذ العملية، حاول تاني"); }
