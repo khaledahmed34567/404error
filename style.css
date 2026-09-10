@@ -96,7 +96,7 @@ img{ user-select:none; -webkit-user-drag:none; }
 .pinned-tag{ display:inline-flex; align-items:center; gap:4px; font-size:11px; color:var(--accent); font-weight:700; margin-bottom:6px; }
 .pinned-tag svg{ width:12px; height:12px; }
 .modal-overlay{ position:fixed; inset:0; background:rgba(11,11,12,.35); backdrop-filter:blur(4px); z-index:300; display:flex; align-items:flex-end; justify-content:center; }
-.modal-sheet{ background:#fff; width:100%; max-width:560px; max-height:70vh; overflow-y:auto; border-radius:24px 24px 0 0; padding:18px; box-shadow:var(--shadow-glass); }
+.modal-sheet{ background:#fff; width:100%; max-width:560px; max-height:70vh; overflow-y:auto; border-radius:26px 26px 0 0; padding:20px 18px; box-shadow:0 -8px 40px rgba(11,11,12,.18); }
 .modal-sheet-handle{ width:40px; height:4px; background:var(--line-strong); border-radius:4px; margin:0 auto 14px; }
 .likers-row{ display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); }
 /* ---------- الستوريز ---------- */
@@ -136,14 +136,15 @@ img{ user-select:none; -webkit-user-drag:none; }
 .story-duration-opts .chip{ cursor:pointer; padding:8px 14px; }
 .story-duration-opts .chip.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
 /* ---------- الشات ---------- */
-.chat-list-item{ display:flex; align-items:center; gap:12px; padding:13px 4px; border-bottom:1px solid var(--line); cursor:pointer; }
+.chat-list-item{ display:flex; align-items:center; gap:12px; padding:12px 10px; border-radius:16px; cursor:pointer; transition:background .15s ease; }
+.chat-list-item:active{ background:var(--bg-sunk); }
 .chat-list-item .chat-meta{ flex:1; min-width:0; }
 .chat-list-item .chat-last{ font-size:12.5px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 #screen-chat-room.active{ display:flex; flex-direction:column; height:100vh; }
 #chat-messages-wrap{ flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:8px; }
-.msg-bubble{ max-width:75%; padding:10px 14px; border-radius:18px; font-size:14px; line-height:1.6; }
-.msg-mine{ align-self:flex-start; background:var(--ink); color:#fff; border-bottom-left-radius:5px; }
-.msg-theirs{ align-self:flex-end; background:var(--bg-sunk); border:1px solid var(--line); border-bottom-right-radius:5px; }
+.msg-bubble{ max-width:75%; padding:10px 15px; border-radius:20px; font-size:14px; line-height:1.6; box-shadow:0 1px 4px rgba(11,11,12,.06); }
+.msg-mine{ align-self:flex-start; background:linear-gradient(135deg,#0B0B0C,#2C2C2E); color:#fff; border-bottom-left-radius:6px; }
+.msg-theirs{ align-self:flex-end; background:var(--bg-sunk); border:1px solid var(--line); border-bottom-right-radius:6px; }
 .msg-time{ font-size:10px; opacity:.6; margin-top:4px; }
 #chat-input-bar{ display:flex; gap:8px; align-items:center; padding:10px; margin:10px; border-radius:24px; position:sticky; bottom:10px; }
 #chat-input-bar input{ flex:1; min-width:0; border:none; background:transparent; padding:8px 10px; font-size:14px; outline:none; }
@@ -299,8 +300,8 @@ input,textarea,select{ font-family:"IBM Plex Sans Arabic",sans-serif; font-weigh
 .composer textarea{ border:none; background:transparent; padding:6px 0; font-size:15px; width:100%; resize:none; min-height:56px; outline:none; }
 .composer-actions{ display:flex; align-items:center; justify-content:space-between; margin-top:8px; border-top:1px solid var(--line); padding-top:10px; }
 
-.post{ padding:15px 16px; }
-.post-head{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.post{ padding:16px 17px; transition:box-shadow .2s ease, transform .15s ease; }
+.post-head{ display:flex; align-items:center; gap:11px; margin-bottom:11px; }
 .avatar{ width:42px; height:42px; border-radius:50%; object-fit:cover; background:var(--bg-sunk); flex-shrink:0; border:1px solid var(--line); }
 .avatar-sm{ width:30px; height:30px; }
 .post-author{ font-weight:700; font-size:14.5px; display:flex; align-items:center; gap:5px; }
@@ -376,9 +377,12 @@ input,textarea,select{ font-family:"IBM Plex Sans Arabic",sans-serif; font-weigh
 .code-room .chip.active{ background:#fff; color:#111; border-color:#fff; }
 
 /* ---------- بروفايل ---------- */
-.profile-cover{ height:120px; background:linear-gradient(135deg,#EAF3FF,#FFF3F0); }
-.profile-head{ padding:0 18px; margin-top:-38px; }
-.profile-avatar{ width:84px; height:84px; border-radius:26px; border:4px solid #fff; box-shadow:var(--shadow-glass); object-fit:cover; background:var(--bg-sunk); }
+.profile-cover{ height:132px; background:
+    radial-gradient(600px 200px at 15% 0%, rgba(10,132,255,.16) 0%, transparent 60%),
+    radial-gradient(500px 220px at 100% 100%, rgba(255,140,90,.15) 0%, transparent 60%),
+    linear-gradient(135deg,#EAF3FF,#F3ECFF 55%,#FFF3F0); }
+.profile-head{ padding:0 18px; margin-top:-42px; }
+.profile-avatar{ width:88px; height:88px; border-radius:28px; border:4px solid #fff; box-shadow:var(--shadow-glass), 0 0 0 2.5px rgba(10,132,255,.14); object-fit:cover; background:var(--bg-sunk); }
 .profile-name{ display:flex; align-items:center; gap:6px; font-size:19px; margin-top:10px; }
 .profile-bio{ font-size:14px; color:var(--ink-soft); line-height:1.8; margin-top:8px; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
 .profile-links{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }

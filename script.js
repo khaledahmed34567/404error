@@ -4187,6 +4187,7 @@ function renderAdminList(users){
         <button class="btn btn-sm btn-outline" data-admin="${u.id}" data-state="${u.isAdmin}">${u.isAdmin?'إزالة أدمن':'تعيين أدمن'}</button>
         <button class="btn btn-sm btn-outline" data-edit-user="${u.id}">تعديل بيانات المستخدم</button>
         <button class="btn btn-sm btn-outline" data-print-user="${u.id}">طباعة تقرير المستخدم</button>
+        <button class="btn btn-sm btn-outline" data-view-full-data="${u.id}">عرض كل البيانات</button>
         <select class="btn btn-sm btn-outline" data-verify="${u.id}" style="appearance:auto;">
           <option value="">بدون توثيق</option>
           <option value="pro" ${u.verifiedType==='pro'?'selected':''}>توثيق برو</option>
@@ -4275,6 +4276,43 @@ function renderAdminList(users){
     const u = users.find(x=>x.id===b.dataset.printUser);
     if(u) printUserReport(u);
   });
+  $("admin-users-list").querySelectorAll("[data-view-full-data]").forEach(b=> b.onclick = ()=>{
+    const u = users.find(x=>x.id===b.dataset.viewFullData);
+    if(u) openFullUserDataModal(u);
+  });
+}
+/* عرض كل بيانات المستخدم للفريق بالتفصيل — كل الحقول المخزنة على حسابه */
+function openFullUserDataModal(u){
+  const fields = [
+    ["الاسم الكامل", u.fullName], ["اسم المستخدم", "@"+(u.username||"")], ["البريد الإلكتروني", u.email],
+    ["رقم الهاتف", (u.countryCode||"")+" "+(u.phone||"")], ["تاريخ الميلاد", u.dob], ["العمر", u.age],
+    ["الجنسية", u.nationality], ["البايو", u.bio], ["الباقة", u.planTier||"مجاني"],
+    ["نوع التوثيق", u.verifiedType||"بدون توثيق"], ["سبب التوثيق", u.verificationReason],
+    ["حالة الحساب", u.banned ? `محظور — ${u.bannedReason||""}` : "نشط"],
+    ["أدمن؟", u.isAdmin?"نعم":"لا"], ["حساب خاص؟", u.isPrivate?"نعم":"لا"],
+    ["عدد المتابعين", (u.followers||[]).length], ["عدد المتابَعين", (u.following||[]).length],
+    ["إجابات مميزة", u.bestAnswersCount||0], ["طالب موثّق؟", u.isStudentVerified?"نعم":"لا"],
+    ["مدرسة/جامعة الطالب", u.studentSchool], ["حالة Coursera Pro", u.courseraStatus], ["إيميل Coursera", u.courseraEmail],
+    ["تجربة نشطة؟", u.trialActive?`نعم (${u.trialPlan||""})`:"لا"], ["شاشة دفع مقفولة؟", u.paywallLocked?"نعم":"لا"],
+    ["تنبيه أمان بالإيميل؟", u.securityEmailEnabled?"مفعّل":"متوقف"], ["قفل PIN؟", u.pinLockDisabled?"متوقف":"مفعّل"],
+    ["تاريخ إنشاء الحساب", u.createdAt?.toDate ? u.createdAt.toDate().toLocaleString("ar-EG") : ""],
+    ["آخر نشاط", u.lastActiveAt?.toDate ? u.lastActiveAt.toDate().toLocaleString("ar-EG") : ""],
+    ["روابط البروفايل", (u.links||[]).map(l=>l.url).join("، ")]
+  ];
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="modal-sheet" style="max-height:82vh; overflow-y:auto; text-align:right;">
+    <div class="modal-sheet-handle"></div>
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+      <img class="avatar" src="${u.profilePic||DEFAULT_AVATAR}">
+      <div><h3 style="margin:0;">${u.fullName}</h3><div class="post-username">@${u.username}</div></div>
+    </div>
+    <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+      ${fields.map(([label,val])=>`<tr><td style="padding:6px 4px; color:var(--muted); border-bottom:1px solid var(--line); white-space:nowrap;">${label}</td><td style="padding:6px 4px; border-bottom:1px solid var(--line); text-align:left; direction:ltr;">${val ?? "—"}</td></tr>`).join("")}
+    </table>
+  </div>`;
+  overlay.onclick = (e)=>{ if(e.target===overlay) overlay.remove(); };
+  document.body.appendChild(overlay);
 }
 /* لوحة الأدمن: تعديل بيانات أي مستخدم (اسم المستخدم، الاسم الكامل، البايو) مباشرة على قاعدة البيانات */
 function openAdminEditUserModal(u){
