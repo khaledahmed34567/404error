@@ -7,7 +7,7 @@ import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/
 import {
   getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
   signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, deleteUser,
-  sendPasswordResetEmail, confirmPasswordReset, verifyPasswordResetCode, sendEmailVerification
+  sendPasswordResetEmail, confirmPasswordReset, verifyPasswordResetCode, sendEmailVerification, verifyBeforeUpdateEmail
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, addDoc,
@@ -670,6 +670,7 @@ $("btn-finish-register").onclick = async ()=>{
     awaitingManualFlow = false;
     myProfile = { id: uid, ...profileData };
     toast("تم إنشاء الحساب بنجاح");
+    setTimeout(()=> toast("بعتنالك إيميل لتفعيل حسابك — لو ملقيتوش في البريد الوارد، شيّك على الرسائل غير المرغوب فيها (Spam)"), 2200);
     sendAdminWelcomeChat(uid, myProfile);
     enterApp();
   }catch(e){
@@ -771,6 +772,24 @@ $("btn-logout-everywhere").onclick = ()=>{
     console.error(e);
     toast("الميزة دي محتاجة تفعيل Cloud Functions على مشروعك الأول");
   });
+};
+
+/* تغيير البريد الإلكتروني — بيبعت رابط تأكيد على الإيميل الجديد، ومبيتحدّثش فعليًا إلا بعد التأكيد */
+$("btn-change-email").onclick = async ()=>{
+  const newEmail = $("set-new-email").value.trim();
+  if(!newEmail || !newEmail.includes("@")){ toast("اكتب إيميل صحيح"); return; }
+  const btn = $("btn-change-email"); const original = btn.textContent; btn.innerHTML='<div class="spinner spinner-dark"></div>'; btn.disabled=true;
+  try{
+    await verifyBeforeUpdateEmail(currentUser, newEmail);
+    toast("تم إرسال رابط التأكيد للإيميل الجديد — إيميلك الحالي هيفضل شغال لحد ما تأكّد");
+    $("set-new-email").value = "";
+  }catch(e){
+    console.error(e);
+    if(e.code==="auth/requires-recent-login") toast("محتاج تسجل خروج وتدخل تاني قبل تغيير الإيميل لأسباب أمان");
+    else if(e.code==="auth/email-already-in-use") toast("الإيميل ده مستخدم بالفعل");
+    else toast("تعذر تنفيذ العملية، حاول تاني");
+  }
+  btn.textContent = original; btn.disabled=false;
 };
 
 /* ============================================================
@@ -1735,7 +1754,9 @@ async function openCommentsModal(postId){
           <div style="font-weight:600; font-size:13px; display:flex; align-items:center; gap:5px;" data-open-user="${c.authorUsername||''}"><span ${nameStyle}>${c.authorName||"مستخدم"}</span> ${badgeHTML(c.authorVerified, c.authorUsername)}</div>
           <div class="post-text" style="font-size:13.5px; margin-top:2px;">${linkify(c.text||"")}</div>
           <div class="post-time meta-font" style="margin-top:3px;">${timeAgo(c.createdAt)}</div>
+          ${Object.keys(c.reactions||{}).length ? `<div class="comment-reactions">${[...new Set(Object.values(c.reactions||{}))].map(em=>`<span>${em}</span>`).join("")}</div>` : ""}
           <div style="display:flex; gap:12px; align-items:center; margin-top:4px;">
+            <span class="comment-react-btn" data-react-comment="${c.id}">تفاعل</span>
             ${c.isBest ? `<div class="best-answer-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg> أفضل إجابة</div>` : (isOwnerOfQuestion ? `<span class="mark-best-btn" data-mark-best="${c.id}">تحديد كأفضل إجابة</span>` : "")}
             ${canPinComment ? `<span class="mark-best-btn" data-toggle-pin-comment="${c.id}" data-pinned="${!!c.pinned}">${c.pinned?'إلغاء التثبيت':'تثبيت التعليق'}</span>` : ""}
             ${(c.authorId===currentUser.uid || myProfile.isAdmin) ? `<span class="mark-best-btn" data-delete-comment="${c.id}" style="color:var(--danger);">حذف</span>` : `<span class="mark-best-btn" data-report-comment="${c.id}">إبلاغ</span>`}
@@ -1788,6 +1809,28 @@ async function openCommentsModal(postId){
     });
     listEl.querySelectorAll("[data-report-comment]").forEach(el=>{
       el.onclick = ()=> openGenericReportModal({ postId, commentId: el.dataset.reportComment }, "التعليق");
+    });
+    listEl.querySelectorAll("[data-react-comment]").forEach(el=>{
+      el.onclick = (e)=>{
+        e.stopPropagation();
+        const commentId = el.dataset.reactComment;
+        const picker = document.createElement("div");
+        picker.className = "modal-overlay";
+        const emojis = ["❤️","😂","👍","😮","😢","🔥"];
+        picker.innerHTML = `<div class="modal-sheet" style="text-align:center;"><div class="modal-sheet-handle"></div>
+          <div style="display:flex; justify-content:space-around; font-size:28px;">${emojis.map(em=>`<span data-pick-emoji="${em}" style="cursor:pointer;">${em}</span>`).join("")}</div></div>`;
+        picker.onclick = (ev)=>{ if(ev.target===picker) picker.remove(); };
+        document.body.appendChild(picker);
+        picker.querySelectorAll("[data-pick-emoji]").forEach(opt=>{
+          opt.onclick = async ()=>{
+            picker.remove();
+            try{
+              await updateDoc(doc(db, POSTS_COL, postId, "comments", commentId), { [`reactions.${currentUser.uid}`]: opt.dataset.pickEmoji });
+              loadComments();
+            }catch(err){ toast("تعذر إرسال التفاعل"); }
+          };
+        });
+      };
     });
   }
   loadComments();

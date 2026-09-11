@@ -98,7 +98,11 @@ img{ user-select:none; -webkit-user-drag:none; }
 .modal-overlay{ position:fixed; inset:0; background:rgba(11,11,12,.35); backdrop-filter:blur(4px); z-index:300; display:flex; align-items:flex-end; justify-content:center; }
 .modal-sheet{ background:#fff; width:100%; max-width:560px; max-height:70vh; overflow-y:auto; border-radius:26px 26px 0 0; padding:20px 18px; box-shadow:0 -8px 40px rgba(11,11,12,.18); }
 .modal-sheet-handle{ width:40px; height:4px; background:var(--line-strong); border-radius:4px; margin:0 auto 14px; }
-.likers-row{ display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); }
+.likers-row{ display:flex; align-items:center; gap:11px; padding:10px 8px; border-radius:14px; transition:background .15s ease; }
+.likers-row:hover, .likers-row:active{ background:var(--bg-sunk); }
+.comment-reactions{ display:flex; gap:4px; margin-top:5px; }
+.comment-reactions span{ font-size:12px; background:var(--bg-sunk); border-radius:10px; padding:1px 6px; }
+.comment-react-btn{ font-size:11px; color:var(--muted); cursor:pointer; }
 /* ---------- الستوريز ---------- */
 .stories-bar{ display:flex; gap:12px; padding:14px 14px 4px; overflow-x:auto; }
 .story-circle{ display:flex; flex-direction:column; align-items:center; gap:5px; flex-shrink:0; cursor:pointer; }
@@ -408,8 +412,9 @@ input,textarea,select{ font-family:"IBM Plex Sans Arabic",sans-serif; font-weigh
 .code-room .composer textarea::placeholder{ color:#6E6E73; }
 
 /* ---------- إشعارات ---------- */
-.notif-item{ display:flex; gap:12px; padding:14px 16px; border-bottom:1px solid var(--line); align-items:flex-start; }
-.notif-dot{ width:8px; height:8px; border-radius:50%; background:var(--accent); flex-shrink:0; margin-top:6px; }
+.notif-item{ display:flex; gap:12px; padding:14px 12px; border-radius:16px; align-items:flex-start; transition:background .15s ease; }
+.notif-item:active{ background:var(--bg-sunk); }
+.notif-dot{ width:9px; height:9px; border-radius:50%; background:var(--accent); flex-shrink:0; margin-top:6px; box-shadow:0 0 0 3px rgba(10,132,255,.12); }
 
 /* ---------- باقات وأسعار ---------- */
 .plan-card{ padding:18px; display:flex; flex-direction:column; gap:10px; }
